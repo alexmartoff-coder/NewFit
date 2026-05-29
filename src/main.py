@@ -1,0 +1,33 @@
+import asyncio
+import logging
+from aiogram import Bot, Dispatcher
+from src.utils.config import settings
+from src.handlers import start, trainer_onboarding, client_onboarding, catalog, profiles
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+async def main():
+    # Initialize bot and dispatcher
+    bot = Bot(token=settings.BOT_TOKEN)
+    dp = Dispatcher()
+
+    # Include routers
+    dp.include_router(start.router)
+    dp.include_router(trainer_onboarding.router)
+    dp.include_router(client_onboarding.router)
+    dp.include_router(catalog.router)
+    dp.include_router(profiles.router)
+
+    logger.info("Starting bot...")
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Bot stopped.")
