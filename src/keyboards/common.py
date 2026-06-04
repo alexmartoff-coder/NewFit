@@ -22,7 +22,7 @@ def get_trainer_main_kb():
 def get_client_main_kb():
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="🔍 Найти тренера")],
+            [KeyboardButton(text="🔍 Найти тренера"), KeyboardButton(text="💳 Купить абонемент")],
             [KeyboardButton(text="📅 Мои занятия"), KeyboardButton(text="🏆 Рейтинг")],
             [KeyboardButton(text="🔥 Челленджи"), KeyboardButton(text="👥 Сообщество")]
         ],

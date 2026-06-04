@@ -2,7 +2,7 @@ import asyncio
 import logging
 from aiogram import Bot, Dispatcher
 from src.utils.config import settings
-from src.handlers import start, trainer_onboarding, client_onboarding, catalog, profiles
+from src.handlers import start, trainer_onboarding, client_onboarding, catalog, profiles, booking, subscriptions, admin
 
 # Configure logging
 logging.basicConfig(
@@ -22,6 +22,9 @@ async def main():
     dp.include_router(client_onboarding.router)
     dp.include_router(catalog.router)
     dp.include_router(profiles.router)
+    dp.include_router(booking.router)
+    dp.include_router(subscriptions.router)
+    dp.include_router(admin.router)
 
     logger.info("Starting bot...")
     await dp.start_polling(bot)
