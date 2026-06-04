@@ -1,55 +1,183 @@
-from aiogram import Router, types, F
+from aiogram import Router, F
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from src.models.models import User, TrainerProfile, UserRole
+from src.models.models import Admin, User, TrainerProfile, ClientProfile
 from src.utils.db import SessionLocal
 
 router = Router()
 
-# In a real bot, we'd check against a list of admin user IDs
-ADMIN_IDS = [] # Add admin IDs here
+# Состояния для FSM
+from aiogram.fsm.state import State, StatesGroup
+class AddAdminState(StatesGroup):
+    waiting_for_id = State()
 
-@router.message(F.text == "/admin")
-async def admin_panel(message: types.Message):
-    # Simple check for now
-    if message.from_user.id not in ADMIN_IDS:
-        # await message.answer("У вас нет прав доступа к этой команде.")
-        # return
-        pass # Allow for now for development
+@router.message(Command("admin"))
+async def admin_panel(message: Message, is_admin: bool = False):
+    if not is_admin:
+        await message.answer("❌ У вас нет доступа к админ-панели.")
+        return
 
-    kb = types.InlineKeyboardMarkup(
-        inline_keyboard=[
-            [types.InlineKeyboardButton(text="Верификация тренеров", callback_data="admin_verify_trainers")],
-            [types.InlineKeyboardButton(text="Управление специализациями", callback_data="admin_manage_specs")]
-        ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="👥 Добавить соадмина/тестировщика", callback_data="admin_add_user")],
+        [InlineKeyboardButton(text="🎭 Войти как тренер", callback_data="admin_impersonate_trainer")],
+        [InlineKeyboardButton(text="👤 Войти как клиент", callback_data="admin_impersonate_client")],
+        [InlineKeyboardButton(text="🔓 Выйти из режима тестирования", callback_data="admin_stop_impersonate")],
+        [InlineKeyboardButton(text="📋 Список админов", callback_data="admin_list")],
+        [InlineKeyboardButton(text="🗑 Удалить админа", callback_data="admin_remove")],
+    ])
+
+    await message.answer("🛠 **Админ-панель NewFit**\n\nВыберите действие:", reply_markup=keyboard, parse_mode="Markdown")
+
+
+@router.callback_query(F.data == "admin_add_user")
+async def add_admin_prompt(callback: CallbackQuery, state: FSMContext):
+    await callback.message.edit_text(
+        "📝 **Добавление администратора/тестировщика**\n\n"
+        "Введите Telegram ID пользователя и его роль через пробел:\n\n"
+        "`ID роль`\n\n"
+        "**Роли:**\n"
+        "• `co_admin` — полный доступ\n"
+        "• `tester_trainer` — тестирование за тренера\n"
+        "• `tester_client` — тестирование за клиента\n"
+        "• `tester_both` — тестирование за обе роли\n\n"
+        "Пример: `123456789 tester_both`",
+        parse_mode="Markdown"
     )
-    await message.answer("Панель администратора:", reply_markup=kb)
+    await state.set_state(AddAdminState.waiting_for_id)
 
-@router.callback_query(F.data == "admin_verify_trainers")
-async def list_unverified_trainers(callback: types.CallbackQuery):
-    async with SessionLocal() as session:
-        # For now, let's just list all trainers.
-        # In the future, we could add an 'is_verified' field to TrainerProfile.
-        query = select(TrainerProfile, User).join(User, TrainerProfile.user_id == User.id)
-        result = await session.execute(query)
-        trainers = result.all()
 
-        if not trainers:
-            await callback.message.answer("Список тренеров пуст.")
+@router.message(AddAdminState.waiting_for_id)
+async def process_add_admin(message: Message, state: FSMContext):
+    try:
+        parts = message.text.strip().split()
+        if len(parts) != 2:
+            await message.answer("❌ Неверный формат. Используйте: `ID роль`")
             return
 
-        for profile, user in trainers:
-            text = f"Тренер: {user.full_name}\nГород: {profile.city}\nID: {user.id}"
-            kb = types.InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [types.InlineKeyboardButton(text="✅ Верифицировать", callback_data=f"verify_{user.id}")],
-                    [types.InlineKeyboardButton(text="❌ Отклонить", callback_data=f"reject_{user.id}")]
-                ]
-            )
-            await callback.message.answer(text, reply_markup=kb)
-    await callback.answer()
+        user_id = int(parts[0])
+        role = parts[1]
 
-@router.callback_query(F.data.startswith("verify_"))
-async def verify_trainer(callback: types.CallbackQuery):
-    trainer_id = callback.data.split("_")[1]
-    await callback.message.edit_text(f"Тренер {trainer_id} верифицирован (Mock).")
-    await callback.answer()
+        async with SessionLocal() as session:
+            # Проверяем, существует ли пользователь в БД
+            user = await session.execute(select(User).where(User.id == user_id))
+            user = user.scalar_one_or_none()
+
+            if not user:
+                await message.answer(f"❌ Пользователь с ID {user_id} не найден в базе данных. Попросите его нажать /start в боте.")
+                return
+
+            # Определяем права
+            can_test_trainer = role in ["tester_trainer", "tester_both"]
+            can_test_client = role in ["tester_client", "tester_both"]
+            is_co_admin = role == "co_admin"
+
+            if is_co_admin:
+                can_test_trainer = True
+                can_test_client = True
+
+            # Создаём запись админа
+            admin = Admin(
+                user_id=user_id,
+                role=role,
+                added_by=message.from_user.id,
+                can_test_trainer=can_test_trainer,
+                can_test_client=can_test_client
+            )
+            session.add(admin)
+            await session.commit()
+
+        await message.answer(f"✅ Пользователь {user_id} добавлен как `{role}`")
+
+    except ValueError:
+        await message.answer("❌ ID должен быть числом")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка: {e}")
+
+    await state.clear()
+
+
+@router.callback_query(F.data == "admin_list")
+async def list_admins(callback: CallbackQuery):
+    async with SessionLocal() as session:
+        admins = await session.execute(select(Admin))
+        admins = admins.scalars().all()
+
+    if not admins:
+        await callback.message.edit_text("📭 Список администраторов пуст.")
+        return
+
+    text = "📋 **Список администраторов и тестировщиков:**\n\n"
+    for admin in admins:
+        text += f"• `{admin.user_id}` — {admin.role}\n"
+
+    await callback.message.edit_text(text, parse_mode="Markdown")
+
+
+@router.callback_query(F.data == "admin_remove")
+async def remove_admin_prompt(callback: CallbackQuery):
+    await callback.message.edit_text(
+        "🗑 **Удаление администратора**\n\n"
+        "Введите Telegram ID пользователя, которого нужно удалить из админов:"
+    )
+    # TODO: добавить состояние для удаления
+
+
+@router.callback_query(F.data == "admin_impersonate_trainer")
+async def impersonate_trainer(callback: CallbackQuery):
+    async with SessionLocal() as session:
+        # Получить список тренеров
+        trainers = await session.execute(
+            select(User).where(User.role == "trainer")
+        )
+        trainers = trainers.scalars().all()
+
+    if not trainers:
+        await callback.message.edit_text("❌ Нет зарегистрированных тренеров")
+        return
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"{t.full_name or t.id}", callback_data=f"imp_trainer_{t.id}")]
+        for t in trainers[:10]
+    ])
+    keyboard.inline_keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back")])
+
+    await callback.message.edit_text("🎭 **Выберите тренера, под которого войти:**", reply_markup=keyboard)
+
+
+@router.callback_query(F.data.startswith("imp_trainer_"))
+async def do_impersonate_trainer(callback: CallbackQuery, state: FSMContext):
+    trainer_id = int(callback.data.split("_")[2])
+
+    # Сохраняем в FSM, что админ теперь работает от лица тренера
+    await state.update_data(impersonate_trainer_id=trainer_id)
+
+    await callback.message.edit_text(
+        f"✅ Вы вошли как тренер ID: {trainer_id}\n\n"
+        f"🔓 Нажмите «Выйти из режима тестирования» в админ-панели, чтобы вернуться."
+    )
+
+
+@router.callback_query(F.data == "admin_stop_impersonate")
+async def stop_impersonate(callback: CallbackQuery, state: FSMContext):
+    await state.update_data(impersonate_trainer_id=None, impersonate_client_id=None)
+    await callback.message.edit_text("✅ Режим тестирования отключён. Вы снова в админ-панели.")
+
+
+@router.callback_query(F.data == "admin_back")
+async def back_to_admin(callback: CallbackQuery):
+    # Pass False for is_admin because back_to_admin is called from callback,
+    # but the middleware already verified it.
+    # For now, we can just call the message handler or re-send panel.
+    await callback.message.edit_text("🛠 **Админ-панель NewFit**\n\nВыберите действие:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="👥 Добавить соадмина/тестировщика", callback_data="admin_add_user")],
+            [InlineKeyboardButton(text="🎭 Войти как тренер", callback_data="admin_impersonate_trainer")],
+            [InlineKeyboardButton(text="👤 Войти как клиент", callback_data="admin_impersonate_client")],
+            [InlineKeyboardButton(text="🔓 Выйти из режима тестирования", callback_data="admin_stop_impersonate")],
+            [InlineKeyboardButton(text="📋 Список админов", callback_data="admin_list")],
+            [InlineKeyboardButton(text="🗑 Удалить админа", callback_data="admin_remove")],
+        ]),
+        parse_mode="Markdown")
