@@ -80,9 +80,9 @@ async def apply_filters(callback: types.CallbackQuery, state: FSMContext):
         if 'city' in data:
             filters.append(TrainerProfile.city.ilike(f"%{data['city']}%"))
         if 'price_min' in data:
-            filters.append(TrainerProfile.price_per_session >= data['price_min'])
+            filters.append(TrainerProfile.price_single >= data['price_min'])
         if 'price_max' in data:
-            filters.append(TrainerProfile.price_per_session <= data['price_max'])
+            filters.append(TrainerProfile.price_single <= data['price_max'])
 
         if filters:
             query = query.where(and_(*filters))
@@ -111,7 +111,8 @@ async def apply_filters(callback: types.CallbackQuery, state: FSMContext):
                     f"👤 {user.full_name}\n"
                     f"📍 Город: {trainer_profile.city}\n"
                     f"💪 Опыт: {trainer_profile.experience}\n"
-                    f"💰 Цена: {trainer_profile.price_per_session}₽\n"
+                    f"💰 Разовое: {trainer_profile.price_single}₽\n"
+                    f"💳 12 занятий: {trainer_profile.price_package}₽\n"
                     f"⭐ Рейтинг: {trainer_profile.rating}\n"
                     f"📝 Формат: {trainer_profile.work_format.value}"
                 )

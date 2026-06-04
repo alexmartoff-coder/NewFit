@@ -22,7 +22,8 @@ async def show_profile_cmd(message: types.Message):
                 f"👤 Профиль тренера: {user.full_name}\n"
                 f"📍 Город: {profile.city}\n"
                 f"💪 Опыт: {profile.experience}\n"
-                f"💰 Цена: {profile.price_per_session}₽\n"
+                f"💰 Разовое: {profile.price_single}₽\n"
+                f"💳 12 занятий: {profile.price_package}₽\n"
                 f"⭐ Рейтинг: {profile.rating}\n"
                 f"📝 Формат: {profile.work_format.value}"
             )

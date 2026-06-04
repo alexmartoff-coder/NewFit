@@ -1,4 +1,5 @@
 from aiogram import Router, types, F
+from sqlalchemy import select
 from src.models.models import User, ClientProfile, UserRole
 from src.utils.db import SessionLocal
 from src.keyboards.common import get_client_main_kb
