@@ -1,6 +1,7 @@
 from aiogram import Router, types, F
 from src.models.models import User, ClientProfile, UserRole
 from src.utils.db import SessionLocal
+from src.keyboards.common import get_client_main_kb
 
 router = Router()
 
@@ -26,4 +27,7 @@ async def client_start(message: types.Message):
 
         await session.commit()
 
-    await message.answer("Добро пожаловать, клиент! Теперь вы можете искать тренеров.")
+    await message.answer(
+        "Добро пожаловать, клиент! Теперь вы можете искать тренеров и записываться на занятия через меню.",
+        reply_markup=get_client_main_kb()
+    )
