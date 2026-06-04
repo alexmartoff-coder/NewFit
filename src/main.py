@@ -3,6 +3,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from src.utils.config import settings
 from src.handlers import start, trainer_onboarding, client_onboarding, catalog, profiles, booking, subscriptions, admin
+from src.utils.db import init_db, engine
 
 # Configure logging
 logging.basicConfig(
@@ -12,6 +13,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 async def main():
+    # Initialize database
+    await init_db(engine)
+
     # Initialize bot and dispatcher
     bot = Bot(token=settings.BOT_TOKEN)
     dp = Dispatcher()
