@@ -1,7 +1,7 @@
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from src.states.trainer_onboarding import TrainerOnboarding
-from src.keyboards.common import get_format_kb
+from src.keyboards.common import get_format_kb, get_trainer_main_kb
 from src.models.models import User, TrainerProfile, UserRole, WorkFormat, Specialization
 from src.utils.db import SessionLocal
 from sqlalchemy import select
@@ -134,4 +134,7 @@ async def process_media(message: types.Message, state: FSMContext):
         await session.commit()
 
     await state.clear()
-    await message.answer("Регистрация завершена! Ваш профиль создан.")
+    await message.answer(
+        "Регистрация завершена! Ваш профиль создан. Теперь вы можете управлять своим расписанием и клиентами через меню.",
+        reply_markup=get_trainer_main_kb()
+    )
