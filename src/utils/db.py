@@ -3,6 +3,7 @@ import asyncio
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from src.utils.config import settings
+from src.models.models import Base
 
 # Configure logging
 logging.basicConfig(
@@ -15,16 +16,12 @@ logger = logging.getLogger(__name__)
 engine = create_async_engine(settings.DATABASE_URL)
 
 async def init_db(engine):
-    """Создаёт таблицу specializations, если она не существует."""
+    """Создаёт все таблицы, если они не существуют."""
     try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
         async with engine.connect() as conn:
-            # SQL команда для создания таблицы
-            await conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS specializations (
-                    id SERIAL PRIMARY KEY,
-                    name VARCHAR(255) NOT NULL UNIQUE
-                )
-            """))
             # Добавляем пару примеров, если таблица пустая
             await conn.execute(text("""
                 INSERT INTO specializations (name)
@@ -32,7 +29,7 @@ async def init_db(engine):
                 WHERE NOT EXISTS (SELECT 1 FROM specializations)
             """))
             await conn.commit()
-            print("✅ Таблица specializations проверена/создана.")
+        print("✅ Все таблицы базы данных проверены/созданы.")
     except Exception as e:
         print(f"⚠️ Ошибка при инициализации БД: {e}")
 
