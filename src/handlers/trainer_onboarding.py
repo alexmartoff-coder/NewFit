@@ -152,6 +152,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
 
         session = SessionLocal()
         try:
+            logger.info(f"Starting finish_onboarding for user {user_id}")
             # Specializations handling
             spec_names = [s.lower() for s in data.get('specializations', [])]
             specializations = []
@@ -205,6 +206,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 )
                 trainer_profile.specializations = specializations
                 session.add(trainer_profile)
+                logger.info(f"New trainer profile created for user {user_id}")
             else:
                 trainer_profile.city = data.get('city', trainer_profile.city)
                 trainer_profile.experience = data.get('experience', trainer_profile.experience)
@@ -216,6 +218,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 trainer_profile.specializations = specializations
 
             await session.commit()
+            logger.info(f"Database commit successful for user {user_id}")
         finally:
             await session.close()
 
@@ -227,6 +230,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
             "Вы уже можете пользоваться кабинетом тренера.",
             reply_markup=get_trainer_main_kb()
         )
+        logger.info(f"Trainer onboarding completed successfully for user {user_id}")
     except Exception as e:
         logger.exception("Error in finish_onboarding")
         await message.answer(f"Произошла ошибка при сохранении профиля. Пожалуйста, попробуйте позже или обратитесь в поддержку.")
