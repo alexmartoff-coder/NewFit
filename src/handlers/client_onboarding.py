@@ -5,7 +5,7 @@ from src.keyboards.common import get_client_main_kb
 
 router = Router()
 
-@router.message(F.text == "Я клиент")
+@router.message(F.text == "🏋️‍♀️ Я клиент")
 async def client_start(message: types.Message):
     async with SessionLocal() as session:
         user = await session.get(User, message.from_user.id)
@@ -20,7 +20,10 @@ async def client_start(message: types.Message):
         else:
             user.role = UserRole.CLIENT
 
-        client_profile = await session.get(ClientProfile, user.id)
+        stmt = select(ClientProfile).where(ClientProfile.user_id == user.id)
+        res = await session.execute(stmt)
+        client_profile = res.scalar_one_or_none()
+
         if not client_profile:
             client_profile = ClientProfile(user_id=user.id)
             session.add(client_profile)
@@ -28,6 +31,7 @@ async def client_start(message: types.Message):
         await session.commit()
 
     await message.answer(
-        "Добро пожаловать, клиент! Теперь вы можете искать тренеров и записываться на занятия через меню.",
+        "🏋️‍♀️ NewFit — найди своего тренера\n\n"
+        "Что хотите сделать?",
         reply_markup=get_client_main_kb()
     )
