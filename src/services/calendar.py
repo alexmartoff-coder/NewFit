@@ -1,9 +1,23 @@
 from datetime import datetime, timedelta
 from src.models.models import Booking
 from src.utils.db import SessionLocal
-from sqlalchemy import select
+from sqlalchemy import select, and_
 
 class CalendarService:
+    @staticmethod
+    async def is_available(trainer_id: int, start_time: datetime, end_time: datetime):
+        async with SessionLocal() as session:
+            query = select(Booking).where(
+                Booking.trainer_id == trainer_id,
+                Booking.status != "cancelled",
+                and_(
+                    Booking.start_time < end_time,
+                    Booking.end_time > start_time
+                )
+            )
+            result = await session.execute(query)
+            return result.scalar_one_or_none() is None
+
     @staticmethod
     async def create_booking(trainer_id: int, client_id: int, start_time: datetime, duration_minutes: int = 60):
         async with SessionLocal() as session:
