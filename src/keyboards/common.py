@@ -67,3 +67,13 @@ def get_start_reg_kb():
             [InlineKeyboardButton(text="Начать регистрацию", callback_data="start_registration")]
         ]
     )
+
+def get_city_kb():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="Москва"), KeyboardButton(text="Санкт-Петербург")],
+            [KeyboardButton(text="Онлайн")]
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )

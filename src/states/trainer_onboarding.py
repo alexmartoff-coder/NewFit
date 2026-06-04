@@ -6,6 +6,7 @@ class TrainerOnboarding(StatesGroup):
     specialization = State()
     experience = State()
     formats = State()
-    price = State()
+    price_single = State()
+    price_package = State()
     photo = State()
     video = State()
