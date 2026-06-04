@@ -150,18 +150,26 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
         photo_url = data.get('photo_url')
         video_url = data.get('video_url')
 
-        async with SessionLocal() as session:
+        session = SessionLocal()
+        try:
             # Specializations handling
             spec_names = [s.lower() for s in data.get('specializations', [])]
             specializations = []
             for name in spec_names:
+                # Use a merge-like approach for specializations
                 stmt = select(Specialization).where(Specialization.name == name)
                 res = await session.execute(stmt)
                 spec = res.scalar_one_or_none()
                 if not spec:
                     spec = Specialization(name=name)
                     session.add(spec)
-                    await session.flush()
+                    try:
+                        await session.flush()
+                    except:
+                        # Handle potential race condition if spec was added by another thread
+                        await session.rollback()
+                        res = await session.execute(stmt)
+                        spec = res.scalar_one()
                 specializations.append(spec)
 
             user = await session.get(User, user_id)
@@ -208,6 +216,8 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 trainer_profile.specializations = specializations
 
             await session.commit()
+        finally:
+            await session.close()
 
         await state.clear()
         await message.answer(
