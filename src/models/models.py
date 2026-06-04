@@ -50,8 +50,8 @@ class TrainerProfile(Base):
     certificates: Mapped[Optional[str]] = mapped_column(String(1000))
     work_format: Mapped[WorkFormat] = mapped_column(SQLEnum(WorkFormat))
     price_per_session: Mapped[float] = mapped_column(Float)
-    photo_url: Mapped[Optional[str]] = mapped_column(String(255))
-    video_presentation_url: Mapped[Optional[str]] = mapped_column(String(255))
+    photo_url: Mapped[Optional[str]] = mapped_column(String(512))
+    video_presentation_url: Mapped[Optional[str]] = mapped_column(String(512))
     rating: Mapped[float] = mapped_column(Float, default=5.0)
     is_premium: Mapped[bool] = mapped_column(Boolean, default=False)
 

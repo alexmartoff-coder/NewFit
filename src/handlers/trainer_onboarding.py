@@ -94,28 +94,39 @@ async def process_formats_callback(callback: types.CallbackQuery, state: FSMCont
 
 @router.message(TrainerOnboarding.price)
 async def process_price(message: types.Message, state: FSMContext):
-    try:
-        price = float(message.text)
-    except ValueError:
-        await message.answer("Пожалуйста, введите число.")
-        return
+    # In a real app we'd parse the complex price string. For now, we take the whole text.
+    await state.update_data(price_text=message.text)
+    await state.set_state(TrainerOnboarding.photo)
+    await message.answer("Шаг 7/8\n\nЗагрузите ваше фото в хорошем качестве (портрет):")
 
-    await state.update_data(price=price)
-    await state.set_state(TrainerOnboarding.media)
-    await message.answer("Шаг 7/7\n\nЗагрузите:\n1. Фото в хорошем качестве (портрет)\n2. Короткое видео-презентацию (15–60 секунд) — это очень важно для клиентов!")
+@router.message(TrainerOnboarding.photo, F.photo)
+async def process_photo(message: types.Message, state: FSMContext):
+    photo_id = message.photo[-1].file_id
+    await state.update_data(photo_url=photo_id)
+    await state.set_state(TrainerOnboarding.video)
+    await message.answer(
+        "Шаг 8/8\n\nЗагрузите короткое видео-презентацию (15–60 секунд).\n"
+        "Это очень важно для клиентов! Вы также можете пропустить этот шаг.",
+        reply_markup=types.InlineKeyboardMarkup(
+            inline_keyboard=[[types.InlineKeyboardButton(text="Пропустить", callback_data="skip_video")]]
+        )
+    )
 
-@router.message(TrainerOnboarding.media)
-async def process_media(message: types.Message, state: FSMContext):
+@router.callback_query(F.data == "skip_video", TrainerOnboarding.video)
+async def skip_video(callback: types.CallbackQuery, state: FSMContext):
+    await finish_onboarding(callback.message, state, callback.from_user)
+    await callback.answer()
+
+@router.message(TrainerOnboarding.video, F.video)
+async def process_video(message: types.Message, state: FSMContext):
+    video_id = message.video.file_id
+    await state.update_data(video_url=video_id)
+    await finish_onboarding(message, state, message.from_user)
+
+async def finish_onboarding(message: types.Message, state: FSMContext, tg_user: types.User):
     data = await state.get_data()
-    photo_url = None
-    video_url = None
-
-    if message.photo:
-        photo_url = message.photo[-1].file_id
-    elif message.video:
-        video_url = message.video.file_id
-    elif message.text == "/skip":
-        pass
+    photo_url = data.get('photo_url')
+    video_url = data.get('video_url')
 
     async with SessionLocal() as session:
         # Specializations handling
@@ -149,13 +160,19 @@ async def process_media(message: types.Message, state: FSMContext):
         res = await session.execute(stmt)
         trainer_profile = res.scalar_one_or_none()
 
+        # Simple parsing for the demo
+        try:
+            price = float(data.get('price_text', '0').split()[0])
+        except (ValueError, IndexError):
+            price = 0.0
+
         if not trainer_profile:
             trainer_profile = TrainerProfile(
                 user_id=user.id,
                 city=data['city'],
                 experience=data['experience'],
                 work_format=data['work_format'],
-                price_per_session=data['price'],
+                price_per_session=price,
                 photo_url=photo_url,
                 video_presentation_url=video_url,
                 specializations=specializations
@@ -165,7 +182,7 @@ async def process_media(message: types.Message, state: FSMContext):
             trainer_profile.city = data['city']
             trainer_profile.experience = data['experience']
             trainer_profile.work_format = data['work_format']
-            trainer_profile.price_per_session = data['price']
+            trainer_profile.price_per_session = price
             trainer_profile.photo_url = photo_url or trainer_profile.photo_url
             trainer_profile.video_presentation_url = video_url or trainer_profile.video_presentation_url
             trainer_profile.specializations = specializations
