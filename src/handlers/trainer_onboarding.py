@@ -6,6 +6,7 @@ from src.keyboards.common import get_format_kb, get_trainer_main_kb, get_start_r
 from src.models.models import User, TrainerProfile, UserRole, WorkFormat, Specialization
 from src.utils.db import SessionLocal
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -168,36 +169,38 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 user = User(
                     id=user_id,
                     username=username,
-                    full_name=data['full_name'],
+                    full_name=data.get('full_name', 'Не указано'),
                     role=UserRole.TRAINER
                 )
                 session.add(user)
             else:
                 user.role = UserRole.TRAINER
-                user.full_name = data['full_name']
+                user.full_name = data.get('full_name', user.full_name)
+
+            await session.flush()
 
             # Check if profile already exists
-            stmt = select(TrainerProfile).where(TrainerProfile.user_id == user.id)
+            stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id).options(selectinload(TrainerProfile.specializations))
             res = await session.execute(stmt)
             trainer_profile = res.scalar_one_or_none()
 
             if not trainer_profile:
                 trainer_profile = TrainerProfile(
-                    user_id=user.id,
-                    city=data['city'],
-                    experience=data['experience'],
-                    work_format=data['work_format'],
+                    user_id=user_id,
+                    city=data.get('city', 'Не указан'),
+                    experience=data.get('experience', 'Не указан'),
+                    work_format=data.get('work_format', WorkFormat.ONLINE),
                     price_single=data.get('price_single', 0.0),
                     price_package=data.get('price_package', 0.0),
                     photo_url=photo_url,
-                    video_presentation_url=video_url,
-                    specializations=specializations
+                    video_presentation_url=video_url
                 )
+                trainer_profile.specializations = specializations
                 session.add(trainer_profile)
             else:
-                trainer_profile.city = data['city']
-                trainer_profile.experience = data['experience']
-                trainer_profile.work_format = data['work_format']
+                trainer_profile.city = data.get('city', trainer_profile.city)
+                trainer_profile.experience = data.get('experience', trainer_profile.experience)
+                trainer_profile.work_format = data.get('work_format', trainer_profile.work_format)
                 trainer_profile.price_single = data.get('price_single', trainer_profile.price_single)
                 trainer_profile.price_package = data.get('price_package', trainer_profile.price_package)
                 trainer_profile.photo_url = photo_url or trainer_profile.photo_url
