@@ -1,57 +1,96 @@
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from src.states.trainer_onboarding import TrainerOnboarding
-from src.keyboards.common import get_format_kb, get_trainer_main_kb
+from src.keyboards.common import get_format_kb, get_trainer_main_kb, get_start_reg_kb, get_spec_kb
 from src.models.models import User, TrainerProfile, UserRole, WorkFormat, Specialization
 from src.utils.db import SessionLocal
 from sqlalchemy import select
 
 router = Router()
 
-@router.message(F.text == "Я тренер")
+@router.message(F.text == "👨‍🏫 Я тренер")
 async def trainer_start(message: types.Message, state: FSMContext):
+    await message.answer(
+        "Отлично! Давайте создадим ваш профессиональный профиль в NewFit.\n\n"
+        "Это займёт около 3-4 минут.\n\n"
+        "Готовы начать?",
+        reply_markup=get_start_reg_kb()
+    )
+
+@router.callback_query(F.data == "start_registration")
+async def start_reg(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(TrainerOnboarding.full_name)
-    await message.answer("Введите ваше ФИО:")
+    await callback.message.answer("Шаг 1/7\n\nНапишите ваше ФИО:")
+    await callback.answer()
 
 @router.message(TrainerOnboarding.full_name)
 async def process_name(message: types.Message, state: FSMContext):
     await state.update_data(full_name=message.text)
     await state.set_state(TrainerOnboarding.city)
-    await message.answer("Введите ваш город:")
+    await message.answer("Шаг 2/7\n\nУкажите город работы (или \"Онлайн\", если работаете только онлайн):")
 
 @router.message(TrainerOnboarding.city)
 async def process_city(message: types.Message, state: FSMContext):
     await state.update_data(city=message.text)
     await state.set_state(TrainerOnboarding.specialization)
-    await message.answer("Введите вашу специализацию (например: похудение, кроссфит):")
+    await state.update_data(specializations=[])
+    await message.answer("Шаг 3/7\n\nВыберите ваши основные направления (можно несколько):", reply_markup=get_spec_kb())
 
-@router.message(TrainerOnboarding.specialization)
-async def process_specialization(message: types.Message, state: FSMContext):
-    await state.update_data(specialization=message.text)
-    await state.set_state(TrainerOnboarding.experience)
-    await message.answer("Опишите ваш опыт работы и сертификаты:")
+@router.callback_query(F.data.startswith("spec_"), TrainerOnboarding.specialization)
+async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext):
+    if callback.data == "spec_done":
+        data = await state.get_data()
+        if not data.get('specializations'):
+            await callback.answer("Выберите хотя бы одно направление!")
+            return
+        await state.set_state(TrainerOnboarding.experience)
+        await callback.message.answer("Шаг 4/7\n\nСколько лет опыта в фитнесе?")
+        await callback.answer()
+        return
+
+    spec_map = {
+        "spec_strength": "Силовые тренировки",
+        "spec_weight_loss": "Похудение и жиросжигание",
+        "spec_func": "Функциональный тренинг",
+        "spec_rehab": "Реабилитация и ОФП",
+        "spec_crossfit": "Кроссфит / HIIT",
+        "spec_gender": "Тренировки для женщин/мужчин",
+        "spec_teens": "Работа с подростками",
+        "spec_other": "Другое"
+    }
+
+    spec = spec_map.get(callback.data)
+    if spec:
+        data = await state.get_data()
+        specs = data.get('specializations', [])
+        if spec in specs:
+            specs.remove(spec)
+            await callback.answer(f"Удалено: {spec}")
+        else:
+            specs.append(spec)
+            await callback.answer(f"Добавлено: {spec}")
+        await state.update_data(specializations=specs)
+
+    await callback.answer()
 
 @router.message(TrainerOnboarding.experience)
 async def process_experience(message: types.Message, state: FSMContext):
     await state.update_data(experience=message.text)
     await state.set_state(TrainerOnboarding.formats)
-    await message.answer("Выберите формат работы:", reply_markup=get_format_kb())
+    await message.answer("Шаг 5/7\n\nКакие форматы вы предлагаете?", reply_markup=get_format_kb())
 
-@router.message(TrainerOnboarding.formats)
-async def process_formats(message: types.Message, state: FSMContext):
+@router.callback_query(F.data.startswith("fmt_"), TrainerOnboarding.formats)
+async def process_formats_callback(callback: types.CallbackQuery, state: FSMContext):
     fmt_map = {
-        "Оффлайн": WorkFormat.OFFLINE,
-        "Онлайн": WorkFormat.ONLINE,
-        "Гибрид": WorkFormat.HYBRID
+        "fmt_offline": WorkFormat.OFFLINE,
+        "fmt_online": WorkFormat.ONLINE,
+        "fmt_hybrid": WorkFormat.HYBRID
     }
-    work_format = fmt_map.get(message.text)
-    if not work_format:
-        await message.answer("Пожалуйста, выберите формат из клавиатуры.")
-        return
-
+    work_format = fmt_map.get(callback.data)
     await state.update_data(work_format=work_format)
     await state.set_state(TrainerOnboarding.price)
-    await message.answer("Введите цену за занятие (число):")
+    await callback.message.answer("Шаг 6/7\n\nУкажите вашу цену:\n• Разовое занятие — ____ ₽\n• Абонемент 12 занятий — ____ ₽")
+    await callback.answer()
 
 @router.message(TrainerOnboarding.price)
 async def process_price(message: types.Message, state: FSMContext):
@@ -63,7 +102,7 @@ async def process_price(message: types.Message, state: FSMContext):
 
     await state.update_data(price=price)
     await state.set_state(TrainerOnboarding.media)
-    await message.answer("Отправьте фото для профиля или короткое видео-презентацию (или пропустите, отправив /skip):")
+    await message.answer("Шаг 7/7\n\nЗагрузите:\n1. Фото в хорошем качестве (портрет)\n2. Короткое видео-презентацию (15–60 секунд) — это очень важно для клиентов!")
 
 @router.message(TrainerOnboarding.media)
 async def process_media(message: types.Message, state: FSMContext):
@@ -80,7 +119,7 @@ async def process_media(message: types.Message, state: FSMContext):
 
     async with SessionLocal() as session:
         # Specializations handling
-        spec_names = [s.strip().lower() for s in data['specialization'].split(",")]
+        spec_names = [s.lower() for s in data.get('specializations', [])]
         specializations = []
         for name in spec_names:
             stmt = select(Specialization).where(Specialization.name == name)
@@ -135,6 +174,9 @@ async def process_media(message: types.Message, state: FSMContext):
 
     await state.clear()
     await message.answer(
-        "Регистрация завершена! Ваш профиль создан. Теперь вы можете управлять своим расписанием и клиентами через меню.",
+        "Поздравляем! 🎉\n\n"
+        "Ваш профиль создан и отправлен на модерацию.\n\n"
+        "В течение 24 часов администрация NewFit поможет вам красиво оформить аккаунт, снять презентационные рилсы и запустить первые продажи.\n\n"
+        "Вы уже можете пользоваться кабинетом тренера.",
         reply_markup=get_trainer_main_kb()
     )

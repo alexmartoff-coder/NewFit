@@ -9,6 +9,7 @@ from src.states.catalog import CatalogFilter
 router = Router()
 
 @router.message(F.text == "🔍 Найти тренера")
+@router.message(F.text == "/search")
 async def start_catalog(message: types.Message, state: FSMContext):
     await state.clear()
     await message.answer(
@@ -41,6 +42,11 @@ async def process_filter_spec(message: types.Message, state: FSMContext):
 @router.callback_query(F.data == "filter_price")
 async def filter_price(callback: types.CallbackQuery):
     await callback.message.edit_reply_markup(reply_markup=get_price_filter_kb())
+    await callback.answer()
+
+@router.callback_query(F.data == "filter_back")
+async def filter_back(callback: types.CallbackQuery):
+    await callback.message.edit_reply_markup(reply_markup=get_filter_kb())
     await callback.answer()
 
 @router.callback_query(F.data == "price_min")
