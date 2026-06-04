@@ -4,6 +4,7 @@ from aiogram import Bot, Dispatcher
 from src.utils.config import settings
 from src.handlers import start, trainer_onboarding, client_onboarding, catalog, profiles, booking, subscriptions, admin
 from src.utils.db import init_db, engine
+from src.middlewares.admin_middleware import AdminMiddleware
 
 # Configure logging
 logging.basicConfig(
@@ -19,6 +20,10 @@ async def main():
     # Initialize bot and dispatcher
     bot = Bot(token=settings.BOT_TOKEN)
     dp = Dispatcher()
+
+    # Register middleware
+    dp.message.middleware(AdminMiddleware())
+    dp.callback_query.middleware(AdminMiddleware())
 
     # Include routers
     dp.include_router(start.router)
