@@ -1,1 +1,1 @@
-worker: python -m src.main
+worker: alembic upgrade head && python -m src.main
