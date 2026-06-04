@@ -156,22 +156,30 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
             # Specializations handling
             spec_names = [s.lower() for s in data.get('specializations', [])]
             specializations = []
-            for name in spec_names:
-                # Use a merge-like approach for specializations
-                stmt = select(Specialization).where(Specialization.name == name)
+            if spec_names:
+                # 1. Fetch existing specializations
+                stmt = select(Specialization).where(Specialization.name.in_(spec_names))
                 res = await session.execute(stmt)
-                spec = res.scalar_one_or_none()
-                if not spec:
-                    spec = Specialization(name=name)
-                    session.add(spec)
-                    try:
-                        await session.flush()
-                    except:
-                        # Handle potential race condition if spec was added by another thread
-                        await session.rollback()
-                        res = await session.execute(stmt)
-                        spec = res.scalar_one()
-                specializations.append(spec)
+                specializations = list(res.scalars().all())
+                found_names = {s.name for s in specializations}
+
+                # 2. Create missing specializations using nested transactions (savepoints)
+                for name in spec_names:
+                    if name not in found_names:
+                        try:
+                            async with session.begin_nested():
+                                new_spec = Specialization(name=name)
+                                session.add(new_spec)
+                                await session.flush()
+                                specializations.append(new_spec)
+                        except:
+                            # Ignore errors (e.g., duplicate key) and sync below
+                            pass
+
+                # 3. Final sync to ensure we have all required specialization objects
+                stmt = select(Specialization).where(Specialization.name.in_(spec_names))
+                res = await session.execute(stmt)
+                specializations = list(res.scalars().all())
 
             user = await session.get(User, user_id)
             if not user:
