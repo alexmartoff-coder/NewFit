@@ -121,6 +121,26 @@ async def connect_google_calendar(message: types.Message):
     )
     await message.answer(
         "Для синхронизации расписания необходимо подключить ваш Google Календарь.\n\n"
-        "Нажмите кнопку ниже для авторизации:",
+        "Нажмите кнопку ниже для авторизации. После авторизации скопируйте код и отправьте его сюда (имитация):",
         reply_markup=kb
     )
+
+@router.message(F.text.startswith("4/"), F.from_user.id.in_(lambda data: True)) # Mock check
+async def mock_oauth_code_handler(message: types.Message):
+    # This is a very rough mock of handling an OAuth code
+    async with SessionLocal() as session:
+        from src.models.models import TrainerSchedule
+        stmt = select(TrainerSchedule).where(TrainerSchedule.trainer_id == message.from_user.id)
+        res = await session.execute(stmt)
+        sched = res.scalar_one_or_none()
+
+        if not sched:
+            sched = TrainerSchedule(trainer_id=message.from_user.id)
+            session.add(sched)
+
+        sched.google_refresh_token = "mock_refresh_token"
+        sched.google_calendar_id = "primary"
+        sched.sync_enabled = True
+        await session.commit()
+
+    await message.answer("✅ Google Календарь успешно подключен! Теперь ваши занятия будут синхронизироваться.")

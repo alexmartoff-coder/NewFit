@@ -147,6 +147,7 @@ async def process_video(message: types.Message, state: FSMContext, is_admin: boo
 async def finish_onboarding(message: types.Message, state: FSMContext, user_id: int, username: str, is_admin: bool = False):
     try:
         data = await state.get_data()
+        is_test = data.get("is_test_mode", False)
         photo_url = data.get('photo_url')
         video_url = data.get('video_url')
 
@@ -187,7 +188,8 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                     id=user_id,
                     username=username,
                     full_name=data.get('full_name', 'Не указано'),
-                    role=UserRole.TRAINER
+                    role=UserRole.TRAINER,
+                    is_test=is_test
                 )
                 session.add(user)
             else:
