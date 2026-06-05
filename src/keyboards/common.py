@@ -2,40 +2,40 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
-def get_role_kb():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="👨‍🏫 Я тренер"), KeyboardButton(text="🏋️‍♀️ Я клиент")],
-            [KeyboardButton(text="❓ Узнать больше о NewFit")]
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=True
-    )
+def get_role_kb(is_admin: bool = False):
+    kb = [
+        [KeyboardButton(text="👨‍🏫 Я тренер"), KeyboardButton(text="🏋️‍♀️ Я клиент")],
+        [KeyboardButton(text="❓ Узнать больше о NewFit")]
+    ]
+    if is_admin:
+        kb.append([KeyboardButton(text="🛠 Админ")])
+    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, one_time_keyboard=True)
 
-def get_trainer_main_kb():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="👤 Мой профиль"), KeyboardButton(text="📅 Расписание и запись")],
-            [KeyboardButton(text="👥 Мои клиенты"), KeyboardButton(text="💰 Финансы и выплаты")],
-            [KeyboardButton(text="📊 Статистика")],
-            [KeyboardButton(text="📹 Создать контент (рилсы)")],
-            [KeyboardButton(text="🚀 Продвижение"), KeyboardButton(text="⭐ Повысить видимость")],
-            [KeyboardButton(text="⚙️ Настройки"), KeyboardButton(text="❓ Поддержка")],
-            [KeyboardButton(text="📋 Инструкции")]
-        ],
-        resize_keyboard=True
-    )
+def get_trainer_main_kb(is_admin: bool = False):
+    kb = [
+        [KeyboardButton(text="👤 Мой профиль"), KeyboardButton(text="📅 Расписание и запись")],
+        [KeyboardButton(text="👥 Мои клиенты"), KeyboardButton(text="💰 Финансы и выплаты")],
+        [KeyboardButton(text="📊 Статистика")],
+        [KeyboardButton(text="📹 Создать контент (рилсы)")],
+        [KeyboardButton(text="🚀 Продвижение"), KeyboardButton(text="⭐ Повысить видимость")],
+        [KeyboardButton(text="🔗 Подключить Google Календарь")],
+        [KeyboardButton(text="⚙️ Настройки"), KeyboardButton(text="❓ Поддержка")],
+        [KeyboardButton(text="📋 Инструкции")]
+    ]
+    if is_admin:
+        kb.append([KeyboardButton(text="🛠 Админ")])
+    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
-def get_client_main_kb():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="🔍 Найти тренера")],
-            [KeyboardButton(text="📅 Мои занятия и абонементы"), KeyboardButton(text="🏆 Топ тренеров")],
-            [KeyboardButton(text="🔥 Челленджи и мотивация"), KeyboardButton(text="👥 Сообщество NewFit")],
-            [KeyboardButton(text="💬 Мои чаты с тренерами")]
-        ],
-        resize_keyboard=True
-    )
+def get_client_main_kb(is_admin: bool = False):
+    kb = [
+        [KeyboardButton(text="🔍 Найти тренера")],
+        [KeyboardButton(text="📅 Мои занятия и абонементы"), KeyboardButton(text="🏆 Топ тренеров")],
+        [KeyboardButton(text="🔥 Челленджи и мотивация"), KeyboardButton(text="👥 Сообщество NewFit")],
+        [KeyboardButton(text="💬 Мои чаты с тренерами")]
+    ]
+    if is_admin:
+        kb.append([KeyboardButton(text="🛠 Админ")])
+    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
 def get_format_kb():
     return InlineKeyboardMarkup(

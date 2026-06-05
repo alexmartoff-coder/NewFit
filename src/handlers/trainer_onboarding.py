@@ -2,7 +2,7 @@ import logging
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from src.states.trainer_onboarding import TrainerOnboarding
-from src.keyboards.common import get_format_kb, get_trainer_main_kb, get_start_reg_kb, get_spec_kb, get_city_kb
+from src.keyboards.common import get_format_kb, get_trainer_main_kb, get_start_reg_kb, get_spec_kb, get_city_kb, get_client_main_kb
 from src.models.models import User, TrainerProfile, UserRole, WorkFormat, Specialization
 from src.utils.db import SessionLocal
 from sqlalchemy import select
@@ -132,19 +132,19 @@ async def process_photo(message: types.Message, state: FSMContext):
     )
 
 @router.callback_query(F.data == "skip_video", TrainerOnboarding.video)
-async def skip_video(callback: types.CallbackQuery, state: FSMContext):
+async def skip_video(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
     await callback.answer("Видео пропущено.")
     # Remove reply markup to avoid double clicking
     await callback.message.edit_reply_markup(reply_markup=None)
-    await finish_onboarding(callback.message, state, callback.from_user.id, callback.from_user.username)
+    await finish_onboarding(callback.message, state, callback.from_user.id, callback.from_user.username, is_admin)
 
 @router.message(TrainerOnboarding.video, F.video)
-async def process_video(message: types.Message, state: FSMContext):
+async def process_video(message: types.Message, state: FSMContext, is_admin: bool = False):
     video_id = message.video.file_id
     await state.update_data(video_url=video_id)
-    await finish_onboarding(message, state, message.from_user.id, message.from_user.username)
+    await finish_onboarding(message, state, message.from_user.id, message.from_user.username, is_admin)
 
-async def finish_onboarding(message: types.Message, state: FSMContext, user_id: int, username: str):
+async def finish_onboarding(message: types.Message, state: FSMContext, user_id: int, username: str, is_admin: bool = False):
     try:
         data = await state.get_data()
         photo_url = data.get('photo_url')
@@ -236,7 +236,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
             "Ваш профиль создан и отправлен на модерацию.\n\n"
             "В течение 24 часов администрация NewFit поможет вам красиво оформить аккаунт, снять презентационные рилсы и запустить первые продажи.\n\n"
             "Вы уже можете пользоваться кабинетом тренера.",
-            reply_markup=get_trainer_main_kb()
+            reply_markup=get_trainer_main_kb(is_admin=is_admin)
         )
         logger.info(f"Trainer onboarding completed successfully for user {user_id}")
     except Exception as e:

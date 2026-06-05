@@ -1,4 +1,5 @@
 from aiogram import Router, F
+from sqlalchemy import delete
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -27,6 +28,7 @@ async def admin_panel(message: Message, is_admin: bool = False):
         [InlineKeyboardButton(text="🔓 Выйти из режима тестирования", callback_data="admin_stop_impersonate")],
         [InlineKeyboardButton(text="📋 Список админов", callback_data="admin_list")],
         [InlineKeyboardButton(text="🗑 Удалить админа", callback_data="admin_remove")],
+        [InlineKeyboardButton(text="🧹 Очистить тестовые данные", callback_data="admin_clear_test_data")],
     ])
 
     await message.answer("🛠 **Админ-панель NewFit**\n\nВыберите действие:", reply_markup=keyboard, parse_mode="Markdown")
@@ -165,6 +167,15 @@ async def stop_impersonate(callback: CallbackQuery, state: FSMContext):
     await state.update_data(impersonate_trainer_id=None, impersonate_client_id=None)
     await callback.message.edit_text("✅ Режим тестирования отключён. Вы снова в админ-панели.")
 
+
+@router.callback_query(F.data == "admin_clear_test_data")
+async def clear_test_data(callback: CallbackQuery):
+    async with SessionLocal() as session:
+        # Delete users with is_test = True
+        await session.execute(delete(User).where(User.is_test == True))
+        await session.commit()
+    await callback.message.answer("✅ Все тестовые данные удалены")
+    await callback.answer()
 
 @router.callback_query(F.data == "admin_back")
 async def back_to_admin(callback: CallbackQuery):

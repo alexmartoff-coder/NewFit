@@ -12,10 +12,12 @@ router = Router()
 @router.message(F.text == "/search")
 async def start_catalog(message: types.Message, state: FSMContext):
     await state.clear()
+    from src.keyboards.common import get_city_kb
     await message.answer(
-        "Выберите фильтры для поиска тренера или нажмите 'Показать':",
-        reply_markup=get_filter_kb()
+        "Выберите город:",
+        reply_markup=get_city_kb()
     )
+    await state.set_state(CatalogFilter.entering_city)
 
 @router.callback_query(F.data == "filter_city")
 async def filter_city(callback: types.CallbackQuery, state: FSMContext):
@@ -26,7 +28,11 @@ async def filter_city(callback: types.CallbackQuery, state: FSMContext):
 @router.message(CatalogFilter.entering_city)
 async def process_filter_city(message: types.Message, state: FSMContext):
     await state.update_data(city=message.text)
-    await message.answer(f"Город установлен: {message.text}", reply_markup=get_filter_kb())
+    await message.answer(
+        f"Город установлен: {message.text}\n"
+        "Выберите дополнительные фильтры или нажмите 'Показать':",
+        reply_markup=get_filter_kb()
+    )
 
 @router.callback_query(F.data == "filter_spec")
 async def filter_spec(callback: types.CallbackQuery, state: FSMContext):
