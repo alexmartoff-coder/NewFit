@@ -4,6 +4,7 @@ from sqlalchemy import select, and_
 from src.models.models import TrainerProfile, User, Specialization
 from src.utils.db import SessionLocal
 from src.keyboards.catalog import get_filter_kb, get_price_filter_kb
+from src.keyboards.inline import add_admin_button
 from src.states.catalog import CatalogFilter
 
 router = Router()
@@ -26,12 +27,14 @@ async def filter_city(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @router.message(CatalogFilter.entering_city)
-async def process_filter_city(message: types.Message, state: FSMContext):
+async def process_filter_city(message: types.Message, state: FSMContext, is_admin: bool = False):
     await state.update_data(city=message.text)
+    kb = get_filter_kb()
+    kb = add_admin_button(kb, is_admin=is_admin)
     await message.answer(
         f"Город установлен: {message.text}\n"
         "Выберите дополнительные фильтры или нажмите 'Показать':",
-        reply_markup=get_filter_kb()
+        reply_markup=kb
     )
 
 @router.callback_query(F.data == "filter_spec")
@@ -41,18 +44,24 @@ async def filter_spec(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @router.message(CatalogFilter.entering_specialization)
-async def process_filter_spec(message: types.Message, state: FSMContext):
+async def process_filter_spec(message: types.Message, state: FSMContext, is_admin: bool = False):
     await state.update_data(specialization=message.text)
-    await message.answer(f"Специализация установлена: {message.text}", reply_markup=get_filter_kb())
+    kb = get_filter_kb()
+    kb = add_admin_button(kb, is_admin=is_admin)
+    await message.answer(f"Специализация установлена: {message.text}", reply_markup=kb)
 
 @router.callback_query(F.data == "filter_price")
-async def filter_price(callback: types.CallbackQuery):
-    await callback.message.edit_reply_markup(reply_markup=get_price_filter_kb())
+async def filter_price(callback: types.CallbackQuery, is_admin: bool = False):
+    kb = get_price_filter_kb()
+    kb = add_admin_button(kb, is_admin=is_admin)
+    await callback.message.edit_reply_markup(reply_markup=kb)
     await callback.answer()
 
 @router.callback_query(F.data == "filter_back")
-async def filter_back(callback: types.CallbackQuery):
-    await callback.message.edit_reply_markup(reply_markup=get_filter_kb())
+async def filter_back(callback: types.CallbackQuery, is_admin: bool = False):
+    kb = get_filter_kb()
+    kb = add_admin_button(kb, is_admin=is_admin)
+    await callback.message.edit_reply_markup(reply_markup=kb)
     await callback.answer()
 
 @router.callback_query(F.data == "price_min")
@@ -62,18 +71,22 @@ async def filter_price_min(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @router.message(CatalogFilter.entering_price_min)
-async def process_price_min(message: types.Message, state: FSMContext):
+async def process_price_min(message: types.Message, state: FSMContext, is_admin: bool = False):
     try:
         val = float(message.text)
         await state.update_data(price_min=val)
-        await message.answer(f"Мин. цена: {val}", reply_markup=get_filter_kb())
+        kb = get_filter_kb()
+        kb = add_admin_button(kb, is_admin=is_admin)
+        await message.answer(f"Мин. цена: {val}", reply_markup=kb)
     except ValueError:
         await message.answer("Введите число.")
 
 @router.callback_query(F.data == "filter_reset")
-async def filter_reset(callback: types.CallbackQuery, state: FSMContext):
+async def filter_reset(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
     await state.clear()
-    await callback.message.edit_text("Фильтры сброшены. Выберите снова:", reply_markup=get_filter_kb())
+    kb = get_filter_kb()
+    kb = add_admin_button(kb, is_admin=is_admin)
+    await callback.message.edit_text("Фильтры сброшены. Выберите снова:", reply_markup=kb)
     await callback.answer()
 
 @router.callback_query(F.data == "filter_apply")

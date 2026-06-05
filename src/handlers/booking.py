@@ -4,13 +4,14 @@ from src.states.booking import BookingSession
 from src.services.calendar import CalendarService
 from src.models.models import TrainerProfile, User, ClientProfile, TimeSlot, Booking
 from src.utils.db import SessionLocal
+from src.keyboards.inline import add_admin_button
 from sqlalchemy import select, update
 from datetime import datetime, timedelta
 
 router = Router()
 
 @router.callback_query(F.data.startswith("book_"))
-async def start_booking(callback: types.CallbackQuery, state: FSMContext):
+async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
     trainer_id = int(callback.data.split("_")[1])
     await state.update_data(trainer_id=trainer_id)
 
@@ -37,14 +38,16 @@ async def start_booking(callback: types.CallbackQuery, state: FSMContext):
             btn_text = s.start_time.strftime("%d.%m %H:%M")
             kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"slot_{s.id}")])
 
+        kb_markup = types.InlineKeyboardMarkup(inline_keyboard=kb)
+        kb_markup = add_admin_button(kb_markup, is_admin=is_admin)
         await callback.message.edit_text(
             "Выберите удобное время для записи:",
-            reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb)
+            reply_markup=kb_markup
         )
     await callback.answer()
 
 @router.callback_query(F.data.startswith("slot_"))
-async def process_slot_selection(callback: types.CallbackQuery, state: FSMContext):
+async def process_slot_selection(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
     slot_id = int(callback.data.split("_")[1])
 
     async with SessionLocal() as session:
@@ -56,15 +59,18 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
         await state.update_data(slot_id=slot_id, start_time=slot.start_time.isoformat())
         await state.set_state(BookingSession.confirming_booking)
 
+        kb = types.InlineKeyboardMarkup(
+            inline_keyboard=[
+                [types.InlineKeyboardButton(text="✅ Да, записаться", callback_data="confirm_booking")],
+                [types.InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_booking")]
+            ]
+        )
+        kb = add_admin_button(kb, is_admin=is_admin)
+
         await callback.message.edit_text(
             f"Вы выбрали время: {slot.start_time.strftime('%d.%m.%Y %H:%M')}.\n"
             "Подтвердить запись?",
-            reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [types.InlineKeyboardButton(text="✅ Да, записаться", callback_data="confirm_booking")],
-                    [types.InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_booking")]
-                ]
-            )
+            reply_markup=kb
         )
     await callback.answer()
 

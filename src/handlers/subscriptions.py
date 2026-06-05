@@ -2,12 +2,13 @@ from aiogram import Router, types, F
 from src.services.payments import PaymentService
 from src.models.models import Subscription, User, ClientProfile
 from src.utils.db import SessionLocal
+from src.keyboards.inline import add_admin_button
 from sqlalchemy import select
 
 router = Router()
 
 @router.message(F.text == "💳 Купить абонемент")
-async def show_subscription_packages(message: types.Message):
+async def show_subscription_packages(message: types.Message, is_admin: bool = False):
     kb = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [types.InlineKeyboardButton(text="8 занятий - 15 000₽", callback_data="buy_sub_8_15000")],
@@ -15,10 +16,11 @@ async def show_subscription_packages(message: types.Message):
             [types.InlineKeyboardButton(text="24 занятия - 35 000₽", callback_data="buy_sub_24_35000")]
         ]
     )
+    kb = add_admin_button(kb, is_admin=is_admin)
     await message.answer("Выберите пакет абонементов:", reply_markup=kb)
 
 @router.callback_query(F.data.startswith("buy_sub_"))
-async def process_sub_purchase(callback: types.CallbackQuery):
+async def process_sub_purchase(callback: types.CallbackQuery, is_admin: bool = False):
     _, _, count, price = callback.data.split("_")
     count = int(count)
     price = float(price)
@@ -35,6 +37,7 @@ async def process_sub_purchase(callback: types.CallbackQuery):
             [types.InlineKeyboardButton(text="Проверить оплату (Mock)", callback_data=f"verify_sub_{count}_{price}")]
         ]
     )
+    kb = add_admin_button(kb, is_admin=is_admin)
     await callback.message.edit_text(
         f"Вы выбрали пакет на {count} занятий за {price}₽.\nОплатите по ссылке ниже:",
         reply_markup=kb
