@@ -120,13 +120,14 @@ class TrainerSchedule(Base):
     __tablename__ = "trainer_schedules"
 
     id = Column(Integer, primary_key=True)
-    trainer_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
+    trainer_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, unique=True)
     google_calendar_id = Column(String(200), nullable=True)
     google_refresh_token = Column(Text, nullable=True)
+    google_access_token = Column(Text, nullable=True)
+    token_expires_at = Column(DateTime, nullable=True)
     sync_enabled = Column(Boolean, default=True)
     timezone = Column(String(50), default="Europe/Moscow")
     slot_duration = Column(Integer, default=60)
-    break_between_slots = Column(Integer, default=0)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     trainer = relationship("User", back_populates="schedule")
