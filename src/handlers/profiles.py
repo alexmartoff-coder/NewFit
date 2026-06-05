@@ -13,9 +13,10 @@ class GoogleKeysState(StatesGroup):
     waiting_for_client_secret = State()
 
 @router.message(F.text == "/profile")
-async def show_profile_cmd(message: types.Message):
+async def show_profile_cmd(message: types.Message, effective_user_id: int = None):
+    user_id = effective_user_id or message.from_user.id
     async with SessionLocal() as session:
-        user = await session.get(User, message.from_user.id)
+        user = await session.get(User, user_id)
         if not user:
             await message.answer("Вы не зарегистрированы. Используйте /start")
             return
@@ -38,9 +39,10 @@ async def show_profile_cmd(message: types.Message):
             await message.answer(f"👤 Профиль клиента: {user.full_name}")
 
 @router.message(F.text == "👤 Мой профиль")
-async def show_profile(message: types.Message, is_admin: bool = False):
+async def show_profile(message: types.Message, is_admin: bool = False, effective_user_id: int = None):
+    user_id = effective_user_id or message.from_user.id
     async with SessionLocal() as session:
-        user = await session.get(User, message.from_user.id)
+        user = await session.get(User, user_id)
         if not user:
             await message.answer("Вы не зарегистрированы. Используйте /start")
             return
@@ -112,9 +114,9 @@ async def show_chats(message: types.Message):
 
 @router.message(F.text == "🔗 Подключить Google Календарь")
 @router.callback_query(F.data == "trainer_connect_google")
-async def connect_google_calendar(event: types.Message | types.CallbackQuery):
+async def connect_google_calendar(event: types.Message | types.CallbackQuery, effective_user_id: int = None):
     message = event if isinstance(event, types.Message) else event.message
-    user_id = event.from_user.id
+    user_id = effective_user_id or event.from_user.id
 
     async with SessionLocal() as session:
         from src.models.models import TrainerSchedule
@@ -187,19 +189,20 @@ async def get_client_id(message: types.Message, state: FSMContext):
     await state.set_state(GoogleKeysState.waiting_for_client_secret)
 
 @router.message(GoogleKeysState.waiting_for_client_secret)
-async def get_client_secret(message: types.Message, state: FSMContext):
+async def get_client_secret(message: types.Message, state: FSMContext, effective_user_id: int = None):
     data = await state.get_data()
     client_id = data.get("client_id")
     client_secret = message.text.strip()
+    user_id = effective_user_id or message.from_user.id
 
     async with SessionLocal() as session:
         from src.models.models import TrainerSchedule
-        stmt = select(TrainerSchedule).where(TrainerSchedule.trainer_id == message.from_user.id)
+        stmt = select(TrainerSchedule).where(TrainerSchedule.trainer_id == user_id)
         res = await session.execute(stmt)
         sched = res.scalar_one_or_none()
 
         if not sched:
-            sched = TrainerSchedule(trainer_id=message.from_user.id)
+            sched = TrainerSchedule(trainer_id=user_id)
             session.add(sched)
 
         # Here we mock the integration for now
@@ -216,10 +219,11 @@ async def trainer_google_reconnect(callback: types.CallbackQuery, state: FSMCont
     await start_enter_keys(callback, state)
 
 @router.callback_query(F.data == "trainer_google_disconnect")
-async def trainer_google_disconnect(callback: types.CallbackQuery):
+async def trainer_google_disconnect(callback: types.CallbackQuery, effective_user_id: int = None):
+    user_id = effective_user_id or callback.from_user.id
     async with SessionLocal() as session:
         from src.models.models import TrainerSchedule
-        stmt = select(TrainerSchedule).where(TrainerSchedule.trainer_id == callback.from_user.id)
+        stmt = select(TrainerSchedule).where(TrainerSchedule.trainer_id == user_id)
         res = await session.execute(stmt)
         sched = res.scalar_one_or_none()
         if sched:

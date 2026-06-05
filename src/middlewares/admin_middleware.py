@@ -25,9 +25,9 @@ class AdminMiddleware(BaseMiddleware):
             imp_trainer_id = fsm_data.get("impersonate_trainer_id")
             imp_client_id = fsm_data.get("impersonate_client_id")
             if imp_trainer_id:
-                # Override event's effective user ID for the handler
-                # Note: Aiogram events are immutable-ish, we just pass the info in data
                 data["effective_user_id"] = imp_trainer_id
+            elif imp_client_id:
+                data["effective_user_id"] = imp_client_id
             if fsm_data.get("is_test_mode"):
                 data["is_test_mode"] = True
 
