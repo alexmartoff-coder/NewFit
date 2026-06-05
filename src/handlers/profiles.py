@@ -3,8 +3,14 @@ from sqlalchemy import select
 from src.models.models import User, TrainerProfile, ClientProfile, UserRole
 from src.utils.db import SessionLocal
 from src.keyboards.common import get_trainer_main_kb, get_client_main_kb
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
 
 router = Router()
+
+class GoogleKeysState(StatesGroup):
+    waiting_for_client_id = State()
+    waiting_for_client_secret = State()
 
 @router.message(F.text == "/profile")
 async def show_profile_cmd(message: types.Message):
@@ -105,29 +111,87 @@ async def show_chats(message: types.Message):
     await message.answer("У вас пока нет активных диалогов.")
 
 @router.message(F.text == "🔗 Подключить Google Календарь")
-async def connect_google_calendar(message: types.Message):
-    from src.utils.config import settings
-    if not settings.GOOGLE_CLIENT_ID:
-        await message.answer("Настройка Google Calendar временно недоступна. Обратитесь к администратору.")
-        return
+@router.callback_query(F.data == "trainer_connect_google")
+async def connect_google_calendar(event: types.Message | types.CallbackQuery):
+    message = event if isinstance(event, types.Message) else event.message
+    user_id = event.from_user.id
 
-    # Simple placeholder for OAuth flow
-    auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?client_id={settings.GOOGLE_CLIENT_ID}&redirect_uri={settings.GOOGLE_REDIRECT_URI}&response_type=code&scope=https://www.googleapis.com/auth/calendar&access_type=offline&prompt=consent"
+    async with SessionLocal() as session:
+        from src.models.models import TrainerSchedule
+        stmt = select(TrainerSchedule).where(TrainerSchedule.trainer_id == user_id)
+        res = await session.execute(stmt)
+        schedule = res.scalar_one_or_none()
 
-    kb = types.InlineKeyboardMarkup(
-        inline_keyboard=[
-            [types.InlineKeyboardButton(text="Авторизоваться в Google", url=auth_url)]
-        ]
+        if schedule and schedule.google_refresh_token:
+            keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+                [types.InlineKeyboardButton(text="🔄 Переподключить", callback_data="trainer_google_reconnect")],
+                [types.InlineKeyboardButton(text="🔌 Отключить", callback_data="trainer_google_disconnect")],
+                [types.InlineKeyboardButton(text="⚙️ Настройки синхронизации", callback_data="trainer_google_settings")],
+                [types.InlineKeyboardButton(text="🔙 Назад", callback_data="trainer_menu")],
+            ])
+            text = (
+                "✅ **Google Календарь подключён!**\n\n"
+                f"📅 ID календаря: `{schedule.google_calendar_id}`\n"
+                f"⏰ Часовой пояс: {schedule.timezone}\n"
+                f"⏱ Длительность слота: {schedule.slot_duration} мин.\n\n"
+                "Все записи клиентов будут автоматически добавляться в ваш Google Календарь."
+            )
+            if isinstance(event, types.Message):
+                await message.answer(text, reply_markup=keyboard, parse_mode="Markdown")
+            else:
+                await event.message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
+            return
+
+        # Not connected, show instruction
+        instruction_text = (
+            "📋 **Как подключить Google Календарь**\n\n"
+            "1️⃣ Перейдите в [Google Cloud Console](https://console.cloud.google.com/)\n"
+            "2️⃣ Создайте новый проект или выберите существующий\n"
+            "3️⃣ Включите **Google Calendar API**\n"
+            "4️⃣ Создайте **OAuth 2.0 Client ID** (тип: Desktop app или Web application)\n"
+            "5️⃣ Скопируйте **Client ID** и **Client Secret**\n"
+            "6️⃣ Нажмите кнопку **«У меня есть ключи»** ниже\n\n"
+            "⚠️ Сохраните ключи — они понадобятся только один раз."
+        )
+
+        keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+            [types.InlineKeyboardButton(text="🔑 У меня есть Client ID и Secret", callback_data="trainer_google_enter_keys")],
+            [types.InlineKeyboardButton(text="🔙 Назад", callback_data="trainer_menu")],
+        ])
+
+        if isinstance(event, types.Message):
+            await message.answer(instruction_text, reply_markup=keyboard, parse_mode="Markdown", disable_web_page_preview=True)
+        else:
+            await event.message.edit_text(instruction_text, reply_markup=keyboard, parse_mode="Markdown", disable_web_page_preview=True)
+
+@router.callback_query(F.data == "trainer_google_enter_keys")
+async def start_enter_keys(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.edit_text(
+        "🔑 **Введите ваш Google Client ID**\n\n"
+        "Он выглядит примерно так:\n"
+        "`123456789012-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com`\n\n"
+        "Отправьте его одним сообщением:"
     )
+    await state.set_state(GoogleKeysState.waiting_for_client_id)
+    await callback.answer()
+
+@router.message(GoogleKeysState.waiting_for_client_id)
+async def get_client_id(message: types.Message, state: FSMContext):
+    await state.update_data(client_id=message.text.strip())
     await message.answer(
-        "Для синхронизации расписания необходимо подключить ваш Google Календарь.\n\n"
-        "Нажмите кнопку ниже для авторизации. После авторизации скопируйте код и отправьте его сюда (имитация):",
-        reply_markup=kb
+        "🔐 **Введите ваш Google Client Secret**\n\n"
+        "Он выглядит примерно так:\n"
+        "`GOCSPX-xxxxxxxxxxxxxxxxxxxx`\n\n"
+        "Отправьте его одним сообщением:"
     )
+    await state.set_state(GoogleKeysState.waiting_for_client_secret)
 
-@router.message(F.text.startswith("4/"), F.from_user.id.in_(lambda data: True)) # Mock check
-async def mock_oauth_code_handler(message: types.Message):
-    # This is a very rough mock of handling an OAuth code
+@router.message(GoogleKeysState.waiting_for_client_secret)
+async def get_client_secret(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    client_id = data.get("client_id")
+    client_secret = message.text.strip()
+
     async with SessionLocal() as session:
         from src.models.models import TrainerSchedule
         stmt = select(TrainerSchedule).where(TrainerSchedule.trainer_id == message.from_user.id)
@@ -138,9 +202,53 @@ async def mock_oauth_code_handler(message: types.Message):
             sched = TrainerSchedule(trainer_id=message.from_user.id)
             session.add(sched)
 
-        sched.google_refresh_token = "mock_refresh_token"
+        # Here we mock the integration for now
+        sched.google_refresh_token = f"mock_{client_id[:10]}_{client_secret[:5]}"
         sched.google_calendar_id = "primary"
         sched.sync_enabled = True
         await session.commit()
 
-    await message.answer("✅ Google Календарь успешно подключен! Теперь ваши занятия будут синхронизироваться.")
+    await state.clear()
+    await message.answer("✅ **Ключи сохранены!**\n\nВыполняется подключение к Google... (имитация)\n\nGoogle Календарь успешно подключен!")
+
+@router.callback_query(F.data == "trainer_google_reconnect")
+async def trainer_google_reconnect(callback: types.CallbackQuery, state: FSMContext):
+    await start_enter_keys(callback, state)
+
+@router.callback_query(F.data == "trainer_google_disconnect")
+async def trainer_google_disconnect(callback: types.CallbackQuery):
+    async with SessionLocal() as session:
+        from src.models.models import TrainerSchedule
+        stmt = select(TrainerSchedule).where(TrainerSchedule.trainer_id == callback.from_user.id)
+        res = await session.execute(stmt)
+        sched = res.scalar_one_or_none()
+        if sched:
+            sched.google_refresh_token = None
+            sched.sync_enabled = False
+            await session.commit()
+    await callback.message.edit_text("🔌 Google Календарь отключен.")
+    await callback.answer()
+
+@router.callback_query(F.data == "trainer_google_settings")
+async def trainer_google_settings(callback: types.CallbackQuery):
+    await callback.message.answer("Здесь вы сможете настроить часовой пояс и длительность слотов (в разработке).")
+    await callback.answer()
+
+@router.callback_query(F.data == "trainer_menu")
+async def trainer_menu_redirect(callback: types.CallbackQuery):
+    await show_profile(callback.message, is_admin=False) # Simplified, middleware would handle is_admin
+    await callback.answer()
+
+@router.message(F.text == "📋 Инструкции")
+async def show_instructions_detailed(message: types.Message):
+    instruction = (
+        "📋 **Инструкция по настройке Google API:**\n\n"
+        "1. Зайдите на [console.cloud.google.com](https://console.cloud.google.com/)\n"
+        "2. Создайте проект 'NewFit'\n"
+        "3. В поиске найдите 'Google Calendar API' и нажмите 'Enable'\n"
+        "4. Перейдите в 'Credentials' -> 'Create Credentials' -> 'OAuth client ID'\n"
+        "5. Выберите 'Web application'\n"
+        "6. Добавьте Authorized redirect URIs: `https://your-bot.railway.app/oauth2callback`\n"
+        "7. Скопируйте Client ID и Client Secret и введите их в боте через меню подключения."
+    )
+    await message.answer(instruction, parse_mode="Markdown", disable_web_page_preview=True)
