@@ -27,7 +27,6 @@ async def admin_panel(message: Message, is_admin: bool = False):
         [InlineKeyboardButton(text="👤 Войти как клиент", callback_data="admin_impersonate_client")],
         [InlineKeyboardButton(text="🔓 Выйти из режима тестирования", callback_data="admin_stop_impersonate")],
         [InlineKeyboardButton(text="📋 Список админов", callback_data="admin_list")],
-        [InlineKeyboardButton(text="📋 Список админов", callback_data="admin_list")],
         [InlineKeyboardButton(text="🗑 Удалить админа", callback_data="admin_remove")],
         [InlineKeyboardButton(text="🛠 Переключить тестовый режим", callback_data="admin_toggle_test")],
         [InlineKeyboardButton(text="🧹 Очистить тестовые данные", callback_data="admin_clear_test_data")],
@@ -195,8 +194,15 @@ async def admin_start_over(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     from src.handlers.start import cmd_start
     await callback.message.delete()
+
+    # Create a dummy message object with correctly assigned from_user
+    new_message = callback.message.model_copy(update={
+        "from_user": callback.from_user,
+        "text": "/start"
+    })
+
     # Call cmd_start. Note: is_admin should be True since we are in admin panel
-    await cmd_start(callback.message, is_admin=True)
+    await cmd_start(new_message, is_admin=True)
     await callback.answer()
 
 @router.callback_query(F.data == "admin_back")

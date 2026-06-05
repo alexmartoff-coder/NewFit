@@ -121,6 +121,8 @@ class TrainerSchedule(Base):
 
     id = Column(Integer, primary_key=True)
     trainer_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, unique=True)
+    google_client_id = Column(String(200), nullable=True)
+    google_client_secret = Column(String(200), nullable=True)
     google_calendar_id = Column(String(200), nullable=True)
     google_refresh_token = Column(Text, nullable=True)
     google_access_token = Column(Text, nullable=True)

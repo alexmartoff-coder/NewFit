@@ -69,10 +69,11 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
     await callback.answer()
 
 @router.callback_query(F.data == "confirm_booking", BookingSession.confirming_booking)
-async def confirm_booking(callback: types.CallbackQuery, state: FSMContext):
+async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
     data = await state.get_data()
     slot_id = data['slot_id']
     trainer_id = data['trainer_id']
+    user_id = effective_user_id or callback.from_user.id
 
     async with SessionLocal() as session:
         # Re-check slot status inside transaction
@@ -80,13 +81,13 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext):
         if slot and slot.status == "free":
             # 1. Update slot status
             slot.status = "booked"
-            slot.client_id = callback.from_user.id
+            slot.client_id = user_id
 
             # 2. Create Booking record
             new_booking = Booking(
                 slot_id=slot_id,
                 trainer_id=trainer_id,
-                client_id=callback.from_user.id,
+                client_id=user_id,
                 status="confirmed"
             )
             session.add(new_booking)
