@@ -1,6 +1,8 @@
 from aiogram import Router, types, F
 from aiogram.filters import CommandStart
 from src.keyboards.common import get_role_kb
+from src.models.models import User, UserRole
+from src.utils.db import SessionLocal
 
 router = Router()
 
