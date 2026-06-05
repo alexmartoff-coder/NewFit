@@ -31,6 +31,7 @@ async def admin_panel(message: Message, is_admin: bool = False):
         [InlineKeyboardButton(text="🗑 Удалить админа", callback_data="admin_remove")],
         [InlineKeyboardButton(text="🛠 Переключить тестовый режим", callback_data="admin_toggle_test")],
         [InlineKeyboardButton(text="🧹 Очистить тестовые данные", callback_data="admin_clear_test_data")],
+        [InlineKeyboardButton(text="🔄 Начать с начала", callback_data="admin_start_over")],
     ])
 
     await message.answer("🛠 **Админ-панель NewFit**\n\nВыберите действие:", reply_markup=keyboard, parse_mode="Markdown")
@@ -189,6 +190,15 @@ async def clear_test_data(callback: CallbackQuery):
     await callback.message.answer("✅ Все тестовые данные удалены")
     await callback.answer()
 
+@router.callback_query(F.data == "admin_start_over")
+async def admin_start_over(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    from src.handlers.start import cmd_start
+    await callback.message.delete()
+    # Call cmd_start. Note: is_admin should be True since we are in admin panel
+    await cmd_start(callback.message, is_admin=True)
+    await callback.answer()
+
 @router.callback_query(F.data == "admin_back")
 async def back_to_admin(callback: CallbackQuery):
     # Pass False for is_admin because back_to_admin is called from callback,
@@ -202,5 +212,8 @@ async def back_to_admin(callback: CallbackQuery):
             [InlineKeyboardButton(text="🔓 Выйти из режима тестирования", callback_data="admin_stop_impersonate")],
             [InlineKeyboardButton(text="📋 Список админов", callback_data="admin_list")],
             [InlineKeyboardButton(text="🗑 Удалить админа", callback_data="admin_remove")],
+            [InlineKeyboardButton(text="🛠 Переключить тестовый режим", callback_data="admin_toggle_test")],
+            [InlineKeyboardButton(text="🧹 Очистить тестовые данные", callback_data="admin_clear_test_data")],
+            [InlineKeyboardButton(text="🔄 Начать с начала", callback_data="admin_start_over")],
         ]),
         parse_mode="Markdown")
