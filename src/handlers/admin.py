@@ -15,6 +15,15 @@ from aiogram.fsm.state import State, StatesGroup
 class AddAdminState(StatesGroup):
     waiting_for_id = State()
 
+@router.callback_query(F.data == "admin_panel")
+async def admin_button_handler(callback: CallbackQuery, is_admin: bool = False):
+    """Вызывает админ-панель при нажатии кнопки Админ"""
+    if not is_admin:
+        await callback.answer("❌ У вас нет доступа.", show_alert=True)
+        return
+    await admin_panel(callback.message, is_admin=True)
+    await callback.answer()
+
 @router.message(Command("admin"))
 async def admin_panel(message: Message, is_admin: bool = False):
     if not is_admin:

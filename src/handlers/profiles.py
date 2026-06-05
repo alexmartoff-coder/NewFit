@@ -3,6 +3,7 @@ from sqlalchemy import select
 from src.models.models import User, TrainerProfile, ClientProfile, UserRole
 from src.utils.db import SessionLocal
 from src.keyboards.common import get_trainer_main_kb, get_client_main_kb
+from src.keyboards.inline import add_admin_button
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
@@ -114,7 +115,7 @@ async def show_chats(message: types.Message):
 
 @router.message(F.text == "🔗 Подключить Google Календарь")
 @router.callback_query(F.data == "trainer_connect_google")
-async def connect_google_calendar(event: types.Message | types.CallbackQuery, effective_user_id: int = None):
+async def connect_google_calendar(event: types.Message | types.CallbackQuery, effective_user_id: int = None, is_admin: bool = False):
     message = event if isinstance(event, types.Message) else event.message
     user_id = effective_user_id or event.from_user.id
 
@@ -131,6 +132,7 @@ async def connect_google_calendar(event: types.Message | types.CallbackQuery, ef
                 [types.InlineKeyboardButton(text="⚙️ Настройки синхронизации", callback_data="trainer_google_settings")],
                 [types.InlineKeyboardButton(text="🔙 Назад", callback_data="trainer_menu")],
             ])
+            keyboard = add_admin_button(keyboard, is_admin=is_admin)
             text = (
                 "✅ **Google Календарь подключён!**\n\n"
                 f"📅 ID календаря: `{schedule.google_calendar_id}`\n"
@@ -160,6 +162,7 @@ async def connect_google_calendar(event: types.Message | types.CallbackQuery, ef
             [types.InlineKeyboardButton(text="🔑 У меня есть Client ID и Secret", callback_data="trainer_google_enter_keys")],
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data="trainer_menu")],
         ])
+        keyboard = add_admin_button(keyboard, is_admin=is_admin)
 
         if isinstance(event, types.Message):
             await message.answer(instruction_text, reply_markup=keyboard, parse_mode="Markdown", disable_web_page_preview=True)

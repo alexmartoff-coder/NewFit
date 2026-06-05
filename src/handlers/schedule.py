@@ -4,6 +4,7 @@ from aiogram.fsm.state import State, StatesGroup
 from sqlalchemy import select, delete, and_
 from src.models.models import User, TimeSlot, TrainerSchedule
 from src.utils.db import SessionLocal
+from src.keyboards.inline import add_admin_button
 from datetime import datetime, timedelta, time
 import logging
 
@@ -16,7 +17,7 @@ class ScheduleState(StatesGroup):
 
 @router.message(F.text == "📆 Расписание и запись")
 @router.message(F.text == "/schedule")
-async def show_schedule_menu(message: types.Message):
+async def show_schedule_menu(message: types.Message, is_admin: bool = False):
     kb = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [types.InlineKeyboardButton(text="📅 Посмотреть слоты", callback_data="sche_view")],
@@ -24,10 +25,11 @@ async def show_schedule_menu(message: types.Message):
             [types.InlineKeyboardButton(text="🗑 Удалить слот", callback_data="sche_del")]
         ]
     )
+    kb = add_admin_button(kb, is_admin=is_admin)
     await message.answer("Управление вашим расписанием:", reply_markup=kb)
 
 @router.callback_query(F.data == "sche_view")
-async def view_slots(callback: types.CallbackQuery):
+async def view_slots(callback: types.CallbackQuery, is_admin: bool = False):
     async with SessionLocal() as session:
         now = datetime.now()
         stmt = select(TimeSlot).where(
@@ -37,10 +39,13 @@ async def view_slots(callback: types.CallbackQuery):
         res = await session.execute(stmt)
         slots = res.scalars().all()
 
+        kb_back = types.InlineKeyboardMarkup(
+            inline_keyboard=[[types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")]]
+        )
+        kb_back = add_admin_button(kb_back, is_admin=is_admin)
+
         if not slots:
-            await callback.message.edit_text("У вас пока нет запланированных слотов.", reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")]]
-            ))
+            await callback.message.edit_text("У вас пока нет запланированных слотов.", reply_markup=kb_back)
             return
 
         text = "Ваши ближайшие слоты:\n\n"
@@ -48,9 +53,7 @@ async def view_slots(callback: types.CallbackQuery):
             status_icon = "🟢" if s.status == "free" else "🔴"
             text += f"{status_icon} {s.start_time.strftime('%d.%m %H:%M')} - {s.status}\n"
 
-        await callback.message.edit_text(text, reply_markup=types.InlineKeyboardMarkup(
-            inline_keyboard=[[types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")]]
-        ))
+        await callback.message.edit_text(text, reply_markup=kb_back)
     await callback.answer()
 
 @router.callback_query(F.data == "sche_add")
@@ -100,7 +103,7 @@ async def add_slot_time(message: types.Message, state: FSMContext):
         await message.answer("Неверный формат времени. Используйте ЧЧ:ММ:")
 
 @router.callback_query(F.data == "sche_back")
-async def sche_back(callback: types.CallbackQuery):
+async def sche_back(callback: types.CallbackQuery, is_admin: bool = False):
     kb = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [types.InlineKeyboardButton(text="📅 Посмотреть слоты", callback_data="sche_view")],
@@ -108,5 +111,6 @@ async def sche_back(callback: types.CallbackQuery):
             [types.InlineKeyboardButton(text="🗑 Удалить слот", callback_data="sche_del")]
         ]
     )
+    kb = add_admin_button(kb, is_admin=is_admin)
     await callback.message.edit_text("Управление вашим расписанием:", reply_markup=kb)
     await callback.answer()

@@ -3,6 +3,7 @@ from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from src.states.trainer_onboarding import TrainerOnboarding
 from src.keyboards.common import get_format_kb, get_trainer_main_kb, get_start_reg_kb, get_spec_kb, get_city_kb, get_client_main_kb
+from src.keyboards.inline import add_admin_button
 from src.models.models import User, TrainerProfile, UserRole, WorkFormat, Specialization
 from src.utils.db import SessionLocal
 from sqlalchemy import select
@@ -12,12 +13,14 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 @router.message(F.text == "👨‍🏫 Я тренер")
-async def trainer_start(message: types.Message, state: FSMContext):
+async def trainer_start(message: types.Message, state: FSMContext, is_admin: bool = False):
+    kb = get_start_reg_kb()
+    kb = add_admin_button(kb, is_admin=is_admin)
     await message.answer(
         "Отлично! Давайте создадим ваш профессиональный профиль в NewFit.\n\n"
         "Это займёт около 3-4 минут.\n\n"
         "Готовы начать?",
-        reply_markup=get_start_reg_kb()
+        reply_markup=kb
     )
 
 @router.callback_query(F.data == "start_registration")
@@ -36,11 +39,13 @@ async def process_name(message: types.Message, state: FSMContext):
     )
 
 @router.message(TrainerOnboarding.city)
-async def process_city(message: types.Message, state: FSMContext):
+async def process_city(message: types.Message, state: FSMContext, is_admin: bool = False):
     await state.update_data(city=message.text)
     await state.set_state(TrainerOnboarding.specialization)
     await state.update_data(specializations=[])
-    await message.answer("Шаг 3/9\n\nВыберите ваши основные направления (можно несколько):", reply_markup=get_spec_kb())
+    kb = get_spec_kb()
+    kb = add_admin_button(kb, is_admin=is_admin)
+    await message.answer("Шаг 3/9\n\nВыберите ваши основные направления (можно несколько):", reply_markup=kb)
 
 @router.callback_query(F.data.startswith("spec_"), TrainerOnboarding.specialization)
 async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext):
@@ -80,10 +85,12 @@ async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext
     await callback.answer()
 
 @router.message(TrainerOnboarding.experience)
-async def process_experience(message: types.Message, state: FSMContext):
+async def process_experience(message: types.Message, state: FSMContext, is_admin: bool = False):
     await state.update_data(experience=message.text)
     await state.set_state(TrainerOnboarding.formats)
-    await message.answer("Шаг 5/9\n\nКакие форматы вы предлагаете?", reply_markup=get_format_kb())
+    kb = get_format_kb()
+    kb = add_admin_button(kb, is_admin=is_admin)
+    await message.answer("Шаг 5/9\n\nКакие форматы вы предлагаете?", reply_markup=kb)
 
 @router.callback_query(F.data.startswith("fmt_"), TrainerOnboarding.formats)
 async def process_formats_callback(callback: types.CallbackQuery, state: FSMContext):
@@ -119,16 +126,18 @@ async def process_price_package(message: types.Message, state: FSMContext):
         await message.answer("Пожалуйста, введите число.")
 
 @router.message(TrainerOnboarding.photo, F.photo)
-async def process_photo(message: types.Message, state: FSMContext):
+async def process_photo(message: types.Message, state: FSMContext, is_admin: bool = False):
     photo_id = message.photo[-1].file_id
     await state.update_data(photo_url=photo_id)
     await state.set_state(TrainerOnboarding.video)
+    kb = types.InlineKeyboardMarkup(
+        inline_keyboard=[[types.InlineKeyboardButton(text="Пропустить", callback_data="skip_video")]]
+    )
+    kb = add_admin_button(kb, is_admin=is_admin)
     await message.answer(
         "Шаг 9/9\n\nЗагрузите короткое видео-презентацию (15–60 секунд).\n"
         "Это очень важно для клиентов! Вы также можете пропустить этот шаг.",
-        reply_markup=types.InlineKeyboardMarkup(
-            inline_keyboard=[[types.InlineKeyboardButton(text="Пропустить", callback_data="skip_video")]]
-        )
+        reply_markup=kb
     )
 
 @router.callback_query(F.data == "skip_video", TrainerOnboarding.video)
