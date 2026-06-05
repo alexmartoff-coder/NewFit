@@ -191,18 +191,18 @@ async def clear_test_data(callback: CallbackQuery):
 
 @router.callback_query(F.data == "admin_start_over")
 async def admin_start_over(callback: CallbackQuery, state: FSMContext):
+    # Очищаем состояние FSM (если было)
     await state.clear()
-    from src.handlers.start import cmd_start
-    await callback.message.delete()
 
-    # Create a dummy message object with correctly assigned from_user
-    new_message = callback.message.model_copy(update={
-        "from_user": callback.from_user,
-        "text": "/start"
-    })
+    from src.keyboards.common import get_role_kb
 
-    # Call cmd_start. Note: is_admin should be True since we are in admin panel
-    await cmd_start(new_message, is_admin=True)
+    await callback.message.delete()  # удаляем сообщение с админ-панелью
+    await callback.message.answer(
+        "🔄 Перезапуск бота...\n\n"
+        "Добро пожаловать в NewFit — экосистему для фитнеса будущего! 🔥\n\n"
+        "Выберите свою роль:",
+        reply_markup=get_role_kb(is_admin=True)
+    )
     await callback.answer()
 
 @router.callback_query(F.data == "admin_back")
