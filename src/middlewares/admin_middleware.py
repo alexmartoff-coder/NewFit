@@ -16,8 +16,20 @@ class AdminMiddleware(BaseMiddleware):
         data["is_admin"] = False
         data["can_test_trainer"] = False
         data["can_test_client"] = False
-        data["impersonate_trainer_id"] = None
-        data["impersonate_client_id"] = None
+        data["is_test_mode"] = False
+
+        # Check if impersonation is active from FSM
+        state = data.get("state")
+        if state:
+            fsm_data = await state.get_data()
+            imp_trainer_id = fsm_data.get("impersonate_trainer_id")
+            imp_client_id = fsm_data.get("impersonate_client_id")
+            if imp_trainer_id:
+                # Override event's effective user ID for the handler
+                # Note: Aiogram events are immutable-ish, we just pass the info in data
+                data["effective_user_id"] = imp_trainer_id
+            if fsm_data.get("is_test_mode"):
+                data["is_test_mode"] = True
 
         if user_id == OWNER_ID:
             data["is_owner"] = True

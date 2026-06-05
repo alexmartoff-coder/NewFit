@@ -34,12 +34,11 @@ async def cmd_start(message: types.Message, is_admin: bool = False):
     )
 
 @router.message(F.text == "🛠 Админ")
-async def admin_button_handler(message: types.Message):
-    # This will be caught by /admin command handler in admin.py
-    # but we can also trigger it manually or redirect
+async def admin_button_handler(message: types.Message, is_admin: bool = False):
+    if not is_admin:
+        await message.answer("❌ У вас нет доступа к этому разделу.")
+        return
     from src.handlers.admin import admin_panel
-    from middlewares.admin_middleware import OWNER_ID
-    # Simple check, real check is in middleware
     await admin_panel(message, is_admin=True)
 
 @router.message(F.text == "❓ Узнать больше о NewFit")

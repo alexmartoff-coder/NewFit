@@ -27,7 +27,9 @@ async def admin_panel(message: Message, is_admin: bool = False):
         [InlineKeyboardButton(text="👤 Войти как клиент", callback_data="admin_impersonate_client")],
         [InlineKeyboardButton(text="🔓 Выйти из режима тестирования", callback_data="admin_stop_impersonate")],
         [InlineKeyboardButton(text="📋 Список админов", callback_data="admin_list")],
+        [InlineKeyboardButton(text="📋 Список админов", callback_data="admin_list")],
         [InlineKeyboardButton(text="🗑 Удалить админа", callback_data="admin_remove")],
+        [InlineKeyboardButton(text="🛠 Переключить тестовый режим", callback_data="admin_toggle_test")],
         [InlineKeyboardButton(text="🧹 Очистить тестовые данные", callback_data="admin_clear_test_data")],
     ])
 
@@ -167,6 +169,16 @@ async def stop_impersonate(callback: CallbackQuery, state: FSMContext):
     await state.update_data(impersonate_trainer_id=None, impersonate_client_id=None)
     await callback.message.edit_text("✅ Режим тестирования отключён. Вы снова в админ-панели.")
 
+
+@router.callback_query(F.data == "admin_toggle_test")
+async def toggle_test_mode(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    current_mode = data.get("is_test_mode", False)
+    new_mode = not current_mode
+    await state.update_data(is_test_mode=new_mode)
+    status = "ВКЛЮЧЕН" if new_mode else "ВЫКЛЮЧЕН"
+    await callback.answer(f"Тестовый режим {status}")
+    await callback.message.answer(f"🛠 Тестовый режим теперь {status}. Новые пользователи будут помечаться как тестовые.")
 
 @router.callback_query(F.data == "admin_clear_test_data")
 async def clear_test_data(callback: CallbackQuery):
