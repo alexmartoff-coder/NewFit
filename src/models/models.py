@@ -35,7 +35,8 @@ class User(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True) # Telegram ID
     username: Mapped[Optional[str]] = mapped_column(String(64))
     full_name: Mapped[str] = mapped_column(String(128))
-    role: Mapped[UserRole] = mapped_column(SQLEnum(UserRole))
+    role: Mapped[UserRole] = mapped_column(SQLEnum(UserRole), nullable=True)
+    is_test: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     trainer_profile: Mapped["TrainerProfile"] = relationship(back_populates="user", cascade="all, delete-orphan")

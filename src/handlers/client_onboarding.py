@@ -7,7 +7,7 @@ from src.keyboards.common import get_client_main_kb
 router = Router()
 
 @router.message(F.text == "🏋️‍♀️ Я клиент")
-async def client_start(message: types.Message):
+async def client_start(message: types.Message, is_admin: bool = False):
     async with SessionLocal() as session:
         user = await session.get(User, message.from_user.id)
         if not user:
@@ -34,5 +34,5 @@ async def client_start(message: types.Message):
     await message.answer(
         "🏋️‍♀️ NewFit — найди своего тренера\n\n"
         "Что хотите сделать?",
-        reply_markup=get_client_main_kb()
+        reply_markup=get_client_main_kb(is_admin=is_admin)
     )

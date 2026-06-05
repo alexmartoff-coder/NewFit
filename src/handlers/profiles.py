@@ -32,7 +32,7 @@ async def show_profile_cmd(message: types.Message):
             await message.answer(f"👤 Профиль клиента: {user.full_name}")
 
 @router.message(F.text == "👤 Мой профиль")
-async def show_profile(message: types.Message):
+async def show_profile(message: types.Message, is_admin: bool = False):
     async with SessionLocal() as session:
         user = await session.get(User, message.from_user.id)
         if not user:
@@ -40,9 +40,9 @@ async def show_profile(message: types.Message):
             return
 
         if user.role == UserRole.TRAINER:
-            await message.answer("👨‍🏫 Личный кабинет тренера\n\nВыберите раздел:", reply_markup=get_trainer_main_kb())
+            await message.answer("👨‍🏫 Личный кабинет тренера\n\nВыберите раздел:", reply_markup=get_trainer_main_kb(is_admin=is_admin))
         elif user.role == UserRole.CLIENT:
-            await message.answer("🏋️‍♀️ Личный кабинет клиента\n\nВыберите раздел:", reply_markup=get_client_main_kb())
+            await message.answer("🏋️‍♀️ Личный кабинет клиента\n\nВыберите раздел:", reply_markup=get_client_main_kb(is_admin=is_admin))
 
 @router.message(F.text == "📆 Расписание и запись")
 @router.message(F.text == "/schedule")
@@ -103,3 +103,24 @@ async def show_challenges(message: types.Message):
 @router.message(F.text == "💬 Мои чаты с тренерами")
 async def show_chats(message: types.Message):
     await message.answer("У вас пока нет активных диалогов.")
+
+@router.message(F.text == "🔗 Подключить Google Календарь")
+async def connect_google_calendar(message: types.Message):
+    from src.utils.config import settings
+    if not settings.GOOGLE_CLIENT_ID:
+        await message.answer("Настройка Google Calendar временно недоступна. Обратитесь к администратору.")
+        return
+
+    # Simple placeholder for OAuth flow
+    auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?client_id={settings.GOOGLE_CLIENT_ID}&redirect_uri={settings.GOOGLE_REDIRECT_URI}&response_type=code&scope=https://www.googleapis.com/auth/calendar&access_type=offline&prompt=consent"
+
+    kb = types.InlineKeyboardMarkup(
+        inline_keyboard=[
+            [types.InlineKeyboardButton(text="Авторизоваться в Google", url=auth_url)]
+        ]
+    )
+    await message.answer(
+        "Для синхронизации расписания необходимо подключить ваш Google Календарь.\n\n"
+        "Нажмите кнопку ниже для авторизации:",
+        reply_markup=kb
+    )
