@@ -1,6 +1,6 @@
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from src.models.models import TrainerProfile, User, Specialization
 from src.utils.db import SessionLocal
 from src.keyboards.catalog import get_filter_kb, get_price_filter_kb
@@ -90,14 +90,23 @@ async def filter_reset(callback: types.CallbackQuery, state: FSMContext, is_admi
     await callback.answer()
 
 @router.callback_query(F.data == "filter_apply")
+@router.callback_query(F.data.startswith("cat_page_"))
 async def apply_filters(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
+
+    page = 0
+    if callback.data.startswith("cat_page_"):
+        page = int(callback.data.split("_")[2])
+
+    limit = 5
+    offset = page * limit
+
     async with SessionLocal() as session:
         query = select(TrainerProfile, User).join(User, TrainerProfile.user_id == User.id)
 
-        filters = []
+        filters = [TrainerProfile.status == "approved"]
         if 'city' in data:
-            filters.append(TrainerProfile.city.ilike(f"%{data['city']}%"))
+            filters.append(func.lower(TrainerProfile.city) == func.lower(data['city']))
         if 'price_min' in data:
             filters.append(TrainerProfile.price_single >= data['price_min'])
         if 'price_max' in data:
@@ -118,6 +127,13 @@ async def apply_filters(callback: types.CallbackQuery, state: FSMContext):
                 await callback.message.answer("Тренеры с такой специализацией не найдены.")
                 await callback.answer()
                 return
+
+        # Total count for pagination
+        count_query = select(func.count()).select_from(query.subquery())
+        total_res = await session.execute(count_query)
+        total_count = total_res.scalar_one()
+
+        query = query.offset(offset).limit(limit)
 
         result = await session.execute(query)
         trainers = result.all()
@@ -144,5 +160,18 @@ async def apply_filters(callback: types.CallbackQuery, state: FSMContext):
                     await callback.message.answer_photo(trainer_profile.photo_url, caption=text, reply_markup=kb)
                 else:
                     await callback.message.answer(text, reply_markup=kb)
+
+            # Pagination buttons
+            pagination_buttons = []
+            if page > 0:
+                pagination_buttons.append(types.InlineKeyboardButton(text="⬅️ Назад", callback_data=f"cat_page_{page-1}"))
+            if offset + limit < total_count:
+                pagination_buttons.append(types.InlineKeyboardButton(text="Вперёд ➡️", callback_data=f"cat_page_{page+1}"))
+
+            if pagination_buttons:
+                await callback.message.answer(
+                    f"Страница {page+1} из {(total_count + limit - 1) // limit}",
+                    reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[pagination_buttons])
+                )
 
     await callback.answer()
