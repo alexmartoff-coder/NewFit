@@ -30,8 +30,9 @@ async def start_reg(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @router.message(TrainerOnboarding.full_name)
-async def process_name(message: types.Message, state: FSMContext):
-    await state.update_data(full_name=message.text)
+async def process_name(message: types.Message, state: FSMContext, effective_user_id: int = None):
+    user_id = effective_user_id or message.from_user.id
+    await state.update_data(full_name=message.text, telegram_id=user_id)
     await state.set_state(TrainerOnboarding.city)
     await message.answer(
         "Шаг 2/9\n\nУкажите город работы (или \"Онлайн\", если работаете только онлайн):",
@@ -148,22 +149,27 @@ async def process_photo(message: types.Message, state: FSMContext, is_admin: boo
     )
 
 @router.callback_query(F.data == "skip_video", TrainerOnboarding.video)
-async def skip_video(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
+async def skip_video(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     await callback.answer("Видео пропущено.")
     # Remove reply markup to avoid double clicking
     await callback.message.edit_reply_markup(reply_markup=None)
-    await finish_onboarding(callback.message, state, callback.from_user.id, callback.from_user.username, is_admin)
+    user_id = effective_user_id or callback.from_user.id
+    await finish_onboarding(callback.message, state, user_id, callback.from_user.username, is_admin)
 
 @router.message(TrainerOnboarding.video, F.video)
-async def process_video(message: types.Message, state: FSMContext, is_admin: bool = False):
+async def process_video(message: types.Message, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     video_id = message.video.file_id
     await state.update_data(video_url=video_id)
-    await finish_onboarding(message, state, message.from_user.id, message.from_user.username, is_admin)
+    user_id = effective_user_id or message.from_user.id
+    await finish_onboarding(message, state, user_id, message.from_user.username, is_admin)
 
 async def finish_onboarding(message: types.Message, state: FSMContext, user_id: int, username: str, is_admin: bool = False):
     try:
         data = await state.get_data()
         is_test = data.get("is_test_mode", False)
+        # Use telegram_id from state if available (set during process_name or start_reg)
+        # to ensure impersonation works correctly across all steps
+        user_id = data.get("telegram_id") or user_id
         photo_url = data.get('photo_url')
         video_url = data.get('video_url')
 
@@ -227,7 +233,8 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                     price_single=data.get('price_single', 0.0),
                     price_package=data.get('price_package', 0.0),
                     photo_url=photo_url,
-                    video_presentation_url=video_url
+                    video_presentation_url=video_url,
+                    status="approved" # Auto-approve for now
                 )
                 trainer_profile.specializations = specializations
                 session.add(trainer_profile)

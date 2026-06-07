@@ -40,10 +40,12 @@ async def process_filter_city(message: types.Message, state: FSMContext, is_admi
 @router.callback_query(F.data == "filter_spec")
 async def filter_spec(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
     await state.set_state(CatalogFilter.entering_specialization)
+    data = await state.get_data()
+    selected = data.get("specializations", [])
     from src.keyboards.common import get_spec_kb
-    kb = get_spec_kb()
+    kb = get_spec_kb(selected_specs=selected)
     kb = add_admin_button(kb, is_admin=is_admin)
-    await callback.message.edit_text("Выберите специализацию:", reply_markup=kb)
+    await callback.message.edit_text("Выберите направления (можно несколько):", reply_markup=kb)
     await callback.answer()
 
 @router.callback_query(F.data.startswith("spec_"), CatalogFilter.entering_specialization)
@@ -68,13 +70,18 @@ async def process_filter_spec_callback(callback: types.CallbackQuery, state: FSM
 
     spec = spec_map.get(callback.data)
     if spec:
-        await state.update_data(specialization=spec)
-        await callback.answer(f"Выбрано: {spec}")
+        data = await state.get_data()
+        specs = data.get('specializations', [])
+        if spec in specs:
+            specs.remove(spec)
+        else:
+            specs.append(spec)
+        await state.update_data(specializations=specs)
 
-        # In catalog, we probably just want to go back to filters or show confirmation
-        kb = get_filter_kb()
+        from src.keyboards.common import get_spec_kb
+        kb = get_spec_kb(selected_specs=specs)
         kb = add_admin_button(kb, is_admin=is_admin)
-        await callback.message.edit_text(f"Специализация установлена: {spec}\n\nВыберите другие фильтры или нажмите 'Показать':", reply_markup=kb)
+        await callback.message.edit_reply_markup(reply_markup=kb)
 
     await callback.answer()
 
@@ -143,16 +150,17 @@ async def apply_filters(callback: types.CallbackQuery, state: FSMContext):
         if filters:
             query = query.where(and_(*filters))
 
-        if 'specialization' in data:
-            # Filtering by specialization is more complex due to many-to-many
-            spec_query = select(Specialization.id).where(Specialization.name.ilike(f"%{data['specialization']}%"))
+        if 'specializations' in data and data['specializations']:
+            # Filtering by multiple specializations
+            spec_names = [s.lower() for s in data['specializations']]
+            spec_query = select(Specialization.id).where(func.lower(Specialization.name).in_(spec_names))
             spec_res = await session.execute(spec_query)
             spec_ids = spec_res.scalars().all()
             if spec_ids:
+                # Trainer must have AT LEAST ONE of the selected specializations
                 query = query.where(TrainerProfile.specializations.any(Specialization.id.in_(spec_ids)))
             else:
-                # No such specialization found
-                await callback.message.answer("Тренеры с такой специализацией не найдены.")
+                await callback.message.answer("Тренеры с выбранными специализациями не найдены.")
                 await callback.answer()
                 return
 

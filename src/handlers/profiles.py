@@ -49,9 +49,11 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
             return
 
         if user.role == UserRole.TRAINER:
-            await message.answer("👨‍🏫 Личный кабинет тренера\n\nВыберите раздел:", reply_markup=get_trainer_main_kb(is_admin=is_admin))
+            kb = get_trainer_main_kb(is_admin=is_admin)
+            await message.answer("👨‍🏫 Личный кабинет тренера\n\nВыберите раздел:", reply_markup=kb)
         elif user.role == UserRole.CLIENT:
-            await message.answer("🏋️‍♀️ Личный кабинет клиента\n\nВыберите раздел:", reply_markup=get_client_main_kb(is_admin=is_admin))
+            kb = get_client_main_kb(is_admin=is_admin)
+            await message.answer("🏋️‍♀️ Личный кабинет клиента\n\nВыберите раздел:", reply_markup=kb)
 
 @router.message(F.text == "📆 Расписание и запись")
 @router.message(F.text == "/schedule")
