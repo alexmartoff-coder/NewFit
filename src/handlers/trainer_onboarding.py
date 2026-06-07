@@ -82,6 +82,13 @@ async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext
             await callback.answer(f"Добавлено: {spec}")
         await state.update_data(specializations=specs)
 
+        # Update keyboard to show checkmarks
+        kb = get_spec_kb(selected_specs=specs)
+        # Assuming is_admin logic might be needed here too
+        # But wait, how to get is_admin in callback?
+        # Middleware should pass it if we add it to the signature.
+        await callback.message.edit_reply_markup(reply_markup=kb)
+
     await callback.answer()
 
 @router.message(TrainerOnboarding.experience)
@@ -121,7 +128,7 @@ async def process_price_package(message: types.Message, state: FSMContext):
         price = float(message.text)
         await state.update_data(price_package=price)
         await state.set_state(TrainerOnboarding.photo)
-        await message.answer("Шаг 8/9\n\nЗагрузите ваше фото в хорошем качестве (портрет):")
+        await message.answer("Шаг 8/9\n\nЗагрузите ваше фото в хорошем качестве (портрет):", reply_markup=types.ReplyKeyboardRemove())
     except ValueError:
         await message.answer("Пожалуйста, введите число.")
 
@@ -160,8 +167,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
         photo_url = data.get('photo_url')
         video_url = data.get('video_url')
 
-        session = SessionLocal()
-        try:
+        async with SessionLocal() as session:
             logger.info(f"Starting finish_onboarding for user {user_id}")
             # Specializations handling
             spec_names = [s.lower() for s in data.get('specializations', [])]
@@ -238,8 +244,6 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
 
             await session.commit()
             logger.info(f"Database commit successful for user {user_id}")
-        finally:
-            await session.close()
 
         await state.clear()
         await message.answer(

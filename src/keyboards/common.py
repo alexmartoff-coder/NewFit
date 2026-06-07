@@ -46,20 +46,30 @@ def get_format_kb():
         ]
     )
 
-def get_spec_kb():
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="Силовые тренировки", callback_data="spec_strength")],
-            [InlineKeyboardButton(text="Похудение и жиросжигание", callback_data="spec_weight_loss")],
-            [InlineKeyboardButton(text="Функциональный тренинг", callback_data="spec_func")],
-            [InlineKeyboardButton(text="Реабилитация и ОФП", callback_data="spec_rehab")],
-            [InlineKeyboardButton(text="Кроссфит / HIIT", callback_data="spec_crossfit")],
-            [InlineKeyboardButton(text="Тренировки для женщин/мужчин", callback_data="spec_gender")],
-            [InlineKeyboardButton(text="Работа с подростками", callback_data="spec_teens")],
-            [InlineKeyboardButton(text="Другое (свой вариант)", callback_data="spec_other")],
-            [InlineKeyboardButton(text="✅ Готово", callback_data="spec_done")]
-        ]
-    )
+def get_spec_kb(selected_specs: list = None):
+    if selected_specs is None:
+        selected_specs = []
+
+    specs = [
+        ("Силовые тренировки", "spec_strength"),
+        ("Похудение и жиросжигание", "spec_weight_loss"),
+        ("Функциональный тренинг", "spec_func"),
+        ("Реабилитация и ОФП", "spec_rehab"),
+        ("Кроссфит / HIIT", "spec_crossfit"),
+        ("Тренировки для женщин/мужчин", "spec_gender"),
+        ("Работа с подростками", "spec_teens"),
+        ("Другое (свой вариант)", "spec_other"),
+    ]
+
+    kb = []
+    for name, callback_data in specs:
+        text = name
+        if name in selected_specs:
+            text = f"✅ {name}"
+        kb.append([InlineKeyboardButton(text=text, callback_data=callback_data)])
+
+    kb.append([InlineKeyboardButton(text="🚀 Готово", callback_data="spec_done")])
+    return InlineKeyboardMarkup(inline_keyboard=kb)
 
 def get_start_reg_kb():
     return InlineKeyboardMarkup(
