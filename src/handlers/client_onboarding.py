@@ -7,12 +7,13 @@ from src.keyboards.common import get_client_main_kb
 router = Router()
 
 @router.message(F.text == "🏋️‍♀️ Я клиент")
-async def client_start(message: types.Message, is_admin: bool = False):
+async def client_start(message: types.Message, is_admin: bool = False, effective_user_id: int = None):
+    user_id = effective_user_id or message.from_user.id
     async with SessionLocal() as session:
-        user = await session.get(User, message.from_user.id)
+        user = await session.get(User, user_id)
         if not user:
             user = User(
-                id=message.from_user.id,
+                id=user_id,
                 username=message.from_user.username,
                 full_name=message.from_user.full_name,
                 role=UserRole.CLIENT
