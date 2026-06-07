@@ -38,17 +38,45 @@ async def process_filter_city(message: types.Message, state: FSMContext, is_admi
     )
 
 @router.callback_query(F.data == "filter_spec")
-async def filter_spec(callback: types.CallbackQuery, state: FSMContext):
+async def filter_spec(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
     await state.set_state(CatalogFilter.entering_specialization)
-    await callback.message.answer("Введите специализацию:")
+    from src.keyboards.common import get_spec_kb
+    kb = get_spec_kb()
+    kb = add_admin_button(kb, is_admin=is_admin)
+    await callback.message.edit_text("Выберите специализацию:", reply_markup=kb)
     await callback.answer()
 
-@router.message(CatalogFilter.entering_specialization)
-async def process_filter_spec(message: types.Message, state: FSMContext, is_admin: bool = False):
-    await state.update_data(specialization=message.text)
-    kb = get_filter_kb()
-    kb = add_admin_button(kb, is_admin=is_admin)
-    await message.answer(f"Специализация установлена: {message.text}", reply_markup=kb)
+@router.callback_query(F.data.startswith("spec_"), CatalogFilter.entering_specialization)
+async def process_filter_spec_callback(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
+    if callback.data == "spec_done":
+        kb = get_filter_kb()
+        kb = add_admin_button(kb, is_admin=is_admin)
+        await callback.message.edit_text("Фильтры настроены:", reply_markup=kb)
+        await callback.answer()
+        return
+
+    spec_map = {
+        "spec_strength": "Силовые тренировки",
+        "spec_weight_loss": "Похудение и жиросжигание",
+        "spec_func": "Функциональный тренинг",
+        "spec_rehab": "Реабилитация и ОФП",
+        "spec_crossfit": "Кроссфит / HIIT",
+        "spec_gender": "Тренировки для женщин/мужчин",
+        "spec_teens": "Работа с подростками",
+        "spec_other": "Другое"
+    }
+
+    spec = spec_map.get(callback.data)
+    if spec:
+        await state.update_data(specialization=spec)
+        await callback.answer(f"Выбрано: {spec}")
+
+        # In catalog, we probably just want to go back to filters or show confirmation
+        kb = get_filter_kb()
+        kb = add_admin_button(kb, is_admin=is_admin)
+        await callback.message.edit_text(f"Специализация установлена: {spec}\n\nВыберите другие фильтры или нажмите 'Показать':", reply_markup=kb)
+
+    await callback.answer()
 
 @router.callback_query(F.data == "filter_price")
 async def filter_price(callback: types.CallbackQuery, is_admin: bool = False):
