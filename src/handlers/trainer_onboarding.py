@@ -167,10 +167,12 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
         data = await state.get_data()
         photo_url = data.get('photo_url')
         video_url = data.get('video_url')
-        specializations_list = data.get('specializations', [])
+        spec_names = [s.lower() for s in data.get('specializations', [])]
 
         async with SessionLocal() as session:
-            # === 1. Работа с User ===
+            logger.info(f"Starting finish_onboarding for user {user_id}")
+
+            # === 1. User ===
             user = await session.get(User, user_id)
             if not user:
                 user = User(
@@ -186,9 +188,9 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 user.full_name = data.get('full_name', user.full_name)
                 user.username = username or user.username
 
-            await session.flush()  # Чтобы user.id точно существовал
+            await session.flush()
 
-            # === 2. Работа с TrainerProfile ===
+            # === 2. TrainerProfile ===
             stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
             res = await session.execute(stmt)
             trainer_profile = res.scalar_one_or_none()
@@ -197,64 +199,37 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 trainer_profile = TrainerProfile(
                     user_id=user_id,
                     city=data.get('city', 'Не указан'),
-                    experience=str(data.get('experience', '0')),
+                    experience=int(data.get('experience', 0)),
                     work_format=data.get('work_format', WorkFormat.ONLINE),
-                    price_single=data.get('price_single', 0.0),
-                    price_package=data.get('price_package', 0.0),
+                    price_single=float(data.get('price_single', 0)),
+                    price_package=float(data.get('price_package', 0)),
                     photo_url=photo_url,
                     video_presentation_url=video_url,
                     status="approved"
                 )
                 session.add(trainer_profile)
-                logger.info(f"Создан новый профиль тренера для user {user_id}")
+                logger.info(f"Новый профиль тренера создан для {user_id}")
             else:
-                # Обновляем существующий профиль
                 trainer_profile.city = data.get('city', trainer_profile.city)
-                trainer_profile.experience = str(data.get('experience', trainer_profile.experience))
+                trainer_profile.experience = int(data.get('experience', trainer_profile.experience))
                 trainer_profile.work_format = data.get('work_format', trainer_profile.work_format)
-                trainer_profile.price_single = data.get('price_single', trainer_profile.price_single)
-                trainer_profile.price_package = data.get('price_package', trainer_profile.price_package)
+                trainer_profile.price_single = float(data.get('price_single', trainer_profile.price_single))
+                trainer_profile.price_package = float(data.get('price_package', trainer_profile.price_package))
                 trainer_profile.photo_url = photo_url or trainer_profile.photo_url
                 trainer_profile.video_presentation_url = video_url or trainer_profile.video_presentation_url
                 trainer_profile.status = "approved"
-                logger.info(f"Обновлён существующий профиль тренера {user_id}")
-
-            # Специализации
-            if specializations_list:
-                # 1. Fetch existing specializations
-                spec_names = [s.lower() for s in specializations_list]
-                stmt = select(Specialization).where(Specialization.name.in_(spec_names))
-                res = await session.execute(stmt)
-                db_specs = list(res.scalars().all())
-                found_names = {s.name for s in db_specs}
-
-                # 2. Create missing specializations
-                for name in spec_names:
-                    if name not in found_names:
-                        try:
-                            async with session.begin_nested():
-                                new_spec = Specialization(name=name)
-                                session.add(new_spec)
-                                await session.flush()
-                                db_specs.append(new_spec)
-                        except:
-                            pass
-
-                # Link to profile
-                trainer_profile.specializations = db_specs
+                logger.info(f"Обновлён профиль тренера {user_id}")
 
             await session.commit()
-            logger.info(f"Регистрация тренера {user_id} успешно завершена")
+            logger.info(f"Регистрация тренера {user_id} завершена успешно")
 
         await state.clear()
 
         await message.answer(
-            "Поздравляем! 🎉\n\n"
-            "Ваш профиль создан и отправлен на модерацию.\n\n"
-            "Вы уже можете пользоваться кабинетом тренера.",
+            "Поздравляем! 🎉\n\nВаш профиль успешно создан!",
             reply_markup=get_trainer_main_kb(is_admin=is_admin)
         )
 
     except Exception as e:
         logger.exception("Error in finish_onboarding")
-        await message.answer("Произошла ошибка при сохранении профиля. Обратитесь в поддержку.")
+        await message.answer("Ошибка при сохранении профиля. Попробуйте ещё раз или напишите в поддержку.")
