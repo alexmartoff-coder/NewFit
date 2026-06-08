@@ -93,11 +93,16 @@ async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext
 
 @router.message(TrainerOnboarding.experience)
 async def process_experience(message: types.Message, state: FSMContext, is_admin: bool = False):
-    await state.update_data(experience=message.text)
-    await state.set_state(TrainerOnboarding.formats)
-    kb = get_format_kb()
-    kb = add_admin_button(kb, is_admin=is_admin)
-    await message.answer("Шаг 5/9\n\nКакие форматы вы предлагаете?", reply_markup=kb)
+    try:
+        # Enforce numeric input for experience since the DB column is now Integer
+        exp = int(message.text)
+        await state.update_data(experience=exp)
+        await state.set_state(TrainerOnboarding.formats)
+        kb = get_format_kb()
+        kb = add_admin_button(kb, is_admin=is_admin)
+        await message.answer("Шаг 5/9\n\nКакие форматы вы предлагаете?", reply_markup=kb)
+    except ValueError:
+        await message.answer("Пожалуйста, введите число (количество полных лет опыта).")
 
 @router.callback_query(F.data.startswith("fmt_"), TrainerOnboarding.formats)
 async def process_formats_callback(callback: types.CallbackQuery, state: FSMContext):

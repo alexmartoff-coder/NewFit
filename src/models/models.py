@@ -53,7 +53,7 @@ class TrainerProfile(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
     city: Mapped[str] = mapped_column(String(100))
-    experience: Mapped[str] = mapped_column(String(500))
+    experience: Mapped[int] = mapped_column(Integer, default=0)
     certificates: Mapped[Optional[str]] = mapped_column(String(1000))
     work_format: Mapped[WorkFormat] = mapped_column(SQLEnum(WorkFormat))
     price_single: Mapped[float] = mapped_column(Float, default=0.0)
