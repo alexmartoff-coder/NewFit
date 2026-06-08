@@ -8,6 +8,9 @@ from sqlalchemy import select
 from src.models.models import Admin, User, TrainerProfile, ClientProfile
 from src.utils.db import SessionLocal
 
+import random
+from src.states.trainer_onboarding import TrainerOnboarding
+
 router = Router()
 
 # Состояния для FSM
@@ -39,6 +42,7 @@ async def admin_panel(message: Message, is_admin: bool = False):
         [InlineKeyboardButton(text="🗑 Удалить админа", callback_data="admin_remove")],
         [InlineKeyboardButton(text="🛠 Переключить тестовый режим", callback_data="admin_toggle_test")],
         [InlineKeyboardButton(text="🧹 Очистить тестовые данные", callback_data="admin_clear_test_data")],
+        [InlineKeyboardButton(text="🧪 Создать мок-тренера", callback_data="admin_mock_trainer")],
         [InlineKeyboardButton(text="🔄 Начать с начала", callback_data="admin_start_over")],
     ])
 
@@ -197,6 +201,22 @@ async def clear_test_data(callback: CallbackQuery):
         await session.commit()
     await callback.message.answer("✅ Все тестовые данные удалены")
     await callback.answer()
+
+@router.callback_query(F.data == "admin_mock_trainer")
+async def admin_mock_trainer(callback: CallbackQuery, state: FSMContext):
+    # Генерируем случайный ID для мок-тренера
+    mock_id = random.randint(1000000, 9999999)
+    await state.clear()
+    await state.update_data(telegram_id=mock_id, is_test_mode=True)
+    await state.set_state(TrainerOnboarding.full_name)
+    await callback.message.answer(
+        f"🧪 **Режим создания мок-тренера**\n\n"
+        f"Будет использован временный ID: `{mock_id}`\n\n"
+        f"Шаг 1/9\n\nНапишите ФИО тренера:",
+        parse_mode="Markdown"
+    )
+    await callback.answer()
+
 
 @router.callback_query(F.data == "admin_start_over")
 async def admin_start_over(callback: CallbackQuery, state: FSMContext):

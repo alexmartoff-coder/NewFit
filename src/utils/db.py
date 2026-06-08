@@ -22,12 +22,22 @@ async def init_db(engine):
             await conn.run_sync(Base.metadata.create_all)
 
         async with engine.connect() as conn:
-            # Добавляем пару примеров, если таблица пустая
-            await conn.execute(text("""
-                INSERT INTO specializations (name)
-                SELECT * FROM (VALUES ('силовые тренировки'), ('похудение и жиросжигание')) AS v(name)
-                WHERE NOT EXISTS (SELECT 1 FROM specializations)
-            """))
+            # Добавляем список специализаций, если их еще нет
+            specs = [
+                'Силовые тренировки',
+                'Похудение и жиросжигание',
+                'Функциональный тренинг',
+                'Реабилитация и ОФП',
+                'Кроссфит / HIIT',
+                'Тренировки для женщин/мужчин',
+                'Работа с подростками',
+                'Другое'
+            ]
+            for spec in specs:
+                await conn.execute(
+                    text("INSERT INTO specializations (name) VALUES (:name) ON CONFLICT (name) DO NOTHING"),
+                    {"name": spec}
+                )
             await conn.commit()
         print("✅ Все таблицы базы данных проверены/созданы.")
     except Exception as e:
