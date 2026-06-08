@@ -24,7 +24,9 @@ async def trainer_start(message: types.Message, state: FSMContext, is_admin: boo
     )
 
 @router.callback_query(F.data == "start_registration")
-async def start_reg(callback: types.CallbackQuery, state: FSMContext):
+async def start_reg(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
+    user_id = effective_user_id or callback.from_user.id
+    await state.update_data(telegram_id=user_id)
     await state.set_state(TrainerOnboarding.full_name)
     await callback.message.answer("Шаг 1/9\n\nНапишите ваше ФИО:")
     await callback.answer()
@@ -49,7 +51,7 @@ async def process_city(message: types.Message, state: FSMContext, is_admin: bool
     await message.answer("Шаг 3/9\n\nВыберите ваши основные направления (можно несколько):", reply_markup=kb)
 
 @router.callback_query(F.data.startswith("spec_"), TrainerOnboarding.specialization)
-async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext):
+async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
     if callback.data == "spec_done":
         data = await state.get_data()
         if not data.get('specializations'):
@@ -85,9 +87,6 @@ async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext
 
         # Update keyboard to show checkmarks
         kb = get_spec_kb(selected_specs=specs)
-        # Assuming is_admin logic might be needed here too
-        # But wait, how to get is_admin in callback?
-        # Middleware should pass it if we add it to the signature.
         await callback.message.edit_reply_markup(reply_markup=kb)
 
     await callback.answer()
@@ -166,43 +165,12 @@ async def process_video(message: types.Message, state: FSMContext, is_admin: boo
 async def finish_onboarding(message: types.Message, state: FSMContext, user_id: int, username: str, is_admin: bool = False):
     try:
         data = await state.get_data()
-        is_test = data.get("is_test_mode", False)
-        # Use telegram_id from state if available (set during process_name or start_reg)
-        # to ensure impersonation works correctly across all steps
-        user_id = data.get("telegram_id") or user_id
         photo_url = data.get('photo_url')
         video_url = data.get('video_url')
+        specializations_list = data.get('specializations', [])
 
         async with SessionLocal() as session:
-            logger.info(f"Starting finish_onboarding for user {user_id}")
-            # Specializations handling
-            spec_names = [s.lower() for s in data.get('specializations', [])]
-            specializations = []
-            if spec_names:
-                # 1. Fetch existing specializations
-                stmt = select(Specialization).where(Specialization.name.in_(spec_names))
-                res = await session.execute(stmt)
-                specializations = list(res.scalars().all())
-                found_names = {s.name for s in specializations}
-
-                # 2. Create missing specializations using nested transactions (savepoints)
-                for name in spec_names:
-                    if name not in found_names:
-                        try:
-                            async with session.begin_nested():
-                                new_spec = Specialization(name=name)
-                                session.add(new_spec)
-                                await session.flush()
-                                specializations.append(new_spec)
-                        except:
-                            # Ignore errors (e.g., duplicate key) and sync below
-                            pass
-
-                # 3. Final sync to ensure we have all required specialization objects
-                stmt = select(Specialization).where(Specialization.name.in_(spec_names))
-                res = await session.execute(stmt)
-                specializations = list(res.scalars().all())
-
+            # === 1. Работа с User ===
             user = await session.get(User, user_id)
             if not user:
                 user = User(
@@ -210,17 +178,18 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                     username=username,
                     full_name=data.get('full_name', 'Не указано'),
                     role=UserRole.TRAINER,
-                    is_test=is_test
+                    is_test=data.get("is_test_mode", False)
                 )
                 session.add(user)
             else:
                 user.role = UserRole.TRAINER
                 user.full_name = data.get('full_name', user.full_name)
+                user.username = username or user.username
 
-            await session.flush()
+            await session.flush()  # Чтобы user.id точно существовал
 
-            # Check if profile already exists
-            stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id).options(selectinload(TrainerProfile.specializations))
+            # === 2. Работа с TrainerProfile ===
+            stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
             res = await session.execute(stmt)
             trainer_profile = res.scalar_one_or_none()
 
@@ -228,39 +197,64 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 trainer_profile = TrainerProfile(
                     user_id=user_id,
                     city=data.get('city', 'Не указан'),
-                    experience=data.get('experience', 'Не указан'),
+                    experience=str(data.get('experience', '0')),
                     work_format=data.get('work_format', WorkFormat.ONLINE),
                     price_single=data.get('price_single', 0.0),
                     price_package=data.get('price_package', 0.0),
                     photo_url=photo_url,
                     video_presentation_url=video_url,
-                    status="approved" # Auto-approve for now
+                    status="approved"
                 )
-                trainer_profile.specializations = specializations
                 session.add(trainer_profile)
-                logger.info(f"New trainer profile created for user {user_id}")
+                logger.info(f"Создан новый профиль тренера для user {user_id}")
             else:
+                # Обновляем существующий профиль
                 trainer_profile.city = data.get('city', trainer_profile.city)
-                trainer_profile.experience = data.get('experience', trainer_profile.experience)
+                trainer_profile.experience = str(data.get('experience', trainer_profile.experience))
                 trainer_profile.work_format = data.get('work_format', trainer_profile.work_format)
                 trainer_profile.price_single = data.get('price_single', trainer_profile.price_single)
                 trainer_profile.price_package = data.get('price_package', trainer_profile.price_package)
                 trainer_profile.photo_url = photo_url or trainer_profile.photo_url
                 trainer_profile.video_presentation_url = video_url or trainer_profile.video_presentation_url
-                trainer_profile.specializations = specializations
+                trainer_profile.status = "approved"
+                logger.info(f"Обновлён существующий профиль тренера {user_id}")
+
+            # Специализации
+            if specializations_list:
+                # 1. Fetch existing specializations
+                spec_names = [s.lower() for s in specializations_list]
+                stmt = select(Specialization).where(Specialization.name.in_(spec_names))
+                res = await session.execute(stmt)
+                db_specs = list(res.scalars().all())
+                found_names = {s.name for s in db_specs}
+
+                # 2. Create missing specializations
+                for name in spec_names:
+                    if name not in found_names:
+                        try:
+                            async with session.begin_nested():
+                                new_spec = Specialization(name=name)
+                                session.add(new_spec)
+                                await session.flush()
+                                db_specs.append(new_spec)
+                        except:
+                            pass
+
+                # Link to profile
+                trainer_profile.specializations = db_specs
 
             await session.commit()
-            logger.info(f"Database commit successful for user {user_id}")
+            logger.info(f"Регистрация тренера {user_id} успешно завершена")
 
         await state.clear()
+
         await message.answer(
             "Поздравляем! 🎉\n\n"
             "Ваш профиль создан и отправлен на модерацию.\n\n"
-            "В течение 24 часов администрация NewFit поможет вам красиво оформить аккаунт, снять презентационные рилсы и запустить первые продажи.\n\n"
             "Вы уже можете пользоваться кабинетом тренера.",
             reply_markup=get_trainer_main_kb(is_admin=is_admin)
         )
-        logger.info(f"Trainer onboarding completed successfully for user {user_id}")
+
     except Exception as e:
         logger.exception("Error in finish_onboarding")
-        await message.answer(f"Произошла ошибка при сохранении профиля. Пожалуйста, попробуйте позже или обратитесь в поддержку.")
+        await message.answer("Произошла ошибка при сохранении профиля. Обратитесь в поддержку.")
