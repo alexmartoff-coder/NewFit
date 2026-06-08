@@ -8,14 +8,14 @@ class Base(DeclarativeBase):
     pass
 
 class UserRole(str, Enum):
-    TRAINER = "trainer"
-    CLIENT = "client"
-    ADMIN = "admin"
+    TRAINER = "TRAINER"
+    CLIENT = "CLIENT"
+    ADMIN = "ADMIN"
 
 class WorkFormat(str, Enum):
-    OFFLINE = "offline"
-    ONLINE = "online"
-    HYBRID = "hybrid"
+    OFFLINE = "OFFLINE"
+    ONLINE = "ONLINE"
+    HYBRID = "HYBRID"
 
 # Association table for trainer and specializations
 trainer_specializations = Table(

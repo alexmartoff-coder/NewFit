@@ -199,7 +199,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
             await session.flush()
 
             # === 2. TrainerProfile ===
-            stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+            stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id).options(selectinload(TrainerProfile.specializations))
             res = await session.execute(stmt)
             trainer_profile = res.scalar_one_or_none()
 
@@ -213,7 +213,10 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                     price_package=float(data.get('price_package', 0)),
                     photo_url=photo_url,
                     video_presentation_url=video_url,
-                    status="approved"
+                    status="approved",
+                    rating=5.0,
+                    is_premium=False,
+                    specializations=[]
                 )
                 session.add(trainer_profile)
                 logger.info(f"Новый профиль тренера создан для {user_id}")
@@ -227,6 +230,9 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 trainer_profile.video_presentation_url = video_url or trainer_profile.video_presentation_url
                 trainer_profile.status = "approved"
                 logger.info(f"Обновлён профиль тренера {user_id}")
+
+            # Flush to get the trainer_profile.id if it's new, required for specializations association
+            await session.flush()
 
             # === 3. Specializations ===
             if data.get('specializations'):
