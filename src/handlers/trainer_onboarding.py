@@ -4,7 +4,7 @@ from aiogram.fsm.context import FSMContext
 from src.states.trainer_onboarding import TrainerOnboarding
 from src.keyboards.common import get_format_kb, get_trainer_main_kb, get_start_reg_kb, get_spec_kb, get_city_kb, get_client_main_kb
 from src.keyboards.inline import add_admin_button
-from src.models.models import User, TrainerProfile, UserRole, WorkFormat, Specialization
+from src.models.models import User, TrainerProfile, UserRole, WorkFormat, Specialization, Booking
 from src.utils.db import SessionLocal
 from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
@@ -201,13 +201,20 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
 
             await session.flush()
 
-            # === 2. TrainerProfile — важное изменение для тестирования
+            # === 2. TrainerProfile — безопасное удаление для тестов
             if test_mode:
-                # Удаляем старый профиль тренера перед созданием нового (для удобства тестирования)
-                await session.execute(
-                    delete(TrainerProfile).where(TrainerProfile.user_id == user_id)
-                )
-                logger.info(f"Test mode: old trainer profile for user {user_id} was deleted")
+                try:
+                    # Удаляем связанные записи, чтобы избежать ForeignKeyViolation
+                    await session.execute(
+                        delete(Booking).where(Booking.trainer_id == user_id)
+                    )
+                    await session.execute(
+                        delete(TrainerProfile).where(TrainerProfile.user_id == user_id)
+                    )
+                    logger.info(f"Test mode: очищен старый профиль тренера {user_id}")
+                except Exception as clean_error:
+                    logger.warning(f"Не удалось очистить старые данные: {clean_error}")
+                    # Продолжаем — будем обновлять существующий профиль
 
             # Создаём / обновляем профиль
             stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id).options(selectinload(TrainerProfile.specializations))
