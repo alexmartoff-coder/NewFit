@@ -51,7 +51,7 @@ class User(Base):
 class TrainerProfile(Base):
     __tablename__ = "trainer_profiles"
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), unique=True)
     city: Mapped[str] = mapped_column(String(100))
     experience: Mapped[int] = mapped_column(Integer, default=0)
     certificates: Mapped[Optional[str]] = mapped_column(String(1000))
@@ -73,7 +73,7 @@ class TrainerProfile(Base):
 class ClientProfile(Base):
     __tablename__ = "client_profiles"
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), unique=True)
     city: Mapped[Optional[str]] = mapped_column(String(100))
 
     user: Mapped["User"] = relationship(back_populates="client_profile")

@@ -170,9 +170,12 @@ async def process_video(message: types.Message, state: FSMContext, is_admin: boo
 async def finish_onboarding(message: types.Message, state: FSMContext, user_id: int, username: str, is_admin: bool = False):
     try:
         data = await state.get_data()
+
+        # Priority for user_id: state (mock) > effective_user_id > message.from_user.id
+        user_id = data.get('telegram_id', user_id)
+
         photo_url = data.get('photo_url')
         video_url = data.get('video_url')
-        spec_names = [s.lower() for s in data.get('specializations', [])]
 
         async with SessionLocal() as session:
             logger.info(f"Starting finish_onboarding for user {user_id}")
@@ -224,6 +227,13 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 trainer_profile.video_presentation_url = video_url or trainer_profile.video_presentation_url
                 trainer_profile.status = "approved"
                 logger.info(f"Обновлён профиль тренера {user_id}")
+
+            # === 3. Specializations ===
+            if data.get('specializations'):
+                spec_stmt = select(Specialization).where(Specialization.name.in_(data['specializations']))
+                spec_res = await session.execute(spec_stmt)
+                trainer_profile.specializations = list(spec_res.scalars().all())
+                logger.info(f"Linked {len(trainer_profile.specializations)} specializations for trainer {user_id}")
 
             await session.commit()
             logger.info(f"Регистрация тренера {user_id} завершена успешно")
