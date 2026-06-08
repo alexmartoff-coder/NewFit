@@ -6,7 +6,7 @@ from src.keyboards.common import get_format_kb, get_trainer_main_kb, get_start_r
 from src.keyboards.inline import add_admin_button
 from src.models.models import User, TrainerProfile, UserRole, WorkFormat, Specialization
 from src.utils.db import SessionLocal
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 
 router = Router()
@@ -177,8 +177,11 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
         photo_url = data.get('photo_url')
         video_url = data.get('video_url')
 
+        # Тестовый режим — удаляем старый профиль, чтобы можно было тестировать с одного аккаунта
+        test_mode = data.get("is_test_mode", False) or is_admin
+
         async with SessionLocal() as session:
-            logger.info(f"Starting finish_onboarding for user {user_id}")
+            logger.info(f"Starting finish_onboarding for user {user_id} (test_mode={test_mode})")
 
             # === 1. User ===
             user = await session.get(User, user_id)
@@ -198,7 +201,15 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
 
             await session.flush()
 
-            # === 2. TrainerProfile ===
+            # === 2. TrainerProfile — важное изменение для тестирования
+            if test_mode:
+                # Удаляем старый профиль тренера перед созданием нового (для удобства тестирования)
+                await session.execute(
+                    delete(TrainerProfile).where(TrainerProfile.user_id == user_id)
+                )
+                logger.info(f"Test mode: old trainer profile for user {user_id} was deleted")
+
+            # Создаём / обновляем профиль
             stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id).options(selectinload(TrainerProfile.specializations))
             res = await session.execute(stmt)
             trainer_profile = res.scalar_one_or_none()
@@ -219,15 +230,17 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                     specializations=[]
                 )
                 session.add(trainer_profile)
-                logger.info(f"Новый профиль тренера создан для {user_id}")
+                logger.info(f"Создан новый профиль тренера для user {user_id}")
             else:
                 trainer_profile.city = data.get('city', trainer_profile.city)
                 trainer_profile.experience = int(data.get('experience', trainer_profile.experience))
                 trainer_profile.work_format = data.get('work_format', trainer_profile.work_format)
                 trainer_profile.price_single = float(data.get('price_single', trainer_profile.price_single))
                 trainer_profile.price_package = float(data.get('price_package', trainer_profile.price_package))
-                trainer_profile.photo_url = photo_url or trainer_profile.photo_url
-                trainer_profile.video_presentation_url = video_url or trainer_profile.video_presentation_url
+                if photo_url:
+                    trainer_profile.photo_url = photo_url
+                if video_url:
+                    trainer_profile.video_presentation_url = video_url
                 trainer_profile.status = "approved"
                 logger.info(f"Обновлён профиль тренера {user_id}")
 
@@ -247,10 +260,12 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
         await state.clear()
 
         await message.answer(
-            "Поздравляем! 🎉\n\nВаш профиль успешно создан!",
+            "Поздравляем! 🎉\n\n"
+            "Ваш профиль успешно создан и отправлен на модерацию.\n\n"
+            "Вы уже можете пользоваться кабинетом тренера.",
             reply_markup=get_trainer_main_kb(is_admin=is_admin)
         )
 
     except Exception as e:
         logger.exception("Error in finish_onboarding")
-        await message.answer("Ошибка при сохранении профиля. Попробуйте ещё раз или напишите в поддержку.")
+        await message.answer("❌ Ошибка при сохранении профиля. Попробуйте ещё раз или напишите в поддержку.")
