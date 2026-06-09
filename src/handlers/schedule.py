@@ -24,7 +24,7 @@ class TemplateState(StatesGroup):
 
 @router.message(F.text == "📆 Расписание и запись")
 @router.message(F.text == "/schedule")
-async def show_schedule_menu(message: types.Message, is_admin: bool = False):
+async def show_schedule_menu(message: types.Message, is_admin: bool = False, effective_user_id: int = None):
     kb = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [types.InlineKeyboardButton(text="📅 Посмотреть слоты", callback_data="sche_view")],
@@ -39,13 +39,14 @@ async def show_schedule_menu(message: types.Message, is_admin: bool = False):
     await message.answer("Управление вашим расписанием:", reply_markup=kb)
 
 @router.callback_query(F.data == "sche_view")
-async def view_slots(callback: types.CallbackQuery, is_admin: bool = False):
+async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
+    user_id = effective_user_id or callback.from_user.id
     async with SessionLocal() as session:
         now = datetime.now()
         # Fetch slots for the next 14 days
         end_view = now + timedelta(days=14)
         stmt = select(TimeSlot).where(
-            TimeSlot.trainer_id == callback.from_user.id,
+            TimeSlot.trainer_id == user_id,
             TimeSlot.start_time >= now,
             TimeSlot.start_time <= end_view
         ).order_by(TimeSlot.start_time.asc())
@@ -131,15 +132,16 @@ async def add_slot_format(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @router.message(ScheduleState.choosing_price)
-async def add_slot_price(message: types.Message, state: FSMContext):
+async def add_slot_price(message: types.Message, state: FSMContext, effective_user_id: int = None):
     try:
         price = float(message.text)
         data = await state.get_data()
         start_time = datetime.fromisoformat(data['start_time_dt'])
+        user_id = effective_user_id or message.from_user.id
 
         async with SessionLocal() as session:
             new_slot = TimeSlot(
-                trainer_id=message.from_user.id,
+                trainer_id=user_id,
                 start_time=start_time,
                 end_time=start_time + timedelta(minutes=60),
                 status="free",
@@ -161,18 +163,19 @@ async def block_slot_start(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @router.message(F.text, F.state == "waiting_for_block_time")
-async def process_block_time(message: types.Message, state: FSMContext):
+async def process_block_time(message: types.Message, state: FSMContext, effective_user_id: int = None):
     try:
         dt = datetime.strptime(message.text, "%d.%m.%Y %H:%M")
+        user_id = effective_user_id or message.from_user.id
         async with SessionLocal() as session:
-            stmt = select(TimeSlot).where(TimeSlot.trainer_id == message.from_user.id, TimeSlot.start_time == dt)
+            stmt = select(TimeSlot).where(TimeSlot.trainer_id == user_id, TimeSlot.start_time == dt)
             res = await session.execute(stmt)
             slot = res.scalar_one_or_none()
 
             if not slot:
                 # Create a blocked slot if it doesn't exist
                 slot = TimeSlot(
-                    trainer_id=message.from_user.id,
+                    trainer_id=user_id,
                     start_time=dt,
                     end_time=dt + timedelta(minutes=60),
                     status="blocked"
@@ -188,9 +191,10 @@ async def process_block_time(message: types.Message, state: FSMContext):
         await message.answer("Неверный формат. Используйте ДД.ММ.ГГГГ ЧЧ:ММ")
 
 @router.callback_query(F.data == "sche_template_menu")
-async def template_menu(callback: types.CallbackQuery, is_admin: bool = False):
+async def template_menu(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
+    user_id = effective_user_id or callback.from_user.id
     async with SessionLocal() as session:
-        stmt = select(ScheduleTemplate).where(ScheduleTemplate.trainer_id == callback.from_user.id)
+        stmt = select(ScheduleTemplate).where(ScheduleTemplate.trainer_id == user_id)
         res = await session.execute(stmt)
         templates = res.scalars().all()
 
@@ -206,15 +210,17 @@ async def template_menu(callback: types.CallbackQuery, is_admin: bool = False):
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="➕ Добавить шаблон", callback_data="temp_add")],
             [types.InlineKeyboardButton(text="🗑 Очистить всё", callback_data="temp_clear")],
+            [types.InlineKeyboardButton(text="🔧 Настройка длительности", callback_data="sche_config_duration")],
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")]
         ])
         kb = add_admin_button(kb, is_admin=is_admin)
         await callback.message.edit_text(text, reply_markup=kb)
 
 @router.callback_query(F.data == "temp_clear")
-async def temp_clear(callback: types.CallbackQuery):
+async def temp_clear(callback: types.CallbackQuery, effective_user_id: int = None):
+    user_id = effective_user_id or callback.from_user.id
     async with SessionLocal() as session:
-        await session.execute(delete(ScheduleTemplate).where(ScheduleTemplate.trainer_id == callback.from_user.id))
+        await session.execute(delete(ScheduleTemplate).where(ScheduleTemplate.trainer_id == user_id))
         await session.commit()
     await callback.message.answer("Все шаблоны удалены.")
     await callback.answer()
@@ -248,11 +254,12 @@ async def temp_add_start_time(message: types.Message, state: FSMContext):
     await state.set_state(TemplateState.choosing_end_time)
 
 @router.message(TemplateState.choosing_end_time)
-async def temp_add_end_time(message: types.Message, state: FSMContext):
+async def temp_add_end_time(message: types.Message, state: FSMContext, effective_user_id: int = None):
     data = await state.get_data()
+    user_id = effective_user_id or message.from_user.id
     async with SessionLocal() as session:
         new_temp = ScheduleTemplate(
-            trainer_id=message.from_user.id,
+            trainer_id=user_id,
             day_of_week=data['day'],
             start_time=data['start_time'],
             end_time=message.text
@@ -263,10 +270,10 @@ async def temp_add_end_time(message: types.Message, state: FSMContext):
     await state.clear()
 
 @router.callback_query(F.data == "sche_generate")
-async def generate_slots_handler(callback: types.CallbackQuery):
-    trainer_id = callback.from_user.id
+async def generate_slots_handler(callback: types.CallbackQuery, effective_user_id: int = None):
+    trainer_id = effective_user_id or callback.from_user.id
     async with SessionLocal() as session:
-        # Get templates
+        # Get templates and trainer config
         stmt = select(ScheduleTemplate).where(ScheduleTemplate.trainer_id == trainer_id, ScheduleTemplate.is_active == True)
         res = await session.execute(stmt)
         templates = res.scalars().all()
@@ -275,49 +282,65 @@ async def generate_slots_handler(callback: types.CallbackQuery):
             await callback.answer("Сначала создайте шаблоны!", show_alert=True)
             return
 
+        stmt_config = select(TrainerSchedule).where(TrainerSchedule.trainer_id == trainer_id)
+        res_config = await session.execute(stmt_config)
+        config = res_config.scalar_one_or_none()
+        slot_duration = config.slot_duration if config else 60
+
         # Generate for next 14 days
         count = 0
-        start_date = datetime.now().date()
+        now = datetime.now()
+        start_date = now.date()
         for i in range(14):
             current_date = start_date + timedelta(days=i)
             day_of_week = current_date.weekday()
 
             for t in templates:
                 if t.day_of_week == day_of_week:
-                    # Create slot
                     sh, sm = map(int, t.start_time.split(':'))
                     eh, em = map(int, t.end_time.split(':'))
 
-                    slot_start = datetime.combine(current_date, time(sh, sm))
-                    slot_end = datetime.combine(current_date, time(eh, em))
+                    template_start = datetime.combine(current_date, time(sh, sm))
+                    template_end = datetime.combine(current_date, time(eh, em))
 
-                    # Check if exists
-                    check_stmt = select(TimeSlot).where(
-                        TimeSlot.trainer_id == trainer_id,
-                        TimeSlot.start_time == slot_start
-                    )
-                    exists = await session.execute(check_stmt)
-                    if not exists.scalar():
-                        new_slot = TimeSlot(
-                            trainer_id=trainer_id,
-                            start_time=slot_start,
-                            end_time=slot_end,
-                            status="free"
-                        )
-                        session.add(new_slot)
-                        count += 1
+                    # Split template interval into slots
+                    current_slot_start = template_start
+                    while current_slot_start + timedelta(minutes=slot_duration) <= template_end:
+                        current_slot_end = current_slot_start + timedelta(minutes=slot_duration)
+
+                        if current_slot_start > now:
+                            # Check if exists
+                            check_stmt = select(TimeSlot).where(
+                                TimeSlot.trainer_id == trainer_id,
+                                TimeSlot.start_time == current_slot_start
+                            )
+                            exists = await session.execute(check_stmt)
+                            if not exists.scalar():
+                                new_slot = TimeSlot(
+                                    trainer_id=trainer_id,
+                                    start_time=current_slot_start,
+                                    end_time=current_slot_end,
+                                    status="free",
+                                    format=WorkFormat.HYBRID,
+                                    price=0 # Default, should ideally take from TrainerProfile
+                                )
+                                session.add(new_slot)
+                                count += 1
+
+                        current_slot_start = current_slot_end
 
         await session.commit()
-    await callback.message.answer(f"Генерация завершена. Добавлено слотов: {count}")
+    await callback.message.answer(f"Генерация завершена. Добавлено слотов: {count} (длительность {slot_duration} мин)")
     await callback.answer()
 
 @router.callback_query(F.data == "sche_view_del")
-async def delete_slot_callback(callback: types.CallbackQuery):
+async def delete_slot_callback(callback: types.CallbackQuery, effective_user_id: int = None):
+    user_id = effective_user_id or callback.from_user.id
     # For simplicity, we just list slots and allow deletion
     async with SessionLocal() as session:
         now = datetime.now()
         stmt = select(TimeSlot).where(
-            TimeSlot.trainer_id == callback.from_user.id,
+            TimeSlot.trainer_id == user_id,
             TimeSlot.start_time >= now
         ).order_by(TimeSlot.start_time.asc())
         res = await session.execute(stmt)
@@ -336,15 +359,44 @@ async def delete_slot_callback(callback: types.CallbackQuery):
         await callback.message.edit_text("Выберите слот для удаления:", reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb))
 
 @router.callback_query(F.data.startswith("del_slot_"))
-async def process_slot_deletion(callback: types.CallbackQuery):
+async def process_slot_deletion(callback: types.CallbackQuery, effective_user_id: int = None):
+    user_id = effective_user_id or callback.from_user.id
     slot_id = int(callback.data.split("_")[2])
     async with SessionLocal() as session:
-        await session.execute(delete(TimeSlot).where(TimeSlot.id == slot_id, TimeSlot.trainer_id == callback.from_user.id))
+        await session.execute(delete(TimeSlot).where(TimeSlot.id == slot_id, TimeSlot.trainer_id == user_id))
         await session.commit()
     await callback.message.answer("Слот удалён.")
     await sche_back(callback)
 
+@router.callback_query(F.data == "sche_config_duration")
+async def config_duration_start(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.edit_text("Введите стандартную длительность занятия в минутах (например, 60 или 90):")
+    await state.set_state("waiting_for_duration")
+    await callback.answer()
+
+@router.message(F.text, F.state == "waiting_for_duration")
+async def process_config_duration(message: types.Message, state: FSMContext, effective_user_id: int = None):
+    try:
+        duration = int(message.text)
+        user_id = effective_user_id or message.from_user.id
+        async with SessionLocal() as session:
+            stmt = select(TrainerSchedule).where(TrainerSchedule.trainer_id == user_id)
+            res = await session.execute(stmt)
+            config = res.scalar_one_or_none()
+
+            if not config:
+                config = TrainerSchedule(trainer_id=user_id, slot_duration=duration)
+                session.add(config)
+            else:
+                config.slot_duration = duration
+
+            await session.commit()
+        await message.answer(f"Длительность занятия установлена: {duration} мин.")
+        await state.clear()
+    except ValueError:
+        await message.answer("Введите число.")
+
 @router.callback_query(F.data == "sche_back")
-async def sche_back(callback: types.CallbackQuery, is_admin: bool = False):
-    await show_schedule_menu(callback.message, is_admin=is_admin)
+async def sche_back(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
+    await show_schedule_menu(callback.message, is_admin=is_admin, effective_user_id=effective_user_id)
     await callback.answer()

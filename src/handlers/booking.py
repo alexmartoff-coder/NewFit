@@ -12,19 +12,34 @@ from datetime import datetime, timedelta
 router = Router()
 
 @router.callback_query(F.data.startswith("book_"))
-async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
+async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     trainer_id = int(callback.data.split("_")[1])
     await state.update_data(trainer_id=trainer_id)
 
-    # Send date selection (calendar view simulation for next 14 days)
-    now = datetime.now().date()
-    kb = []
-    for i in range(14):
-        d = now + timedelta(days=i)
-        kb.append([types.InlineKeyboardButton(
-            text=d.strftime("%d.%m (%a)"),
-            callback_data=f"bdate_{d.isoformat()}"
-        )])
+    # Send date selection (only show dates with free slots in the next 14 days)
+    async with SessionLocal() as session:
+        now = datetime.now()
+        end_view = now + timedelta(days=14)
+        stmt = select(TimeSlot.start_time).where(
+            TimeSlot.trainer_id == trainer_id,
+            TimeSlot.status == "free",
+            TimeSlot.start_time >= now,
+            TimeSlot.start_time <= end_view
+        )
+        res = await session.execute(stmt)
+        available_dates = sorted(list(set(dt.date() for dt in res.scalars().all())))
+
+        if not available_dates:
+            await callback.message.answer("К сожалению, у этого тренера нет свободных слотов на ближайшее время.")
+            await callback.answer()
+            return
+
+        kb = []
+        for d in available_dates:
+            kb.append([types.InlineKeyboardButton(
+                text=d.strftime("%d.%m (%a)"),
+                callback_data=f"bdate_{d.isoformat()}"
+            )])
 
     kb_markup = types.InlineKeyboardMarkup(inline_keyboard=kb)
     kb_markup = add_admin_button(kb_markup, is_admin=is_admin)
@@ -32,7 +47,7 @@ async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_adm
     await callback.answer()
 
 @router.callback_query(F.data.startswith("bdate_"))
-async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
+async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     selected_date = datetime.fromisoformat(callback.data.split("_")[1]).date()
     data = await state.get_data()
     trainer_id = data['trainer_id']
@@ -68,7 +83,7 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
     await callback.answer()
 
 @router.callback_query(F.data.startswith("slot_"))
-async def process_slot_selection(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
+async def process_slot_selection(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     slot_id = int(callback.data.split("_")[1])
 
     async with SessionLocal() as session:
