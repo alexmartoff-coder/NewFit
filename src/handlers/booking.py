@@ -71,8 +71,14 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
             return
 
         kb = []
+        fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
         for s in slots:
-            btn_text = f"{s.start_time.strftime('%H:%M')} — {s.format.value if hasattr(s.format, 'value') else s.format} ({s.price}₽)"
+            start_str = s.start_time.strftime('%H:%M')
+            end_str = s.end_time.strftime('%H:%M')
+            fmt_val = s.format.value if hasattr(s.format, 'value') else str(s.format)
+            fmt_ru = fmt_map.get(fmt_val, fmt_val.lower())
+
+            btn_text = f"{start_str} - {end_str} — {int(s.price)}₽ ({fmt_ru})"
             kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"slot_{s.id}")])
 
         kb.append([types.InlineKeyboardButton(text="🔙 К выбору даты", callback_data=f"book_{trainer_id}")])
