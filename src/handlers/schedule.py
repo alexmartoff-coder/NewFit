@@ -428,58 +428,60 @@ async def generate_slots_from_quick_template(user_id: int, days: int, interval: 
     start_date = now_moscow.date()
     end_date = start_date + timedelta(days=days)
 
-    # Get trainer profile for price
-    from src.models.models import TrainerProfile
     async with SessionLocal() as session:
+        # Get trainer profile for price
+        from src.models.models import TrainerProfile
         stmt_profile = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
         res_profile = await session.execute(stmt_profile)
         profile = res_profile.scalar_one_or_none()
-        default_price = profile.price_single if profile else 0.0
+        default_price = profile.price_single if profile else 2500.0
 
         count = 0
 
-        # Weekdays rule
-        weekdays_rrule = rrule(DAILY, dtstart=now_moscow, until=datetime.combine(end_date, time(23,0), moscow_tz), byweekday=(MO, TU, WE, TH, FR))
-        # Weekend rule
-        weekend_rrule = rrule(DAILY, dtstart=now_moscow, until=datetime.combine(end_date, time(22,0), moscow_tz), byweekday=(SA, SU))
+        # Rules for weekdays and weekends
+        rules = [
+            rrule(DAILY, dtstart=now_moscow, until=datetime.combine(end_date, time(23,0), moscow_tz), byweekday=(MO, TU, WE, TH, FR)),
+            rrule(DAILY, dtstart=now_moscow, until=datetime.combine(end_date, time(22,0), moscow_tz), byweekday=(SA, SU))
+        ]
 
-        for day_dt in list(weekdays_rrule) + list(weekend_rrule):
-            day = day_dt.date()
-            if day < start_date: continue
+        for rule in rules:
+            for day_dt in rule:
+                day = day_dt.date()
+                if day < start_date: continue
 
-            is_weekend = day.weekday() >= 5
-            start_h, end_h = (9, 22) if is_weekend else (7, 23)
+                is_weekend = day.weekday() >= 5
+                start_h, end_h = (9, 22) if is_weekend else (7, 23)
 
-            current_time = datetime.combine(day, time(start_h, 0), moscow_tz)
-            limit_time = datetime.combine(day, time(end_h, 0), moscow_tz)
+                current_time = moscow_tz.localize(datetime.combine(day, time(start_h, 0)))
+                limit_time = moscow_tz.localize(datetime.combine(day, time(end_h, 0)))
 
-            while current_time + timedelta(minutes=interval) <= limit_time:
-                slot_start_utc = current_time.astimezone(utc_tz).replace(tzinfo=None)
-                slot_end_utc = (current_time + timedelta(minutes=interval)).astimezone(utc_tz).replace(tzinfo=None)
+                while current_time + timedelta(minutes=interval) <= limit_time:
+                    slot_start_utc = current_time.astimezone(utc_tz).replace(tzinfo=None)
+                    slot_end_utc = (current_time + timedelta(minutes=interval)).astimezone(utc_tz).replace(tzinfo=None)
 
-                if current_time > now_moscow:
-                    # Overlap check
-                    check_stmt = select(TimeSlot).where(
-                        TimeSlot.trainer_id == user_id,
-                        and_(
+                    if current_time > now_moscow:
+                        # Simple overlap check
+                        overlap_stmt = select(TimeSlot).where(
+                            TimeSlot.trainer_id == user_id,
                             TimeSlot.start_time < slot_end_utc,
                             TimeSlot.end_time > slot_start_utc
                         )
-                    )
-                    exists = await session.execute(check_stmt)
-                    if not exists.scalar():
-                        new_slot = TimeSlot(
-                            trainer_id=user_id,
-                            start_time=slot_start_utc,
-                            end_time=slot_end_utc,
-                            status="free",
-                            format=WorkFormat.HYBRID,
-                            price=default_price
-                        )
-                        session.add(new_slot)
-                        count += 1
+                        overlap_res = await session.execute(overlap_stmt)
 
-                current_time += timedelta(minutes=interval)
+                        if not overlap_res.scalar_one_or_none():
+                            new_slot = TimeSlot(
+                                trainer_id=user_id,
+                                start_time=slot_start_utc,
+                                end_time=slot_end_utc,
+                                status="free",
+                                format=WorkFormat.HYBRID,
+                                price=default_price
+                            )
+                            session.add(new_slot)
+                            await session.flush()
+                            count += 1
+
+                    current_time += timedelta(minutes=interval)
 
         await session.commit()
     return count
@@ -487,6 +489,9 @@ async def generate_slots_from_quick_template(user_id: int, days: int, interval: 
 @router.callback_query(F.data == "sche_generate")
 async def generate_slots_handler(callback: types.CallbackQuery, effective_user_id: int = None):
     trainer_id = effective_user_id or callback.from_user.id
+    moscow_tz = pytz.timezone('Europe/Moscow')
+    utc_tz = pytz.UTC
+
     async with SessionLocal() as session:
         # Get templates and trainer config
         stmt = select(ScheduleTemplate).where(ScheduleTemplate.trainer_id == trainer_id, ScheduleTemplate.is_active == True)
@@ -507,13 +512,13 @@ async def generate_slots_handler(callback: types.CallbackQuery, effective_user_i
         stmt_profile = select(TrainerProfile).where(TrainerProfile.user_id == trainer_id)
         res_profile = await session.execute(stmt_profile)
         profile = res_profile.scalar_one_or_none()
-        default_price = profile.price_single if profile else 0.0
+        default_price = profile.price_single if profile else 2500.0
         default_format = profile.work_format if profile else WorkFormat.HYBRID
 
         # Generate for next 14 days
         count = 0
-        now = datetime.now()
-        start_date = now.date()
+        now_moscow = datetime.now(moscow_tz)
+        start_date = now_moscow.date()
         for i in range(14):
             current_date = start_date + timedelta(days=i)
             day_of_week = current_date.weekday()
@@ -523,37 +528,39 @@ async def generate_slots_handler(callback: types.CallbackQuery, effective_user_i
                     sh, sm = map(int, t.start_time.split(':'))
                     eh, em = map(int, t.end_time.split(':'))
 
-                    template_start = datetime.combine(current_date, time(sh, sm))
-                    template_end = datetime.combine(current_date, time(eh, em))
+                    template_start_moscow = moscow_tz.localize(datetime.combine(current_date, time(sh, sm)))
+                    template_end_moscow = moscow_tz.localize(datetime.combine(current_date, time(eh, em)))
 
                     # Split template interval into slots
-                    current_slot_start = template_start
-                    while current_slot_start + timedelta(minutes=slot_duration) <= template_end:
-                        current_slot_end = current_slot_start + timedelta(minutes=slot_duration)
+                    current_slot_start_moscow = template_start_moscow
+                    while current_slot_start_moscow + timedelta(minutes=slot_duration) <= template_end_moscow:
+                        current_slot_end_moscow = current_slot_start_moscow + timedelta(minutes=slot_duration)
 
-                        if current_slot_start > now:
-                            # Check for overlaps (more robust than exact start check)
-                            check_stmt = select(TimeSlot).where(
+                        slot_start_utc = current_slot_start_moscow.astimezone(utc_tz).replace(tzinfo=None)
+                        slot_end_utc = current_slot_end_moscow.astimezone(utc_tz).replace(tzinfo=None)
+
+                        if current_slot_start_moscow > now_moscow:
+                            # Overlap check
+                            overlap_stmt = select(TimeSlot).where(
                                 TimeSlot.trainer_id == trainer_id,
-                                and_(
-                                    TimeSlot.start_time < current_slot_end,
-                                    TimeSlot.end_time > current_slot_start
-                                )
+                                TimeSlot.start_time < slot_end_utc,
+                                TimeSlot.end_time > slot_start_utc
                             )
-                            exists = await session.execute(check_stmt)
-                            if not exists.scalar():
+                            overlap_res = await session.execute(overlap_stmt)
+                            if not overlap_res.scalar_one_or_none():
                                 new_slot = TimeSlot(
                                     trainer_id=trainer_id,
-                                    start_time=current_slot_start,
-                                    end_time=current_slot_end,
+                                    start_time=slot_start_utc,
+                                    end_time=slot_end_utc,
                                     status="free",
                                     format=default_format,
                                     price=default_price
                                 )
                                 session.add(new_slot)
+                                await session.flush()
                                 count += 1
 
-                        current_slot_start = current_slot_end
+                        current_slot_start_moscow = current_slot_end_moscow
 
         await session.commit()
     await callback.message.answer(f"✅ Генерация завершена. Добавлено слотов: {count} (длительность {slot_duration} мин, цена {default_price}₽)")
