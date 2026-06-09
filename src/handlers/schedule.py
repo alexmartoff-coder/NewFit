@@ -23,13 +23,13 @@ class TemplateState(StatesGroup):
     choosing_start_time = State()
     choosing_end_time = State()
 
-@router.message(F.text == "📆 Расписание и запись")
+@router.message(F.text == "📅 Моё расписание")
 @router.message(F.text == "/schedule")
 async def show_schedule_menu(message: types.Message, is_admin: bool = False, effective_user_id: int = None):
     kb = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [types.InlineKeyboardButton(text="📅 Посмотреть слоты", callback_data="sche_view")],
-            [types.InlineKeyboardButton(text="➕ Добавить разовый слот", callback_data="sche_add")],
+            [types.InlineKeyboardButton(text="➕ Создать новый слот", callback_data="sche_add")],
             [types.InlineKeyboardButton(text="🔁 Повторяющееся расписание", callback_data="sche_template_menu")],
             [types.InlineKeyboardButton(text="⚡ Сгенерировать из шаблонов", callback_data="sche_generate")],
             [types.InlineKeyboardButton(text="🚫 Заблокировать время", callback_data="sche_block")],
