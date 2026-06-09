@@ -15,35 +15,55 @@ async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_adm
     trainer_id = int(callback.data.split("_")[1])
     await state.update_data(trainer_id=trainer_id)
 
+    # Send date selection (calendar view simulation for next 14 days)
+    now = datetime.now().date()
+    kb = []
+    for i in range(14):
+        d = now + timedelta(days=i)
+        kb.append([types.InlineKeyboardButton(
+            text=d.strftime("%d.%m (%a)"),
+            callback_data=f"bdate_{d.isoformat()}"
+        )])
+
+    kb_markup = types.InlineKeyboardMarkup(inline_keyboard=kb)
+    kb_markup = add_admin_button(kb_markup, is_admin=is_admin)
+    await callback.message.edit_text("Выберите дату для записи:", reply_markup=kb_markup)
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("bdate_"))
+async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
+    selected_date = datetime.fromisoformat(callback.data.split("_")[1]).date()
+    data = await state.get_data()
+    trainer_id = data['trainer_id']
+
     async with SessionLocal() as session:
-        # Fetch available slots for next 7 days
-        now = datetime.now()
-        end = now + timedelta(days=7)
+        start_dt = datetime.combine(selected_date, datetime.min.time())
+        end_dt = datetime.combine(selected_date, datetime.max.time())
+
         stmt = select(TimeSlot).where(
             TimeSlot.trainer_id == trainer_id,
             TimeSlot.status == "free",
-            TimeSlot.start_time >= now,
-            TimeSlot.start_time <= end
+            TimeSlot.start_time >= start_dt,
+            TimeSlot.start_time <= end_dt
         ).order_by(TimeSlot.start_time.asc())
         res = await session.execute(stmt)
         slots = res.scalars().all()
 
         if not slots:
-            await callback.message.answer("У этого тренера нет свободных слотов на ближайшую неделю.")
+            await callback.message.answer("На этот день нет свободных слотов. Выберите другую дату.")
             await callback.answer()
             return
 
         kb = []
         for s in slots:
-            btn_text = s.start_time.strftime("%d.%m %H:%M")
+            btn_text = f"{s.start_time.strftime('%H:%M')} — {s.format.value if hasattr(s.format, 'value') else s.format} ({s.price}₽)"
             kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"slot_{s.id}")])
 
+        kb.append([types.InlineKeyboardButton(text="🔙 К выбору даты", callback_data=f"book_{trainer_id}")])
         kb_markup = types.InlineKeyboardMarkup(inline_keyboard=kb)
         kb_markup = add_admin_button(kb_markup, is_admin=is_admin)
-        await callback.message.edit_text(
-            "Выберите удобное время для записи:",
-            reply_markup=kb_markup
-        )
+
+        await callback.message.edit_text(f"Свободные слоты на {selected_date.strftime('%d.%m')}:", reply_markup=kb_markup)
     await callback.answer()
 
 @router.callback_query(F.data.startswith("slot_"))
@@ -68,9 +88,14 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
         kb = add_admin_button(kb, is_admin=is_admin)
 
         await callback.message.edit_text(
-            f"Вы выбрали время: {slot.start_time.strftime('%d.%m.%Y %H:%M')}.\n"
-            "Подтвердить запись?",
-            reply_markup=kb
+            f"📍 **Подтверждение записи**\n\n"
+            f"Тренер ID: `{slot.trainer_id}`\n"
+            f"Время: `{slot.start_time.strftime('%d.%m.%Y %H:%M')}`\n"
+            f"Формат: `{slot.format.value if hasattr(slot.format, 'value') else slot.format}`\n"
+            f"Цена: `{slot.price}₽`\n\n"
+            f"💳 После подтверждения вам придет ссылка на оплату.",
+            reply_markup=kb,
+            parse_mode="Markdown"
         )
     await callback.answer()
 

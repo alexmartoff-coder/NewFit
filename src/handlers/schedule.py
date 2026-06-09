@@ -2,7 +2,7 @@ from aiogram import Router, F, types
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from sqlalchemy import select, delete, and_
-from src.models.models import User, TimeSlot, TrainerSchedule
+from src.models.models import User, TimeSlot, TrainerSchedule, ScheduleTemplate, WorkFormat
 from src.utils.db import SessionLocal
 from src.keyboards.inline import add_admin_button
 from datetime import datetime, timedelta, time
@@ -14,6 +14,13 @@ logger = logging.getLogger(__name__)
 class ScheduleState(StatesGroup):
     choosing_date = State()
     choosing_time = State()
+    choosing_format = State()
+    choosing_price = State()
+
+class TemplateState(StatesGroup):
+    choosing_days = State()
+    choosing_start_time = State()
+    choosing_end_time = State()
 
 @router.message(F.text == "📆 Расписание и запись")
 @router.message(F.text == "/schedule")
@@ -21,8 +28,11 @@ async def show_schedule_menu(message: types.Message, is_admin: bool = False):
     kb = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [types.InlineKeyboardButton(text="📅 Посмотреть слоты", callback_data="sche_view")],
-            [types.InlineKeyboardButton(text="➕ Добавить слот", callback_data="sche_add")],
-            [types.InlineKeyboardButton(text="🗑 Удалить слот", callback_data="sche_del")]
+            [types.InlineKeyboardButton(text="➕ Добавить разовый слот", callback_data="sche_add")],
+            [types.InlineKeyboardButton(text="🔁 Повторяющееся расписание", callback_data="sche_template_menu")],
+            [types.InlineKeyboardButton(text="⚡ Сгенерировать из шаблонов", callback_data="sche_generate")],
+            [types.InlineKeyboardButton(text="🚫 Заблокировать время", callback_data="sche_block")],
+            [types.InlineKeyboardButton(text="🗑 Удалить слот", callback_data="sche_view_del")]
         ]
     )
     kb = add_admin_button(kb, is_admin=is_admin)
@@ -87,12 +97,41 @@ async def add_slot_time(message: types.Message, state: FSMContext):
             await message.answer("Время не может быть в прошлом.")
             return
 
+        await state.update_data(start_time_dt=start_time.isoformat())
+
+        kb = types.InlineKeyboardMarkup(inline_keyboard=[
+            [types.InlineKeyboardButton(text="Оффлайн", callback_data="as_fmt_OFFLINE")],
+            [types.InlineKeyboardButton(text="Онлайн", callback_data="as_fmt_ONLINE")],
+            [types.InlineKeyboardButton(text="Гибрид", callback_data="as_fmt_HYBRID")]
+        ])
+        await message.answer("Выберите формат для этого слота:", reply_markup=kb)
+        await state.set_state(ScheduleState.choosing_format)
+    except ValueError:
+        await message.answer("Неверный формат времени. Используйте ЧЧ:ММ:")
+
+@router.callback_query(F.data.startswith("as_fmt_"), ScheduleState.choosing_format)
+async def add_slot_format(callback: types.CallbackQuery, state: FSMContext):
+    fmt = callback.data.split("_")[2]
+    await state.update_data(format=fmt)
+    await callback.message.answer("Введите цену для этого занятия (в ₽):")
+    await state.set_state(ScheduleState.choosing_price)
+    await callback.answer()
+
+@router.message(ScheduleState.choosing_price)
+async def add_slot_price(message: types.Message, state: FSMContext):
+    try:
+        price = float(message.text)
+        data = await state.get_data()
+        start_time = datetime.fromisoformat(data['start_time_dt'])
+
         async with SessionLocal() as session:
             new_slot = TimeSlot(
                 trainer_id=message.from_user.id,
                 start_time=start_time,
                 end_time=start_time + timedelta(minutes=60),
-                status="free"
+                status="free",
+                format=data['format'],
+                price=price
             )
             session.add(new_slot)
             await session.commit()
@@ -100,17 +139,199 @@ async def add_slot_time(message: types.Message, state: FSMContext):
         await message.answer(f"Слот на {start_time.strftime('%d.%m.%Y %H:%M')} успешно добавлен!")
         await state.clear()
     except ValueError:
-        await message.answer("Неверный формат времени. Используйте ЧЧ:ММ:")
+        await message.answer("Введите число (цена).")
+
+@router.callback_query(F.data == "sche_block")
+async def block_slot_start(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.answer("Введите дату и время слота, который нужно заблокировать (ДД.ММ.ГГГГ ЧЧ:ММ):")
+    await state.set_state("waiting_for_block_time")
+    await callback.answer()
+
+@router.message(F.text, F.state == "waiting_for_block_time")
+async def process_block_time(message: types.Message, state: FSMContext):
+    try:
+        dt = datetime.strptime(message.text, "%d.%m.%Y %H:%M")
+        async with SessionLocal() as session:
+            stmt = select(TimeSlot).where(TimeSlot.trainer_id == message.from_user.id, TimeSlot.start_time == dt)
+            res = await session.execute(stmt)
+            slot = res.scalar_one_or_none()
+
+            if not slot:
+                # Create a blocked slot if it doesn't exist
+                slot = TimeSlot(
+                    trainer_id=message.from_user.id,
+                    start_time=dt,
+                    end_time=dt + timedelta(minutes=60),
+                    status="blocked"
+                )
+                session.add(slot)
+            else:
+                slot.status = "blocked"
+
+            await session.commit()
+        await message.answer(f"Время {message.text} заблокировано.")
+        await state.clear()
+    except ValueError:
+        await message.answer("Неверный формат. Используйте ДД.ММ.ГГГГ ЧЧ:ММ")
+
+@router.callback_query(F.data == "sche_template_menu")
+async def template_menu(callback: types.CallbackQuery, is_admin: bool = False):
+    async with SessionLocal() as session:
+        stmt = select(ScheduleTemplate).where(ScheduleTemplate.trainer_id == callback.from_user.id)
+        res = await session.execute(stmt)
+        templates = res.scalars().all()
+
+        days_map = {0: "Пн", 1: "Вт", 2: "Ср", 3: "Чт", 4: "Пт", 5: "Сб", 6: "Вс"}
+
+        text = "Ваши шаблоны (повторяющиеся слоты):\n\n"
+        if not templates:
+            text += "У вас пока нет шаблонов."
+        else:
+            for t in templates:
+                text += f"• {days_map[t.day_of_week]}: {t.start_time}-{t.end_time}\n"
+
+        kb = types.InlineKeyboardMarkup(inline_keyboard=[
+            [types.InlineKeyboardButton(text="➕ Добавить шаблон", callback_data="temp_add")],
+            [types.InlineKeyboardButton(text="🗑 Очистить всё", callback_data="temp_clear")],
+            [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")]
+        ])
+        kb = add_admin_button(kb, is_admin=is_admin)
+        await callback.message.edit_text(text, reply_markup=kb)
+
+@router.callback_query(F.data == "temp_clear")
+async def temp_clear(callback: types.CallbackQuery):
+    async with SessionLocal() as session:
+        await session.execute(delete(ScheduleTemplate).where(ScheduleTemplate.trainer_id == callback.from_user.id))
+        await session.commit()
+    await callback.message.answer("Все шаблоны удалены.")
+    await callback.answer()
+
+@router.callback_query(F.data == "temp_add")
+async def temp_add_start(callback: types.CallbackQuery, state: FSMContext):
+    days = [
+        ("Пн", "0"), ("Вт", "1"), ("Ср", "2"), ("Чт", "3"),
+        ("Пт", "4"), ("Сб", "5"), ("Вс", "6")
+    ]
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text=d[0], callback_data=f"tday_{d[1]}") for d in days[:4]],
+        [types.InlineKeyboardButton(text=d[0], callback_data=f"tday_{d[1]}") for d in days[4:]]
+    ])
+    await callback.message.edit_text("Выберите день недели:", reply_markup=kb)
+    await state.set_state(TemplateState.choosing_days)
+
+@router.callback_query(F.data.startswith("tday_"), TemplateState.choosing_days)
+async def temp_add_day(callback: types.CallbackQuery, state: FSMContext):
+    day = int(callback.data.split("_")[1])
+    await state.update_data(day=day)
+    await callback.message.answer("Введите время начала (ЧЧ:ММ), например 10:00:")
+    await state.set_state(TemplateState.choosing_start_time)
+    await callback.answer()
+
+@router.message(TemplateState.choosing_start_time)
+async def temp_add_start_time(message: types.Message, state: FSMContext):
+    # Validation simplified for now
+    await state.update_data(start_time=message.text)
+    await message.answer("Введите время конца (ЧЧ:ММ):")
+    await state.set_state(TemplateState.choosing_end_time)
+
+@router.message(TemplateState.choosing_end_time)
+async def temp_add_end_time(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    async with SessionLocal() as session:
+        new_temp = ScheduleTemplate(
+            trainer_id=message.from_user.id,
+            day_of_week=data['day'],
+            start_time=data['start_time'],
+            end_time=message.text
+        )
+        session.add(new_temp)
+        await session.commit()
+    await message.answer("Шаблон добавлен! Теперь вы можете сгенерировать слоты из меню.")
+    await state.clear()
+
+@router.callback_query(F.data == "sche_generate")
+async def generate_slots_handler(callback: types.CallbackQuery):
+    trainer_id = callback.from_user.id
+    async with SessionLocal() as session:
+        # Get templates
+        stmt = select(ScheduleTemplate).where(ScheduleTemplate.trainer_id == trainer_id, ScheduleTemplate.is_active == True)
+        res = await session.execute(stmt)
+        templates = res.scalars().all()
+
+        if not templates:
+            await callback.answer("Сначала создайте шаблоны!", show_alert=True)
+            return
+
+        # Generate for next 14 days
+        count = 0
+        start_date = datetime.now().date()
+        for i in range(14):
+            current_date = start_date + timedelta(days=i)
+            day_of_week = current_date.weekday()
+
+            for t in templates:
+                if t.day_of_week == day_of_week:
+                    # Create slot
+                    sh, sm = map(int, t.start_time.split(':'))
+                    eh, em = map(int, t.end_time.split(':'))
+
+                    slot_start = datetime.combine(current_date, time(sh, sm))
+                    slot_end = datetime.combine(current_date, time(eh, em))
+
+                    # Check if exists
+                    check_stmt = select(TimeSlot).where(
+                        TimeSlot.trainer_id == trainer_id,
+                        TimeSlot.start_time == slot_start
+                    )
+                    exists = await session.execute(check_stmt)
+                    if not exists.scalar():
+                        new_slot = TimeSlot(
+                            trainer_id=trainer_id,
+                            start_time=slot_start,
+                            end_time=slot_end,
+                            status="free"
+                        )
+                        session.add(new_slot)
+                        count += 1
+
+        await session.commit()
+    await callback.message.answer(f"Генерация завершена. Добавлено слотов: {count}")
+    await callback.answer()
+
+@router.callback_query(F.data == "sche_view_del")
+async def delete_slot_callback(callback: types.CallbackQuery):
+    # For simplicity, we just list slots and allow deletion
+    async with SessionLocal() as session:
+        now = datetime.now()
+        stmt = select(TimeSlot).where(
+            TimeSlot.trainer_id == callback.from_user.id,
+            TimeSlot.start_time >= now
+        ).order_by(TimeSlot.start_time.asc())
+        res = await session.execute(stmt)
+        slots = res.scalars().all()
+
+        if not slots:
+            await callback.message.answer("Нет слотов для удаления.")
+            return
+
+        kb = []
+        for s in slots:
+            btn_text = f"❌ {s.start_time.strftime('%d.%m %H:%M')}"
+            kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"del_slot_{s.id}")])
+
+        kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")])
+        await callback.message.edit_text("Выберите слот для удаления:", reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb))
+
+@router.callback_query(F.data.startswith("del_slot_"))
+async def process_slot_deletion(callback: types.CallbackQuery):
+    slot_id = int(callback.data.split("_")[2])
+    async with SessionLocal() as session:
+        await session.execute(delete(TimeSlot).where(TimeSlot.id == slot_id, TimeSlot.trainer_id == callback.from_user.id))
+        await session.commit()
+    await callback.message.answer("Слот удалён.")
+    await sche_back(callback)
 
 @router.callback_query(F.data == "sche_back")
 async def sche_back(callback: types.CallbackQuery, is_admin: bool = False):
-    kb = types.InlineKeyboardMarkup(
-        inline_keyboard=[
-            [types.InlineKeyboardButton(text="📅 Посмотреть слоты", callback_data="sche_view")],
-            [types.InlineKeyboardButton(text="➕ Добавить слот", callback_data="sche_add")],
-            [types.InlineKeyboardButton(text="🗑 Удалить слот", callback_data="sche_del")]
-        ]
-    )
-    kb = add_admin_button(kb, is_admin=is_admin)
-    await callback.message.edit_text("Управление вашим расписанием:", reply_markup=kb)
+    await show_schedule_menu(callback.message, is_admin=is_admin)
     await callback.answer()
