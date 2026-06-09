@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 class ScheduleState(StatesGroup):
     choosing_date = State()
     choosing_time = State()
+    choosing_duration = State()
     choosing_format = State()
     choosing_price = State()
 
@@ -69,12 +70,14 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
             grouped[s.start_time.date()].append(s)
 
         text = "📅 **Ваше расписание на 14 дней:**\n\n"
+        fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
         for date, day_slots in sorted(grouped.items()):
             text += f"🗓 `{date.strftime('%d.%m (%a)')}`\n"
             for s in day_slots:
                 status_icon = "🟢" if s.status == "free" else ("🔴" if s.status == "booked" else "⚪")
-                fmt_tag = f"[{s.format.value if hasattr(s.format, 'value') else s.format}]"
-                text += f"  {status_icon} {s.start_time.strftime('%H:%M')} — {s.price}₽ {fmt_tag}\n"
+                fmt_val = s.format.value if hasattr(s.format, 'value') else str(s.format)
+                fmt_ru = fmt_map.get(fmt_val, fmt_val.lower())
+                text += f"  {status_icon} {s.start_time.strftime('%H:%M')}—{s.end_time.strftime('%H:%M')} | {int(s.price)}₽ ({fmt_ru})\n"
             text += "\n"
 
         await callback.message.edit_text(text, reply_markup=kb_back, parse_mode="Markdown")
@@ -114,14 +117,27 @@ async def add_slot_time(message: types.Message, state: FSMContext):
         await state.update_data(start_time_dt=start_time.isoformat())
 
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="Оффлайн", callback_data="as_fmt_OFFLINE")],
-            [types.InlineKeyboardButton(text="Онлайн", callback_data="as_fmt_ONLINE")],
-            [types.InlineKeyboardButton(text="Гибрид", callback_data="as_fmt_HYBRID")]
+            [types.InlineKeyboardButton(text="60 минут", callback_data="as_dur_60")],
+            [types.InlineKeyboardButton(text="90 минут", callback_data="as_dur_90")]
         ])
-        await message.answer("Выберите формат для этого слота:", reply_markup=kb)
-        await state.set_state(ScheduleState.choosing_format)
+        await message.answer("Выберите длительность занятия:", reply_markup=kb)
+        await state.set_state(ScheduleState.choosing_duration)
     except ValueError:
         await message.answer("Неверный формат времени. Используйте ЧЧ:ММ:")
+
+@router.callback_query(F.data.startswith("as_dur_"), ScheduleState.choosing_duration)
+async def add_slot_duration(callback: types.CallbackQuery, state: FSMContext):
+    duration = int(callback.data.split("_")[2])
+    await state.update_data(duration=duration)
+
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="Оффлайн", callback_data="as_fmt_OFFLINE")],
+        [types.InlineKeyboardButton(text="Онлайн", callback_data="as_fmt_ONLINE")],
+        [types.InlineKeyboardButton(text="Гибрид", callback_data="as_fmt_HYBRID")]
+    ])
+    await callback.message.edit_text("Выберите формат для этого слота:", reply_markup=kb)
+    await state.set_state(ScheduleState.choosing_format)
+    await callback.answer()
 
 @router.callback_query(F.data.startswith("as_fmt_"), ScheduleState.choosing_format)
 async def add_slot_format(callback: types.CallbackQuery, state: FSMContext):
@@ -137,13 +153,29 @@ async def add_slot_price(message: types.Message, state: FSMContext, effective_us
         price = float(message.text)
         data = await state.get_data()
         start_time = datetime.fromisoformat(data['start_time_dt'])
+        duration = data['duration']
+        end_time = start_time + timedelta(minutes=duration)
         user_id = effective_user_id or message.from_user.id
 
         async with SessionLocal() as session:
+            # Check for overlaps
+            stmt_overlap = select(TimeSlot).where(
+                TimeSlot.trainer_id == user_id,
+                and_(
+                    TimeSlot.start_time < end_time,
+                    TimeSlot.end_time > start_time
+                )
+            )
+            overlap_res = await session.execute(stmt_overlap)
+            if overlap_res.scalar():
+                await message.answer("❌ Ошибка: В это время у вас уже есть другой слот!")
+                await state.clear()
+                return
+
             new_slot = TimeSlot(
                 trainer_id=user_id,
                 start_time=start_time,
-                end_time=start_time + timedelta(minutes=60),
+                end_time=end_time,
                 status="free",
                 format=data['format'],
                 price=price
@@ -151,7 +183,7 @@ async def add_slot_price(message: types.Message, state: FSMContext, effective_us
             session.add(new_slot)
             await session.commit()
 
-        await message.answer(f"Слот на {start_time.strftime('%d.%m.%Y %H:%M')} успешно добавлен!")
+        await message.answer(f"✅ Слот на {start_time.strftime('%d.%m.%Y %H:%M')} ({duration} мин) успешно добавлен!")
         await state.clear()
     except ValueError:
         await message.answer("Введите число (цена).")
@@ -287,6 +319,14 @@ async def generate_slots_handler(callback: types.CallbackQuery, effective_user_i
         config = res_config.scalar_one_or_none()
         slot_duration = config.slot_duration if config else 60
 
+        # Get default price from profile
+        from src.models.models import TrainerProfile
+        stmt_profile = select(TrainerProfile).where(TrainerProfile.user_id == trainer_id)
+        res_profile = await session.execute(stmt_profile)
+        profile = res_profile.scalar_one_or_none()
+        default_price = profile.price_single if profile else 0.0
+        default_format = profile.work_format if profile else WorkFormat.HYBRID
+
         # Generate for next 14 days
         count = 0
         now = datetime.now()
@@ -309,10 +349,13 @@ async def generate_slots_handler(callback: types.CallbackQuery, effective_user_i
                         current_slot_end = current_slot_start + timedelta(minutes=slot_duration)
 
                         if current_slot_start > now:
-                            # Check if exists
+                            # Check for overlaps (more robust than exact start check)
                             check_stmt = select(TimeSlot).where(
                                 TimeSlot.trainer_id == trainer_id,
-                                TimeSlot.start_time == current_slot_start
+                                and_(
+                                    TimeSlot.start_time < current_slot_end,
+                                    TimeSlot.end_time > current_slot_start
+                                )
                             )
                             exists = await session.execute(check_stmt)
                             if not exists.scalar():
@@ -321,8 +364,8 @@ async def generate_slots_handler(callback: types.CallbackQuery, effective_user_i
                                     start_time=current_slot_start,
                                     end_time=current_slot_end,
                                     status="free",
-                                    format=WorkFormat.HYBRID,
-                                    price=0 # Default, should ideally take from TrainerProfile
+                                    format=default_format,
+                                    price=default_price
                                 )
                                 session.add(new_slot)
                                 count += 1
@@ -330,7 +373,7 @@ async def generate_slots_handler(callback: types.CallbackQuery, effective_user_i
                         current_slot_start = current_slot_end
 
         await session.commit()
-    await callback.message.answer(f"Генерация завершена. Добавлено слотов: {count} (длительность {slot_duration} мин)")
+    await callback.message.answer(f"✅ Генерация завершена. Добавлено слотов: {count} (длительность {slot_duration} мин, цена {default_price}₽)")
     await callback.answer()
 
 @router.callback_query(F.data == "sche_view_del")
@@ -352,21 +395,22 @@ async def delete_slot_callback(callback: types.CallbackQuery, effective_user_id:
 
         kb = []
         for s in slots:
-            btn_text = f"❌ {s.start_time.strftime('%d.%m %H:%M')}"
-            kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"del_slot_{s.id}")])
+            btn_text = f"❌ {s.start_time.strftime('%d.%m %H:%M')} ({int(s.price)}₽)"
+            kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"slot_del_conf_{s.id}")])
 
         kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")])
         await callback.message.edit_text("Выберите слот для удаления:", reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb))
 
-@router.callback_query(F.data.startswith("del_slot_"))
+@router.callback_query(F.data.startswith("slot_del_conf_"))
 async def process_slot_deletion(callback: types.CallbackQuery, effective_user_id: int = None):
     user_id = effective_user_id or callback.from_user.id
-    slot_id = int(callback.data.split("_")[2])
+    slot_id = int(callback.data.split("_")[3])
     async with SessionLocal() as session:
         await session.execute(delete(TimeSlot).where(TimeSlot.id == slot_id, TimeSlot.trainer_id == user_id))
         await session.commit()
-    await callback.message.answer("Слот удалён.")
-    await sche_back(callback)
+    await callback.answer("Слот удалён.")
+    # Refresh the deletion view
+    await delete_slot_callback(callback, effective_user_id=effective_user_id)
 
 @router.callback_query(F.data == "sche_config_duration")
 async def config_duration_start(callback: types.CallbackQuery, state: FSMContext):
