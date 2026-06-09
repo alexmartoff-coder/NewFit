@@ -41,7 +41,7 @@ async def show_profile_cmd(message: types.Message, effective_user_id: int = None
 
 @router.message(F.text == "👤 Мой профиль")
 async def show_profile(message: types.Message, is_admin: bool = False, effective_user_id: int = None):
-    user_id = effective_user_id or message.from_user.id
+    user_id = effective_user_id
     async with SessionLocal() as session:
         user = await session.get(User, user_id)
         if not user:
@@ -57,7 +57,7 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
 
 @router.message(F.text == "📆 Расписание и запись")
 @router.message(F.text == "/schedule")
-async def show_schedule(message: types.Message):
+async def show_schedule(message: types.Message, effective_user_id: int = None):
     await message.answer("Ваше расписание на сегодня пусто. Интеграция с Google Calendar будет доступна в следующем обновлении.")
 
 @router.message(F.text == "👥 Мои клиенты")

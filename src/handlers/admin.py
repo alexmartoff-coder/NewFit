@@ -188,13 +188,18 @@ async def impersonate_trainer_prompt(callback: CallbackQuery, state: FSMContext)
 async def process_imp_trainer(message: Message, state: FSMContext):
     try:
         trainer_id = int(message.text.strip())
-        await state.update_data(impersonate_trainer_id=trainer_id)
+        await state.update_data(impersonate_trainer_id=trainer_id, impersonate_client_id=None)
         await message.answer(
             f"✅ Вы вошли как тренер ID: `{trainer_id}`\n\n"
             f"🔓 Используйте админ-панель, чтобы выйти.",
             parse_mode="Markdown"
         )
         await state.set_state(None) # Clear specific state but keep data
+
+        # Immediate redirection to the menu
+        from src.keyboards.common import get_trainer_main_kb
+        await message.answer("Переход в кабинет тренера...", reply_markup=get_trainer_main_kb(is_admin=True))
+        await admin_panel(message, is_admin=True)
     except ValueError:
         await message.answer("❌ ID должен быть числом")
 
@@ -207,13 +212,18 @@ async def impersonate_client_prompt(callback: CallbackQuery, state: FSMContext):
 async def process_imp_client(message: Message, state: FSMContext):
     try:
         client_id = int(message.text.strip())
-        await state.update_data(impersonate_client_id=client_id)
+        await state.update_data(impersonate_client_id=client_id, impersonate_trainer_id=None)
         await message.answer(
             f"✅ Вы вошли как клиент ID: `{client_id}`\n\n"
             f"🔓 Используйте админ-панель, чтобы выйти.",
             parse_mode="Markdown"
         )
         await state.set_state(None)
+
+        # Immediate redirection to the menu
+        from src.keyboards.common import get_client_main_kb
+        await message.answer("Переход в кабинет клиента...", reply_markup=get_client_main_kb(is_admin=True))
+        await admin_panel(message, is_admin=True)
     except ValueError:
         await message.answer("❌ ID должен быть числом")
 
@@ -221,6 +231,10 @@ async def process_imp_client(message: Message, state: FSMContext):
 async def stop_impersonate(callback: CallbackQuery, state: FSMContext):
     await state.update_data(impersonate_trainer_id=None, impersonate_client_id=None)
     await callback.message.edit_text("✅ Режим входа отключён. Вы снова в админ-панели.")
+
+    # Restore admin's own menu
+    from src.keyboards.common import get_role_kb
+    await callback.message.answer("Режим тестирования завершен. Выберите роль:", reply_markup=get_role_kb(is_admin=True))
 
 
 @router.callback_query(F.data == "admin_start_over")
