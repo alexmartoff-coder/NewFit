@@ -13,7 +13,7 @@ def get_role_kb(is_admin: bool = False):
 
 def get_trainer_main_kb(is_admin: bool = False):
     kb = [
-        [KeyboardButton(text="👤 Мой профиль"), KeyboardButton(text="📅 Расписание и запись")],
+        [KeyboardButton(text="👤 Мой профиль"), KeyboardButton(text="📅 Моё расписание")],
         [KeyboardButton(text="👥 Мои клиенты"), KeyboardButton(text="💰 Финансы и выплаты")],
         [KeyboardButton(text="📊 Статистика")],
         [KeyboardButton(text="📹 Создать контент (рилсы)")],
