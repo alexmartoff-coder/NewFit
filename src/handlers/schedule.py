@@ -42,9 +42,12 @@ async def show_schedule_menu(message: types.Message, is_admin: bool = False):
 async def view_slots(callback: types.CallbackQuery, is_admin: bool = False):
     async with SessionLocal() as session:
         now = datetime.now()
+        # Fetch slots for the next 14 days
+        end_view = now + timedelta(days=14)
         stmt = select(TimeSlot).where(
             TimeSlot.trainer_id == callback.from_user.id,
-            TimeSlot.start_time >= now
+            TimeSlot.start_time >= now,
+            TimeSlot.start_time <= end_view
         ).order_by(TimeSlot.start_time.asc())
         res = await session.execute(stmt)
         slots = res.scalars().all()
@@ -55,15 +58,25 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False):
         kb_back = add_admin_button(kb_back, is_admin=is_admin)
 
         if not slots:
-            await callback.message.edit_text("У вас пока нет запланированных слотов.", reply_markup=kb_back)
+            await callback.message.edit_text("📭 У вас пока нет запланированных слотов на ближайшие 14 дней.", reply_markup=kb_back)
             return
 
-        text = "Ваши ближайшие слоты:\n\n"
+        # Group by date for better summary
+        from collections import defaultdict
+        grouped = defaultdict(list)
         for s in slots:
-            status_icon = "🟢" if s.status == "free" else "🔴"
-            text += f"{status_icon} {s.start_time.strftime('%d.%m %H:%M')} - {s.status}\n"
+            grouped[s.start_time.date()].append(s)
 
-        await callback.message.edit_text(text, reply_markup=kb_back)
+        text = "📅 **Ваше расписание на 14 дней:**\n\n"
+        for date, day_slots in sorted(grouped.items()):
+            text += f"🗓 `{date.strftime('%d.%m (%a)')}`\n"
+            for s in day_slots:
+                status_icon = "🟢" if s.status == "free" else ("🔴" if s.status == "booked" else "⚪")
+                fmt_tag = f"[{s.format.value if hasattr(s.format, 'value') else s.format}]"
+                text += f"  {status_icon} {s.start_time.strftime('%H:%M')} — {s.price}₽ {fmt_tag}\n"
+            text += "\n"
+
+        await callback.message.edit_text(text, reply_markup=kb_back, parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data == "sche_add")
