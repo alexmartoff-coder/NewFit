@@ -13,15 +13,23 @@ router = Router()
 
 @router.callback_query(F.data.startswith("book_"))
 async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
-    trainer_id = int(callback.data.split("_")[1])
-    await state.update_data(trainer_id=trainer_id)
+    trainer_user_id = int(callback.data.split("_")[1])
 
-    # Send date selection (only show dates with free slots in the next 14 days)
+    # Resolve trainer profile
     async with SessionLocal() as session:
+        stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == trainer_user_id)
+        profile = (await session.execute(stmt_p)).scalar_one_or_none()
+        if not profile:
+            await callback.answer("Профиль тренера не найден!")
+            return
+
+        trainer_profile_id = profile.id
+        await state.update_data(trainer_profile_id=trainer_profile_id, trainer_user_id=trainer_user_id)
+
         now = datetime.now()
         end_view = now + timedelta(days=14)
         stmt = select(TimeSlot.start_time).where(
-            TimeSlot.trainer_id == trainer_id,
+            TimeSlot.trainer_profile_id == trainer_profile_id,
             TimeSlot.status == "free",
             TimeSlot.start_time >= now,
             TimeSlot.start_time <= end_view
@@ -50,14 +58,15 @@ async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_adm
 async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     selected_date = datetime.fromisoformat(callback.data.split("_")[1]).date()
     data = await state.get_data()
-    trainer_id = data['trainer_id']
+    trainer_profile_id = data['trainer_profile_id']
+    trainer_user_id = data['trainer_user_id']
 
     async with SessionLocal() as session:
         start_dt = datetime.combine(selected_date, datetime.min.time())
         end_dt = datetime.combine(selected_date, datetime.max.time())
 
         stmt = select(TimeSlot).where(
-            TimeSlot.trainer_id == trainer_id,
+            TimeSlot.trainer_profile_id == trainer_profile_id,
             TimeSlot.status == "free",
             TimeSlot.start_time >= start_dt,
             TimeSlot.start_time <= end_dt
@@ -81,7 +90,7 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
             btn_text = f"{start_str} - {end_str} — {int(s.price)}₽ ({fmt_ru})"
             kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"slot_{s.id}")])
 
-        kb.append([types.InlineKeyboardButton(text="🔙 К выбору даты", callback_data=f"book_{trainer_id}")])
+        kb.append([types.InlineKeyboardButton(text="🔙 К выбору даты", callback_data=f"book_{trainer_user_id}")])
         kb_markup = types.InlineKeyboardMarkup(inline_keyboard=kb)
         kb_markup = add_admin_button(kb_markup, is_admin=is_admin)
 
@@ -111,9 +120,8 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
 
         await callback.message.edit_text(
             f"📍 **Подтверждение записи**\n\n"
-            f"Тренер ID: `{slot.trainer_id}`\n"
             f"Время: `{slot.start_time.strftime('%d.%m.%Y %H:%M')}`\n"
-            f"Формат: `{slot.format.value if hasattr(slot.format, 'value') else slot.format}`\n"
+            f"Формат: `{slot.format}`\n"
             f"Цена: `{slot.price}₽`\n\n"
             f"💳 После подтверждения вам придет ссылка на оплату.",
             reply_markup=kb,
@@ -162,7 +170,7 @@ async def process_mock_payment(callback: types.CallbackQuery, state: FSMContext,
 
             new_booking = Booking(
                 slot_id=slot_id,
-                trainer_id=slot.trainer_id,
+                trainer_id=slot.trainer_profile.user_id,
                 client_id=user_id,
                 status="confirmed",
                 price=slot.price,

@@ -44,7 +44,7 @@ class User(Base):
 
     admins = relationship("Admin", foreign_keys="Admin.user_id")
     schedule = relationship("TrainerSchedule", back_populates="trainer", uselist=False)
-    time_slots = relationship("TimeSlot", foreign_keys="TimeSlot.trainer_id")
+    time_slots = relationship("TimeSlot", foreign_keys="TimeSlot.client_id")
     bookings_as_trainer = relationship("Booking", foreign_keys="Booking.trainer_id")
     bookings_as_client = relationship("Booking", foreign_keys="Booking.client_id")
 
@@ -148,20 +148,24 @@ class ScheduleTemplate(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+from sqlalchemy import func, Numeric
+
 class TimeSlot(Base):
     __tablename__ = "time_slots"
 
     id = Column(Integer, primary_key=True)
-    trainer_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
+    trainer_profile_id = Column(Integer, ForeignKey("trainer_profiles.id", ondelete="CASCADE"), nullable=False)
     client_id = Column(BigInteger, ForeignKey("users.id"), nullable=True)
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=False)
-    status = Column(String(50), default="free")  # free, booked, canceled, completed, blocked
-    format: Mapped[WorkFormat] = mapped_column(SQLEnum(WorkFormat), default=WorkFormat.HYBRID)
-    price: Mapped[float] = mapped_column(Float, default=0.0)
+    status = Column(String(20), default="free")
+    format = Column(String(20), default="hybrid")
+    price = Column(Float, nullable=False, default=0.0)
     google_event_id = Column(String(200), nullable=True)
     notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=func.now())
+
+    trainer_profile = relationship("TrainerProfile", backref="time_slots")
 
 
 class Booking(Base):
