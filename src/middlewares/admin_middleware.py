@@ -16,7 +16,6 @@ class AdminMiddleware(BaseMiddleware):
         data["is_admin"] = False
         data["can_test_trainer"] = False
         data["can_test_client"] = False
-        data["is_test_mode"] = False
 
         # Check if impersonation is active from FSM
         state = data.get("state")
@@ -28,8 +27,6 @@ class AdminMiddleware(BaseMiddleware):
                 data["effective_user_id"] = imp_trainer_id
             elif imp_client_id:
                 data["effective_user_id"] = imp_client_id
-            if fsm_data.get("is_test_mode"):
-                data["is_test_mode"] = True
 
         if user_id == OWNER_ID:
             data["is_owner"] = True
