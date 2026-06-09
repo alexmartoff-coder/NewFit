@@ -177,3 +177,13 @@ class Booking(Base):
     client_notes = Column(Text, nullable=True)
     trainer_notes = Column(Text, nullable=True)
     booked_at = Column(DateTime, default=datetime.utcnow)
+
+class Reminder(Base):
+    __tablename__ = "reminders"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    booking_id: Mapped[int] = mapped_column(ForeignKey("bookings.id"))
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
+    reminder_type: Mapped[str] = mapped_column(String(20)) # "24h", "2h"
+    scheduled_for: Mapped[datetime] = mapped_column(DateTime)
+    status: Mapped[str] = mapped_column(String(20), default="pending") # pending, sent, canceled

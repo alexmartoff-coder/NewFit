@@ -2,6 +2,7 @@ from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from src.states.booking import BookingSession
 from src.services.calendar import CalendarService
+from src.services.payments import PaymentService
 from src.models.models import TrainerProfile, User, ClientProfile, TimeSlot, Booking
 from src.utils.db import SessionLocal
 from src.keyboards.inline import add_admin_button
@@ -103,29 +104,60 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
 async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
     data = await state.get_data()
     slot_id = data['slot_id']
-    trainer_id = data['trainer_id']
     user_id = effective_user_id or callback.from_user.id
 
     async with SessionLocal() as session:
-        # Re-check slot status inside transaction
+        slot = await session.get(TimeSlot, slot_id)
+        if not slot or slot.status != "free":
+            await callback.message.edit_text("К сожалению, этот слот уже занят.")
+            return
+
+        # Use mock payment link
+        payment_link = await PaymentService.create_payment_link(slot.price, f"Запись на {slot.start_time}", user_id)
+
+        kb = types.InlineKeyboardMarkup(inline_keyboard=[
+            [types.InlineKeyboardButton(text="💳 Оплатить", url=payment_link)],
+            [types.InlineKeyboardButton(text="✅ Я оплатил (симуляция)", callback_data=f"pay_success_{slot_id}")]
+        ])
+
+        await callback.message.edit_text(
+            f"Для завершения записи на {slot.start_time.strftime('%d.%m %H:%M')} необходимо оплатить `{slot.price}₽`.\n\n"
+            "После оплаты ваша запись будет подтверждена автоматически.",
+            reply_markup=kb,
+            parse_mode="Markdown"
+        )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("pay_success_"))
+async def process_mock_payment(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
+    slot_id = int(callback.data.split("_")[2])
+    user_id = effective_user_id or callback.from_user.id
+
+    async with SessionLocal() as session:
         slot = await session.get(TimeSlot, slot_id)
         if slot and slot.status == "free":
-            # 1. Update slot status
             slot.status = "booked"
             slot.client_id = user_id
 
-            # 2. Create Booking record
             new_booking = Booking(
                 slot_id=slot_id,
-                trainer_id=trainer_id,
+                trainer_id=slot.trainer_id,
                 client_id=user_id,
-                status="confirmed"
+                status="confirmed",
+                price=slot.price,
+                paid=True
             )
             session.add(new_booking)
+            await session.flush()
+
+            # Setup reminders
+            from src.services.reminders import ReminderService
+            await ReminderService.schedule_reminders(session, new_booking.id, user_id, slot.start_time)
+
             await session.commit()
-            await callback.message.edit_text("Вы успешно записаны! Тренер увидит ваше бронирование в расписании.")
+            await callback.message.edit_text("💳 Оплата прошла успешно!\n\nВы записаны на тренировку. Мы пришлем вам напоминание за 24 и 2 часа до начала.")
         else:
-            await callback.message.edit_text("К сожалению, этот слот уже занят. Попробуйте выбрать другое время.")
+            await callback.message.edit_text("Срок действия оплаты истек или слот уже занят.")
 
     await state.clear()
     await callback.answer()
