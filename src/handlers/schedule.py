@@ -7,6 +7,8 @@ from src.utils.db import SessionLocal
 from src.keyboards.inline import add_admin_button
 from datetime import datetime, timedelta, time
 import logging
+import pytz
+from dateutil.tz import gettz
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -17,6 +19,11 @@ class ScheduleState(StatesGroup):
     choosing_duration = State()
     choosing_format = State()
     choosing_price = State()
+
+class GenerateSlotsState(StatesGroup):
+    choosing_period = State()
+    choosing_step = State()
+    confirming = State()
 
 class TemplateState(StatesGroup):
     choosing_days = State()
@@ -30,8 +37,9 @@ async def show_schedule_menu(message: types.Message, is_admin: bool = False, eff
         inline_keyboard=[
             [types.InlineKeyboardButton(text="📅 Посмотреть слоты", callback_data="sche_view")],
             [types.InlineKeyboardButton(text="➕ Создать новый слот", callback_data="sche_add")],
+            [types.InlineKeyboardButton(text="⚡ Быстрая генерация слотов", callback_data="sche_quick_gen")],
             [types.InlineKeyboardButton(text="🔁 Повторяющееся расписание", callback_data="sche_template_menu")],
-            [types.InlineKeyboardButton(text="⚡ Сгенерировать из шаблонов", callback_data="sche_generate")],
+            [types.InlineKeyboardButton(text="⚡ Сгенерировать по моим шаблонам", callback_data="sche_generate")],
             [types.InlineKeyboardButton(text="🚫 Заблокировать время", callback_data="sche_block")],
             [types.InlineKeyboardButton(text="🗑 Удалить слот", callback_data="sche_view_del")]
         ]
@@ -42,14 +50,16 @@ async def show_schedule_menu(message: types.Message, is_admin: bool = False, eff
 @router.callback_query(F.data == "sche_view")
 async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
     user_id = effective_user_id or callback.from_user.id
+    moscow_tz = pytz.timezone('Europe/Moscow')
+
     async with SessionLocal() as session:
-        now = datetime.now()
+        now_utc = datetime.utcnow()
         # Fetch slots for the next 14 days
-        end_view = now + timedelta(days=14)
+        end_view_utc = now_utc + timedelta(days=14)
         stmt = select(TimeSlot).where(
             TimeSlot.trainer_id == user_id,
-            TimeSlot.start_time >= now,
-            TimeSlot.start_time <= end_view
+            TimeSlot.start_time >= now_utc,
+            TimeSlot.start_time <= end_view_utc
         ).order_by(TimeSlot.start_time.asc())
         res = await session.execute(stmt)
         slots = res.scalars().all()
@@ -67,17 +77,22 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         from collections import defaultdict
         grouped = defaultdict(list)
         for s in slots:
-            grouped[s.start_time.date()].append(s)
+            # Convert UTC from DB to Moscow for grouping and display
+            start_moscow = pytz.utc.localize(s.start_time).astimezone(moscow_tz)
+            grouped[start_moscow.date()].append(s)
 
-        text = "📅 **Ваше расписание на 14 дней:**\n\n"
+        text = "📅 **Ваше расписание на 14 дней (МСК):**\n\n"
         fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
-        for date, day_slots in sorted(grouped.items()):
-            text += f"🗓 `{date.strftime('%d.%m (%a)')}`\n"
+        for date_obj, day_slots in sorted(grouped.items()):
+            text += f"🗓 `{date_obj.strftime('%d.%m (%a)')}`\n"
             for s in day_slots:
+                start_moscow = pytz.utc.localize(s.start_time).astimezone(moscow_tz)
+                end_moscow = pytz.utc.localize(s.end_time).astimezone(moscow_tz)
+
                 status_icon = "🟢" if s.status == "free" else ("🔴" if s.status == "booked" else "⚪")
                 fmt_val = s.format.value if hasattr(s.format, 'value') else str(s.format)
                 fmt_ru = fmt_map.get(fmt_val, fmt_val.lower())
-                text += f"  {status_icon} {s.start_time.strftime('%H:%M')}—{s.end_time.strftime('%H:%M')} | {int(s.price)}₽ ({fmt_ru})\n"
+                text += f"  {status_icon} {start_moscow.strftime('%H:%M')}—{end_moscow.strftime('%H:%M')} | {int(s.price)}₽ ({fmt_ru})\n"
             text += "\n"
 
         await callback.message.edit_text(text, reply_markup=kb_back, parse_mode="Markdown")
@@ -92,8 +107,11 @@ async def add_slot_start(callback: types.CallbackQuery, state: FSMContext):
 @router.message(ScheduleState.choosing_date)
 async def add_slot_date(message: types.Message, state: FSMContext):
     try:
+        moscow_tz = pytz.timezone('Europe/Moscow')
         date_obj = datetime.strptime(message.text, "%d.%m.%Y")
-        if date_obj < datetime.now().replace(hour=0, minute=0, second=0, microsecond=0):
+        today_moscow = datetime.now(moscow_tz).replace(hour=0, minute=0, second=0, microsecond=0)
+
+        if moscow_tz.localize(date_obj) < today_moscow:
             await message.answer("Дата не может быть в прошлом. Попробуйте еще раз:")
             return
         await state.update_data(date=message.text)
@@ -108,13 +126,17 @@ async def add_slot_time(message: types.Message, state: FSMContext):
         time_obj = datetime.strptime(message.text, "%H:%M")
         data = await state.get_data()
         date_obj = datetime.strptime(data['date'], "%d.%m.%Y")
-        start_time = date_obj.replace(hour=time_obj.hour, minute=time_obj.minute)
 
-        if start_time < datetime.now():
+        moscow_tz = pytz.timezone('Europe/Moscow')
+        # User entered time in Moscow
+        start_time_moscow = moscow_tz.localize(date_obj.replace(hour=time_obj.hour, minute=time_obj.minute))
+
+        if start_time_moscow < datetime.now(moscow_tz):
             await message.answer("Время не может быть в прошлом.")
             return
 
-        await state.update_data(start_time_dt=start_time.isoformat())
+        # Save as UTC isoformat
+        await state.update_data(start_time_dt=start_time_moscow.astimezone(pytz.UTC).isoformat())
 
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="60 минут", callback_data="as_dur_60")],
@@ -150,7 +172,11 @@ async def add_slot_format(callback: types.CallbackQuery, state: FSMContext):
 async def save_new_time_slot(message: types.Message, state: FSMContext, data: dict, user_id: int):
     """Вспомогательная функция для сохранения слота в БД"""
     try:
-        start_time = datetime.fromisoformat(data['start_time_dt'])
+        # data['start_time_dt'] is UTC string with timezone info
+        start_time_utc = datetime.fromisoformat(data['start_time_dt'])
+        # Store as naive UTC in DB
+        start_time = start_time_utc.astimezone(pytz.UTC).replace(tzinfo=None)
+
         duration = data['duration']
         end_time = start_time + timedelta(minutes=duration)
         price = data['price']
@@ -321,6 +347,142 @@ async def temp_add_end_time(message: types.Message, state: FSMContext, effective
         await session.commit()
     await message.answer("Шаблон добавлен! Теперь вы можете сгенерировать слоты из меню.")
     await state.clear()
+
+@router.callback_query(F.data == "sche_quick_gen")
+async def quick_gen_start(callback: types.CallbackQuery, state: FSMContext):
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="На 7 дней", callback_data="gen_p_7")],
+        [types.InlineKeyboardButton(text="На 14 дней", callback_data="gen_p_14")],
+        [types.InlineKeyboardButton(text="На 30 дней", callback_data="gen_p_30")],
+        [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")]
+    ])
+    await callback.message.edit_text("Выберите период генерации слотов:", reply_markup=kb)
+    await state.set_state(GenerateSlotsState.choosing_period)
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("gen_p_"), GenerateSlotsState.choosing_period)
+async def quick_gen_period(callback: types.CallbackQuery, state: FSMContext):
+    period = int(callback.data.split("_")[2])
+    await state.update_data(period=period)
+
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="60 минут", callback_data="gen_s_60")],
+        [types.InlineKeyboardButton(text="90 минут", callback_data="gen_s_90")],
+        [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_quick_gen")]
+    ])
+    await callback.message.edit_text("Выберите шаг между слотами:", reply_markup=kb)
+    await state.set_state(GenerateSlotsState.choosing_step)
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("gen_s_"), GenerateSlotsState.choosing_step)
+async def quick_gen_step(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
+    step = int(callback.data.split("_")[2])
+    await state.update_data(step=step)
+    data = await state.get_data()
+    period = data['period']
+
+    text = (
+        f"📊 **Предпросмотр генерации**\n\n"
+        f"🗓 Период: {period} дней\n"
+        f"⏱ Шаг: {step} минут\n"
+        f"🏢 Режим: Будни (07:00-23:00), Выходные (09:00-22:00)\n"
+        f"🏷 Формат: Гибрид\n\n"
+        f"Слоты будут созданы только на свободное время. Продолжить?"
+    )
+
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="🚀 Сгенерировать", callback_data="gen_confirm")],
+        [types.InlineKeyboardButton(text="❌ Отмена", callback_data="sche_back")]
+    ])
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+    await state.set_state(GenerateSlotsState.confirming)
+    await callback.answer()
+
+@router.callback_query(F.data == "gen_confirm", GenerateSlotsState.confirming)
+async def quick_gen_confirm(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
+    data = await state.get_data()
+    user_id = effective_user_id or callback.from_user.id
+
+    await callback.message.edit_text("⏳ Генерирую слоты, пожалуйста, подождите...")
+
+    count = await generate_slots_from_quick_template(
+        user_id=user_id,
+        days=data['period'],
+        interval=data['step']
+    )
+
+    await callback.message.answer(f"✅ Успешно! Сгенерировано новых слотов: {count}")
+    await state.clear()
+    await show_schedule_menu(callback.message, effective_user_id=user_id)
+    await callback.answer()
+
+async def generate_slots_from_quick_template(user_id: int, days: int, interval: int) -> int:
+    from dateutil.rrule import rrule, DAILY, MO, TU, WE, TH, FR, SA, SU
+    from dateutil.tz import gettz
+    import pytz
+
+    moscow_tz = gettz('Europe/Moscow')
+    utc_tz = pytz.UTC
+
+    now_moscow = datetime.now(moscow_tz)
+    start_date = now_moscow.date()
+    end_date = start_date + timedelta(days=days)
+
+    # Get trainer profile for price
+    from src.models.models import TrainerProfile
+    async with SessionLocal() as session:
+        stmt_profile = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+        res_profile = await session.execute(stmt_profile)
+        profile = res_profile.scalar_one_or_none()
+        default_price = profile.price_single if profile else 0.0
+
+        count = 0
+
+        # Weekdays rule
+        weekdays_rrule = rrule(DAILY, dtstart=now_moscow, until=datetime.combine(end_date, time(23,0), moscow_tz), byweekday=(MO, TU, WE, TH, FR))
+        # Weekend rule
+        weekend_rrule = rrule(DAILY, dtstart=now_moscow, until=datetime.combine(end_date, time(22,0), moscow_tz), byweekday=(SA, SU))
+
+        for day_dt in list(weekdays_rrule) + list(weekend_rrule):
+            day = day_dt.date()
+            if day < start_date: continue
+
+            is_weekend = day.weekday() >= 5
+            start_h, end_h = (9, 22) if is_weekend else (7, 23)
+
+            current_time = datetime.combine(day, time(start_h, 0), moscow_tz)
+            limit_time = datetime.combine(day, time(end_h, 0), moscow_tz)
+
+            while current_time + timedelta(minutes=interval) <= limit_time:
+                slot_start_utc = current_time.astimezone(utc_tz).replace(tzinfo=None)
+                slot_end_utc = (current_time + timedelta(minutes=interval)).astimezone(utc_tz).replace(tzinfo=None)
+
+                if current_time > now_moscow:
+                    # Overlap check
+                    check_stmt = select(TimeSlot).where(
+                        TimeSlot.trainer_id == user_id,
+                        and_(
+                            TimeSlot.start_time < slot_end_utc,
+                            TimeSlot.end_time > slot_start_utc
+                        )
+                    )
+                    exists = await session.execute(check_stmt)
+                    if not exists.scalar():
+                        new_slot = TimeSlot(
+                            trainer_id=user_id,
+                            start_time=slot_start_utc,
+                            end_time=slot_end_utc,
+                            status="free",
+                            format=WorkFormat.HYBRID,
+                            price=default_price
+                        )
+                        session.add(new_slot)
+                        count += 1
+
+                current_time += timedelta(minutes=interval)
+
+        await session.commit()
+    return count
 
 @router.callback_query(F.data == "sche_generate")
 async def generate_slots_handler(callback: types.CallbackQuery, effective_user_id: int = None):
