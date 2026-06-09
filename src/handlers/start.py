@@ -9,9 +9,9 @@ router = Router()
 
 @router.message(CommandStart())
 @router.message(F.text == "/menu")
-async def cmd_start(message: types.Message, is_admin: bool = False):
+async def cmd_start(message: types.Message, is_admin: bool = False, effective_user_id: int = None):
     async with SessionLocal() as session:
-        user = await session.get(User, message.from_user.id)
+        user = await session.get(User, effective_user_id)
 
         # If user exists and has a role, redirect to their menu
         if user and user.role:

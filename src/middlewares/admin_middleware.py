@@ -16,6 +16,7 @@ class AdminMiddleware(BaseMiddleware):
         data["is_admin"] = False
         data["can_test_trainer"] = False
         data["can_test_client"] = False
+        data["effective_user_id"] = user_id
 
         # Check if impersonation is active from FSM
         state = data.get("state")
