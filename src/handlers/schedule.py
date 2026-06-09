@@ -8,7 +8,7 @@ from src.keyboards.inline import add_admin_button
 from datetime import datetime, timedelta, time
 import logging
 import pytz
-from dateutil.tz import gettz
+from dateutil.tz import gettz, UTC
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -50,10 +50,10 @@ async def show_schedule_menu(message: types.Message, is_admin: bool = False, eff
 @router.callback_query(F.data == "sche_view")
 async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
     user_id = effective_user_id or callback.from_user.id
-    moscow_tz = pytz.timezone('Europe/Moscow')
+    moscow_tz = gettz('Europe/Moscow')
 
     async with SessionLocal() as session:
-        now_utc = datetime.utcnow()
+        now_utc = datetime.now(UTC).replace(tzinfo=None)
         # Fetch slots for the next 14 days
         end_view_utc = now_utc + timedelta(days=14)
         stmt = select(TimeSlot).where(
@@ -78,7 +78,7 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         grouped = defaultdict(list)
         for s in slots:
             # Convert UTC from DB to Moscow for grouping and display
-            start_moscow = pytz.utc.localize(s.start_time).astimezone(moscow_tz)
+            start_moscow = s.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
             grouped[start_moscow.date()].append(s)
 
         text = "📅 **Ваше расписание на 14 дней (МСК):**\n\n"
@@ -86,8 +86,8 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         for date_obj, day_slots in sorted(grouped.items()):
             text += f"🗓 `{date_obj.strftime('%d.%m (%a)')}`\n"
             for s in day_slots:
-                start_moscow = pytz.utc.localize(s.start_time).astimezone(moscow_tz)
-                end_moscow = pytz.utc.localize(s.end_time).astimezone(moscow_tz)
+                start_moscow = s.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
+                end_moscow = s.end_time.replace(tzinfo=UTC).astimezone(moscow_tz)
 
                 status_icon = "🟢" if s.status == "free" else ("🔴" if s.status == "booked" else "⚪")
                 fmt_val = s.format.value if hasattr(s.format, 'value') else str(s.format)
@@ -107,11 +107,11 @@ async def add_slot_start(callback: types.CallbackQuery, state: FSMContext):
 @router.message(ScheduleState.choosing_date)
 async def add_slot_date(message: types.Message, state: FSMContext):
     try:
-        moscow_tz = pytz.timezone('Europe/Moscow')
+        moscow_tz = gettz('Europe/Moscow')
         date_obj = datetime.strptime(message.text, "%d.%m.%Y")
         today_moscow = datetime.now(moscow_tz).replace(hour=0, minute=0, second=0, microsecond=0)
 
-        if moscow_tz.localize(date_obj) < today_moscow:
+        if date_obj.replace(tzinfo=moscow_tz) < today_moscow:
             await message.answer("Дата не может быть в прошлом. Попробуйте еще раз:")
             return
         await state.update_data(date=message.text)
@@ -127,16 +127,16 @@ async def add_slot_time(message: types.Message, state: FSMContext):
         data = await state.get_data()
         date_obj = datetime.strptime(data['date'], "%d.%m.%Y")
 
-        moscow_tz = pytz.timezone('Europe/Moscow')
+        moscow_tz = gettz('Europe/Moscow')
         # User entered time in Moscow
-        start_time_moscow = moscow_tz.localize(date_obj.replace(hour=time_obj.hour, minute=time_obj.minute))
+        start_time_moscow = date_obj.replace(hour=time_obj.hour, minute=time_obj.minute, tzinfo=moscow_tz)
 
         if start_time_moscow < datetime.now(moscow_tz):
             await message.answer("Время не может быть в прошлом.")
             return
 
         # Save as UTC isoformat
-        await state.update_data(start_time_dt=start_time_moscow.astimezone(pytz.UTC).isoformat())
+        await state.update_data(start_time_dt=start_time_moscow.astimezone(UTC).isoformat())
 
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="60 минут", callback_data="as_dur_60")],
@@ -175,7 +175,7 @@ async def save_new_time_slot(message: types.Message, state: FSMContext, data: di
         # data['start_time_dt'] is UTC string with timezone info
         start_time_utc = datetime.fromisoformat(data['start_time_dt'])
         # Store as naive UTC in DB
-        start_time = start_time_utc.astimezone(pytz.UTC).replace(tzinfo=None)
+        start_time = start_time_utc.astimezone(UTC).replace(tzinfo=None)
 
         duration = data['duration']
         end_time = start_time + timedelta(minutes=duration)
@@ -418,11 +418,9 @@ async def quick_gen_confirm(callback: types.CallbackQuery, state: FSMContext, ef
 
 async def generate_slots_from_quick_template(user_id: int, days: int, interval: int) -> int:
     from dateutil.rrule import rrule, DAILY, MO, TU, WE, TH, FR, SA, SU
-    from dateutil.tz import gettz
-    import pytz
+    from dateutil.tz import gettz, UTC
 
     moscow_tz = gettz('Europe/Moscow')
-    utc_tz = pytz.UTC
 
     now_moscow = datetime.now(moscow_tz)
     start_date = now_moscow.date()
@@ -452,12 +450,12 @@ async def generate_slots_from_quick_template(user_id: int, days: int, interval: 
                 is_weekend = day.weekday() >= 5
                 start_h, end_h = (9, 22) if is_weekend else (7, 23)
 
-                current_time = moscow_tz.localize(datetime.combine(day, time(start_h, 0)))
-                limit_time = moscow_tz.localize(datetime.combine(day, time(end_h, 0)))
+                current_time = datetime.combine(day, time(start_h, 0)).replace(tzinfo=moscow_tz)
+                limit_time = datetime.combine(day, time(end_h, 0)).replace(tzinfo=moscow_tz)
 
                 while current_time + timedelta(minutes=interval) <= limit_time:
-                    slot_start_utc = current_time.astimezone(utc_tz).replace(tzinfo=None)
-                    slot_end_utc = (current_time + timedelta(minutes=interval)).astimezone(utc_tz).replace(tzinfo=None)
+                    slot_start_utc = current_time.astimezone(UTC).replace(tzinfo=None)
+                    slot_end_utc = (current_time + timedelta(minutes=interval)).astimezone(UTC).replace(tzinfo=None)
 
                     if current_time > now_moscow:
                         # Simple overlap check
@@ -489,8 +487,7 @@ async def generate_slots_from_quick_template(user_id: int, days: int, interval: 
 @router.callback_query(F.data == "sche_generate")
 async def generate_slots_handler(callback: types.CallbackQuery, effective_user_id: int = None):
     trainer_id = effective_user_id or callback.from_user.id
-    moscow_tz = pytz.timezone('Europe/Moscow')
-    utc_tz = pytz.UTC
+    moscow_tz = gettz('Europe/Moscow')
 
     async with SessionLocal() as session:
         # Get templates and trainer config
@@ -528,16 +525,16 @@ async def generate_slots_handler(callback: types.CallbackQuery, effective_user_i
                     sh, sm = map(int, t.start_time.split(':'))
                     eh, em = map(int, t.end_time.split(':'))
 
-                    template_start_moscow = moscow_tz.localize(datetime.combine(current_date, time(sh, sm)))
-                    template_end_moscow = moscow_tz.localize(datetime.combine(current_date, time(eh, em)))
+                    template_start_moscow = datetime.combine(current_date, time(sh, sm)).replace(tzinfo=moscow_tz)
+                    template_end_moscow = datetime.combine(current_date, time(eh, em)).replace(tzinfo=moscow_tz)
 
                     # Split template interval into slots
                     current_slot_start_moscow = template_start_moscow
                     while current_slot_start_moscow + timedelta(minutes=slot_duration) <= template_end_moscow:
                         current_slot_end_moscow = current_slot_start_moscow + timedelta(minutes=slot_duration)
 
-                        slot_start_utc = current_slot_start_moscow.astimezone(utc_tz).replace(tzinfo=None)
-                        slot_end_utc = current_slot_end_moscow.astimezone(utc_tz).replace(tzinfo=None)
+                        slot_start_utc = current_slot_start_moscow.astimezone(UTC).replace(tzinfo=None)
+                        slot_end_utc = current_slot_end_moscow.astimezone(UTC).replace(tzinfo=None)
 
                         if current_slot_start_moscow > now_moscow:
                             # Overlap check
