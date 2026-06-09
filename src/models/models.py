@@ -136,6 +136,18 @@ class TrainerSchedule(Base):
     trainer = relationship("User", back_populates="schedule")
 
 
+class ScheduleTemplate(Base):
+    """Шаблоны повторяющегося расписания"""
+    __tablename__ = "schedule_templates"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    trainer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
+    day_of_week: Mapped[int] = mapped_column(Integer) # 0-6 (Mon-Sun)
+    start_time: Mapped[str] = mapped_column(String(5)) # HH:MM
+    end_time: Mapped[str] = mapped_column(String(5)) # HH:MM
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class TimeSlot(Base):
     __tablename__ = "time_slots"
 
@@ -144,7 +156,9 @@ class TimeSlot(Base):
     client_id = Column(BigInteger, ForeignKey("users.id"), nullable=True)
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=False)
-    status = Column(String(50), default="free")  # free, booked, canceled, completed
+    status = Column(String(50), default="free")  # free, booked, canceled, completed, blocked
+    format: Mapped[WorkFormat] = mapped_column(SQLEnum(WorkFormat), default=WorkFormat.HYBRID)
+    price: Mapped[float] = mapped_column(Float, default=0.0)
     google_event_id = Column(String(200), nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
