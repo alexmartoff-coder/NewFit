@@ -147,18 +147,16 @@ async def add_slot_format(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(ScheduleState.choosing_price)
     await callback.answer()
 
-@router.message(ScheduleState.choosing_price)
-async def add_slot_price(message: types.Message, state: FSMContext, effective_user_id: int = None):
+async def save_new_time_slot(message: types.Message, state: FSMContext, data: dict, user_id: int):
+    """Вспомогательная функция для сохранения слота в БД"""
     try:
-        price = float(message.text)
-        data = await state.get_data()
         start_time = datetime.fromisoformat(data['start_time_dt'])
         duration = data['duration']
         end_time = start_time + timedelta(minutes=duration)
-        user_id = effective_user_id or message.from_user.id
+        price = data['price']
 
         async with SessionLocal() as session:
-            # Check for overlaps
+            # Проверка на пересечения
             stmt_overlap = select(TimeSlot).where(
                 TimeSlot.trainer_id == user_id,
                 and_(
@@ -185,8 +183,31 @@ async def add_slot_price(message: types.Message, state: FSMContext, effective_us
 
         await message.answer(f"✅ Слот на {start_time.strftime('%d.%m.%Y %H:%M')} ({duration} мин) успешно добавлен!")
         await state.clear()
+    except Exception as e:
+        logger.exception("Ошибка при сохранении слота")
+        await message.answer("❌ Произошла ошибка при сохранении слота. Попробуйте еще раз.")
+
+@router.message(ScheduleState.choosing_price)
+async def add_slot_price(message: types.Message, state: FSMContext, effective_user_id: int = None):
+    try:
+        # Очистка ввода: убираем пробелы и меняем запятую на точку
+        price_text = message.text.strip().replace(' ', '').replace(',', '.')
+        price = float(price_text)
+
+        if price < 0:
+            await message.answer("❌ Цена не может быть отрицательной.")
+            return
+
+        await state.update_data(price=price)
+        data = await state.get_data()
+
+        # Определяем ID пользователя (с учетом возможной имитации админом)
+        user_id = effective_user_id or message.from_user.id
+
+        await save_new_time_slot(message, state, data, user_id)
+
     except ValueError:
-        await message.answer("Введите число (цена).")
+        await message.answer("❌ Введите корректную цену цифрами (например: 2500)")
 
 @router.callback_query(F.data == "sche_block")
 async def block_slot_start(callback: types.CallbackQuery, state: FSMContext):
