@@ -177,11 +177,8 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
         photo_url = data.get('photo_url')
         video_url = data.get('video_url')
 
-        # Тестовый режим — удаляем старый профиль, чтобы можно было тестировать с одного аккаунта
-        test_mode = data.get("is_test_mode", False) or is_admin
-
         async with SessionLocal() as session:
-            logger.info(f"Starting finish_onboarding for user {user_id} (test_mode={test_mode})")
+            logger.info(f"Starting finish_onboarding for user {user_id}")
 
             # === 1. User ===
             user = await session.get(User, user_id)
@@ -201,22 +198,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
 
             await session.flush()
 
-            # === 2. TrainerProfile — безопасное удаление для тестов
-            if test_mode:
-                try:
-                    # Удаляем связанные записи, чтобы избежать ForeignKeyViolation
-                    await session.execute(
-                        delete(Booking).where(Booking.trainer_id == user_id)
-                    )
-                    await session.execute(
-                        delete(TrainerProfile).where(TrainerProfile.user_id == user_id)
-                    )
-                    logger.info(f"Test mode: очищен старый профиль тренера {user_id}")
-                except Exception as clean_error:
-                    logger.warning(f"Не удалось очистить старые данные: {clean_error}")
-                    # Продолжаем — будем обновлять существующий профиль
-
-            # Создаём / обновляем профиль
+            # === 2. TrainerProfile — просто обновляем, без удаления ===
             stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id).options(selectinload(TrainerProfile.specializations))
             res = await session.execute(stmt)
             trainer_profile = res.scalar_one_or_none()
@@ -237,8 +219,9 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                     specializations=[]
                 )
                 session.add(trainer_profile)
-                logger.info(f"Создан новый профиль тренера для user {user_id}")
+                logger.info(f"Создан новый профиль тренера {user_id}")
             else:
+                # Обновляем существующий
                 trainer_profile.city = data.get('city', trainer_profile.city)
                 trainer_profile.experience = int(data.get('experience', trainer_profile.experience))
                 trainer_profile.work_format = data.get('work_format', trainer_profile.work_format)
@@ -249,7 +232,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 if video_url:
                     trainer_profile.video_presentation_url = video_url
                 trainer_profile.status = "approved"
-                logger.info(f"Обновлён профиль тренера {user_id}")
+                logger.info(f"Обновлён существующий профиль тренера {user_id}")
 
             # Flush to get the trainer_profile.id if it's new, required for specializations association
             await session.flush()
@@ -262,17 +245,16 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 logger.info(f"Linked {len(trainer_profile.specializations)} specializations for trainer {user_id}")
 
             await session.commit()
-            logger.info(f"Регистрация тренера {user_id} завершена успешно")
+            logger.info(f"✅ finish_onboarding успешно завершён для {user_id}")
 
         await state.clear()
 
         await message.answer(
             "Поздравляем! 🎉\n\n"
-            "Ваш профиль успешно создан и отправлен на модерацию.\n\n"
-            "Вы уже можете пользоваться кабинетом тренера.",
+            "Ваш профиль успешно создан / обновлён.",
             reply_markup=get_trainer_main_kb(is_admin=is_admin)
         )
 
     except Exception as e:
         logger.exception("Error in finish_onboarding")
-        await message.answer("❌ Ошибка при сохранении профиля. Попробуйте ещё раз или напишите в поддержку.")
+        await message.answer("❌ Ошибка при сохранении профиля.\nПопробуйте ещё раз или напишите в поддержку.")
