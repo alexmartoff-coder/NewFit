@@ -187,8 +187,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                     id=user_id,
                     username=username,
                     full_name=data.get('full_name', 'Не указано'),
-                    role=UserRole.TRAINER,
-                    is_test=data.get("is_test_mode", False)
+                    role=UserRole.TRAINER
                 )
                 session.add(user)
             else:

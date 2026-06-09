@@ -15,8 +15,12 @@ router = Router()
 
 # Состояния для FSM
 from aiogram.fsm.state import State, StatesGroup
-class AddAdminState(StatesGroup):
-    waiting_for_id = State()
+class AdminStates(StatesGroup):
+    waiting_for_admin_id = State()
+    waiting_for_impersonate_trainer_id = State()
+    waiting_for_impersonate_client_id = State()
+    waiting_for_remove_admin_id = State()
+    confirm_remove_admin = State()
 
 @router.callback_query(F.data == "admin_panel")
 async def admin_button_handler(callback: CallbackQuery, is_admin: bool = False):
@@ -34,15 +38,12 @@ async def admin_panel(message: Message, is_admin: bool = False):
         return
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="👥 Добавить соадмина/тестировщика", callback_data="admin_add_user")],
+        [InlineKeyboardButton(text="👥 Добавить соадмина", callback_data="admin_add_user")],
         [InlineKeyboardButton(text="🎭 Войти как тренер", callback_data="admin_impersonate_trainer")],
         [InlineKeyboardButton(text="👤 Войти как клиент", callback_data="admin_impersonate_client")],
-        [InlineKeyboardButton(text="🔓 Выйти из режима тестирования", callback_data="admin_stop_impersonate")],
+        [InlineKeyboardButton(text="🔓 Выйти из режима входа", callback_data="admin_stop_impersonate")],
         [InlineKeyboardButton(text="📋 Список админов", callback_data="admin_list")],
         [InlineKeyboardButton(text="🗑 Удалить админа", callback_data="admin_remove")],
-        [InlineKeyboardButton(text="🛠 Переключить тестовый режим", callback_data="admin_toggle_test")],
-        [InlineKeyboardButton(text="🧹 Очистить тестовые данные", callback_data="admin_clear_test_data")],
-        [InlineKeyboardButton(text="🧪 Создать мок-тренера", callback_data="admin_mock_trainer")],
         [InlineKeyboardButton(text="🔄 Начать с начала", callback_data="admin_start_over")],
     ])
 
@@ -52,7 +53,7 @@ async def admin_panel(message: Message, is_admin: bool = False):
 @router.callback_query(F.data == "admin_add_user")
 async def add_admin_prompt(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
-        "📝 **Добавление администратора/тестировщика**\n\n"
+        "📝 **Добавление администратора**\n\n"
         "Введите Telegram ID пользователя и его роль через пробел:\n\n"
         "`ID роль`\n\n"
         "**Роли:**\n"
@@ -60,13 +61,13 @@ async def add_admin_prompt(callback: CallbackQuery, state: FSMContext):
         "• `tester_trainer` — тестирование за тренера\n"
         "• `tester_client` — тестирование за клиента\n"
         "• `tester_both` — тестирование за обе роли\n\n"
-        "Пример: `123456789 tester_both`",
+        "Пример: `123456789 co_admin`",
         parse_mode="Markdown"
     )
-    await state.set_state(AddAdminState.waiting_for_id)
+    await state.set_state(AdminStates.waiting_for_admin_id)
 
 
-@router.message(AddAdminState.waiting_for_id)
+@router.message(AdminStates.waiting_for_admin_id)
 async def process_add_admin(message: Message, state: FSMContext):
     try:
         parts = message.text.strip().split()
@@ -134,88 +135,92 @@ async def list_admins(callback: CallbackQuery):
 
 
 @router.callback_query(F.data == "admin_remove")
-async def remove_admin_prompt(callback: CallbackQuery):
+async def remove_admin_prompt(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
         "🗑 **Удаление администратора**\n\n"
         "Введите Telegram ID пользователя, которого нужно удалить из админов:"
     )
-    # TODO: добавить состояние для удаления
+    await state.set_state(AdminStates.waiting_for_remove_admin_id)
 
+@router.message(AdminStates.waiting_for_remove_admin_id)
+async def process_remove_admin_id(message: Message, state: FSMContext):
+    try:
+        user_id = int(message.text.strip())
+        async with SessionLocal() as session:
+            admin = await session.execute(select(Admin).where(Admin.user_id == user_id))
+            admin = admin.scalar_one_or_none()
+
+            if not admin:
+                await message.answer(f"❌ Администратор с ID {user_id} не найден.")
+                await state.clear()
+                return
+
+            await state.update_data(admin_id_to_remove=user_id)
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🗑 Удалить?", callback_data="admin_confirm_remove")],
+                [InlineKeyboardButton(text="🔙 Отмена", callback_data="admin_panel")]
+            ])
+            await message.answer(f"Вы уверены, что хотите удалить администратора `{user_id}`?", reply_markup=kb, parse_mode="Markdown")
+            await state.set_state(AdminStates.confirm_remove_admin)
+
+    except ValueError:
+        await message.answer("❌ ID должен быть числом")
+
+@router.callback_query(F.data == "admin_confirm_remove", AdminStates.confirm_remove_admin)
+async def confirm_remove_admin(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    user_id = data.get("admin_id_to_remove")
+
+    async with SessionLocal() as session:
+        await session.execute(delete(Admin).where(Admin.user_id == user_id))
+        await session.commit()
+
+    await callback.message.edit_text(f"✅ Администратор `{user_id}` удалён.", parse_mode="Markdown")
+    await state.clear()
+    await admin_panel(callback.message, is_admin=True)
 
 @router.callback_query(F.data == "admin_impersonate_trainer")
-async def impersonate_trainer(callback: CallbackQuery):
-    async with SessionLocal() as session:
-        # Получить список тренеров
-        trainers = await session.execute(
-            select(User).where(User.role == "trainer")
+async def impersonate_trainer_prompt(callback: CallbackQuery, state: FSMContext):
+    await callback.message.edit_text("🎭 **Войти как тренер**\n\nВведите Telegram ID тренера:")
+    await state.set_state(AdminStates.waiting_for_impersonate_trainer_id)
+
+@router.message(AdminStates.waiting_for_impersonate_trainer_id)
+async def process_imp_trainer(message: Message, state: FSMContext):
+    try:
+        trainer_id = int(message.text.strip())
+        await state.update_data(impersonate_trainer_id=trainer_id)
+        await message.answer(
+            f"✅ Вы вошли как тренер ID: `{trainer_id}`\n\n"
+            f"🔓 Используйте админ-панель, чтобы выйти.",
+            parse_mode="Markdown"
         )
-        trainers = trainers.scalars().all()
+        await state.set_state(None) # Clear specific state but keep data
+    except ValueError:
+        await message.answer("❌ ID должен быть числом")
 
-    if not trainers:
-        await callback.message.edit_text("❌ Нет зарегистрированных тренеров")
-        return
+@router.callback_query(F.data == "admin_impersonate_client")
+async def impersonate_client_prompt(callback: CallbackQuery, state: FSMContext):
+    await callback.message.edit_text("👤 **Войти как клиент**\n\nВведите Telegram ID клиента:")
+    await state.set_state(AdminStates.waiting_for_impersonate_client_id)
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"{t.full_name or t.id}", callback_data=f"imp_trainer_{t.id}")]
-        for t in trainers[:10]
-    ])
-    keyboard.inline_keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back")])
-
-    await callback.message.edit_text("🎭 **Выберите тренера, под которого войти:**", reply_markup=keyboard)
-
-
-@router.callback_query(F.data.startswith("imp_trainer_"))
-async def do_impersonate_trainer(callback: CallbackQuery, state: FSMContext):
-    trainer_id = int(callback.data.split("_")[2])
-
-    # Сохраняем в FSM, что админ теперь работает от лица тренера
-    await state.update_data(impersonate_trainer_id=trainer_id)
-
-    await callback.message.edit_text(
-        f"✅ Вы вошли как тренер ID: {trainer_id}\n\n"
-        f"🔓 Нажмите «Выйти из режима тестирования» в админ-панели, чтобы вернуться."
-    )
-
+@router.message(AdminStates.waiting_for_impersonate_client_id)
+async def process_imp_client(message: Message, state: FSMContext):
+    try:
+        client_id = int(message.text.strip())
+        await state.update_data(impersonate_client_id=client_id)
+        await message.answer(
+            f"✅ Вы вошли как клиент ID: `{client_id}`\n\n"
+            f"🔓 Используйте админ-панель, чтобы выйти.",
+            parse_mode="Markdown"
+        )
+        await state.set_state(None)
+    except ValueError:
+        await message.answer("❌ ID должен быть числом")
 
 @router.callback_query(F.data == "admin_stop_impersonate")
 async def stop_impersonate(callback: CallbackQuery, state: FSMContext):
     await state.update_data(impersonate_trainer_id=None, impersonate_client_id=None)
-    await callback.message.edit_text("✅ Режим тестирования отключён. Вы снова в админ-панели.")
-
-
-@router.callback_query(F.data == "admin_toggle_test")
-async def toggle_test_mode(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    current_mode = data.get("is_test_mode", False)
-    new_mode = not current_mode
-    await state.update_data(is_test_mode=new_mode)
-    status = "ВКЛЮЧЕН" if new_mode else "ВЫКЛЮЧЕН"
-    await callback.answer(f"Тестовый режим {status}")
-    await callback.message.answer(f"🛠 Тестовый режим теперь {status}. Новые пользователи будут помечаться как тестовые.")
-
-@router.callback_query(F.data == "admin_clear_test_data")
-async def clear_test_data(callback: CallbackQuery):
-    async with SessionLocal() as session:
-        # Delete users with is_test = True
-        await session.execute(delete(User).where(User.is_test == True))
-        await session.commit()
-    await callback.message.answer("✅ Все тестовые данные удалены")
-    await callback.answer()
-
-@router.callback_query(F.data == "admin_mock_trainer")
-async def admin_mock_trainer(callback: CallbackQuery, state: FSMContext):
-    # Генерируем случайный ID для мок-тренера
-    mock_id = random.randint(1000000, 9999999)
-    await state.clear()
-    await state.update_data(telegram_id=mock_id, is_test_mode=True)
-    await state.set_state(TrainerOnboarding.full_name)
-    await callback.message.answer(
-        f"🧪 **Режим создания мок-тренера**\n\n"
-        f"Будет использован временный ID: `{mock_id}`\n\n"
-        f"Шаг 1/9\n\nНапишите ФИО тренера:",
-        parse_mode="Markdown"
-    )
-    await callback.answer()
+    await callback.message.edit_text("✅ Режим входа отключён. Вы снова в админ-панели.")
 
 
 @router.callback_query(F.data == "admin_start_over")
@@ -236,19 +241,4 @@ async def admin_start_over(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "admin_back")
 async def back_to_admin(callback: CallbackQuery):
-    # Pass False for is_admin because back_to_admin is called from callback,
-    # but the middleware already verified it.
-    # For now, we can just call the message handler or re-send panel.
-    await callback.message.edit_text("🛠 **Админ-панель NewFit**\n\nВыберите действие:",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="👥 Добавить соадмина/тестировщика", callback_data="admin_add_user")],
-            [InlineKeyboardButton(text="🎭 Войти как тренер", callback_data="admin_impersonate_trainer")],
-            [InlineKeyboardButton(text="👤 Войти как клиент", callback_data="admin_impersonate_client")],
-            [InlineKeyboardButton(text="🔓 Выйти из режима тестирования", callback_data="admin_stop_impersonate")],
-            [InlineKeyboardButton(text="📋 Список админов", callback_data="admin_list")],
-            [InlineKeyboardButton(text="🗑 Удалить админа", callback_data="admin_remove")],
-            [InlineKeyboardButton(text="🛠 Переключить тестовый режим", callback_data="admin_toggle_test")],
-            [InlineKeyboardButton(text="🧹 Очистить тестовые данные", callback_data="admin_clear_test_data")],
-            [InlineKeyboardButton(text="🔄 Начать с начала", callback_data="admin_start_over")],
-        ]),
-        parse_mode="Markdown")
+    await admin_panel(callback.message, is_admin=True)
