@@ -208,7 +208,7 @@ async def save_new_time_slot(message: types.Message, state: FSMContext, data: di
                     TimeSlot.start_time < end_time,
                     TimeSlot.end_time > start_time
                 )
-            )
+            ).limit(1)
             overlap_res = await session.execute(stmt_overlap)
             if overlap_res.scalar():
                 await message.answer("❌ Ошибка: В это время у вас уже есть другой слот!")
@@ -431,13 +431,17 @@ async def quick_gen_confirm(callback: types.CallbackQuery, state: FSMContext, ef
 
     await callback.message.edit_text("⏳ Генерирую слоты, пожалуйста, подождите...")
 
-    count = await generate_slots_from_quick_template(
-        user_id=user_id,
-        days=data['period'],
-        interval=data['step']
-    )
+    try:
+        count = await generate_slots_from_quick_template(
+            user_id=user_id,
+            days=data['period'],
+            interval=data['step']
+        )
+        await callback.message.answer(f"✅ Успешно! Сгенерировано новых слотов: {count}")
+    except Exception as e:
+        logger.exception("Ошибка при быстрой генерации слотов")
+        await callback.message.answer("❌ Произошла ошибка при генерации. Попробуйте еще раз или обратитесь в поддержку.")
 
-    await callback.message.answer(f"✅ Успешно! Сгенерировано новых слотов: {count}")
     await state.clear()
     await show_schedule_menu(callback.message, effective_user_id=user_id)
     await callback.answer()
@@ -461,7 +465,6 @@ async def generate_slots_from_quick_template(user_id: int, days: int, interval: 
             return 0
 
         default_price = float(profile.price_single or 2500.0)
-
         count = 0
 
         # Правила для будней и выходных
@@ -474,23 +477,20 @@ async def generate_slots_from_quick_template(user_id: int, days: int, interval: 
             for day_dt in rule:
                 day = day_dt.date()
                 is_weekend = day.weekday() >= 5
-                start_h = 9 if is_weekend else 7
-                end_h = 22 if is_weekend else 23
+                start_h, end_h = (9, 22) if is_weekend else (7, 23)
 
                 current = datetime.combine(day, time(start_h, 0)).replace(tzinfo=moscow_tz)
+                limit_time = datetime.combine(day, time(end_h, 0)).replace(tzinfo=moscow_tz)
 
-                while current.hour < end_h:
+                while current + timedelta(minutes=interval) <= limit_time:
                     end_slot = current + timedelta(minutes=interval)
-                    # Проверяем, чтобы конец слота не выходил за границу рабочего дня
-                    if end_slot.hour > end_h or (end_slot.hour == end_h and end_slot.minute > 0):
-                        break
 
                     start_utc = current.astimezone(UTC).replace(tzinfo=None)
                     end_utc = end_slot.astimezone(UTC).replace(tzinfo=None)
 
                     # Пропускаем слоты в прошлом
                     if current < now_moscow:
-                        current += timedelta(minutes=interval)
+                        current = end_slot
                         continue
 
                     # Проверка пересечения
@@ -498,11 +498,11 @@ async def generate_slots_from_quick_template(user_id: int, days: int, interval: 
                         TimeSlot.trainer_profile_id == profile.id,
                         TimeSlot.start_time < end_utc,
                         TimeSlot.end_time > start_utc
-                    )
+                    ).limit(1)
                     overlap = await session.execute(overlap_stmt)
 
-                    if overlap.scalar_one_or_none():
-                        current += timedelta(minutes=interval)
+                    if overlap.scalar():
+                        current = end_slot
                         continue
 
                     slot = TimeSlot(
@@ -516,8 +516,7 @@ async def generate_slots_from_quick_template(user_id: int, days: int, interval: 
                     session.add(slot)
                     await session.flush()
                     count += 1
-
-                    current += timedelta(minutes=interval)
+                    current = end_slot
 
         await session.commit()
         return count
