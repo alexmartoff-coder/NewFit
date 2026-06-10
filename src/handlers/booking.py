@@ -1,4 +1,4 @@
-from aiogram import Router, types, F
+from aiogram import Router, types, F, exceptions
 from aiogram.fsm.context import FSMContext
 from src.states.booking import BookingSession
 from src.services.calendar import CalendarService
@@ -51,7 +51,11 @@ async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_adm
 
     kb_markup = types.InlineKeyboardMarkup(inline_keyboard=kb)
     kb_markup = add_admin_button(kb_markup, is_admin=is_admin)
-    await callback.message.edit_text("Выберите дату для записи:", reply_markup=kb_markup)
+
+    if callback.message.photo:
+        await callback.message.edit_caption(caption="Выберите дату для записи:", reply_markup=kb_markup)
+    else:
+        await callback.message.edit_text("Выберите дату для записи:", reply_markup=kb_markup)
     await callback.answer()
 
 @router.callback_query(F.data.startswith("bdate_"))
@@ -94,7 +98,11 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
         kb_markup = types.InlineKeyboardMarkup(inline_keyboard=kb)
         kb_markup = add_admin_button(kb_markup, is_admin=is_admin)
 
-        await callback.message.edit_text(f"Свободные слоты на {selected_date.strftime('%d.%m')}:", reply_markup=kb_markup)
+        text = f"Свободные слоты на {selected_date.strftime('%d.%m')}:"
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=text, reply_markup=kb_markup)
+        else:
+            await callback.message.edit_text(text, reply_markup=kb_markup)
     await callback.answer()
 
 @router.callback_query(F.data.startswith("slot_"))
@@ -104,7 +112,11 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
     async with SessionLocal() as session:
         slot = await session.get(TimeSlot, slot_id)
         if not slot or slot.status != "free":
-            await callback.message.edit_text("Этот слот уже занят или недоступен. Выберите другой.")
+            text = "Этот слот уже занят или недоступен. Выберите другой."
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=text)
+            else:
+                await callback.message.edit_text(text)
             return
 
         await state.update_data(slot_id=slot_id, start_time=slot.start_time.isoformat())
@@ -118,15 +130,17 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
         )
         kb = add_admin_button(kb, is_admin=is_admin)
 
-        await callback.message.edit_text(
+        text = (
             f"📍 **Подтверждение записи**\n\n"
             f"Время: `{slot.start_time.strftime('%d.%m.%Y %H:%M')}`\n"
             f"Формат: `{slot.format}`\n"
             f"Цена: `{slot.price}₽`\n\n"
-            f"💳 После подтверждения вам придет ссылка на оплату.",
-            reply_markup=kb,
-            parse_mode="Markdown"
+            f"💳 После подтверждения вам придет ссылка на оплату."
         )
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+        else:
+            await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data == "confirm_booking", BookingSession.confirming_booking)
@@ -138,7 +152,11 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
     async with SessionLocal() as session:
         slot = await session.get(TimeSlot, slot_id)
         if not slot or slot.status != "free":
-            await callback.message.edit_text("К сожалению, этот слот уже занят.")
+            text = "К сожалению, этот слот уже занят."
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=text)
+            else:
+                await callback.message.edit_text(text)
             return
 
         # Use mock payment link
@@ -149,12 +167,14 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             [types.InlineKeyboardButton(text="✅ Я оплатил (симуляция)", callback_data=f"pay_success_{slot_id}")]
         ])
 
-        await callback.message.edit_text(
+        text = (
             f"Для завершения записи на {slot.start_time.strftime('%d.%m %H:%M')} необходимо оплатить `{slot.price}₽`.\n\n"
-            "После оплаты ваша запись будет подтверждена автоматически.",
-            reply_markup=kb,
-            parse_mode="Markdown"
+            "После оплаты ваша запись будет подтверждена автоматически."
         )
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+        else:
+            await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
     await callback.answer()
 
 from sqlalchemy.orm import selectinload
@@ -189,9 +209,17 @@ async def process_mock_payment(callback: types.CallbackQuery, state: FSMContext,
             await ReminderService.schedule_reminders(session, new_booking.id, user_id, slot.start_time)
 
             await session.commit()
-            await callback.message.edit_text("💳 Оплата прошла успешно!\n\nВы записаны на тренировку. Мы пришлем вам напоминание за 24 и 2 часа до начала.")
+            text = "💳 Оплата прошла успешно!\n\nВы записаны на тренировку. Мы пришлем вам напоминание за 24 и 2 часа до начала."
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=text)
+            else:
+                await callback.message.edit_text(text)
         else:
-            await callback.message.edit_text("Срок действия оплаты истек или слот уже занят.")
+            text = "Срок действия оплаты истек или слот уже занят."
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=text)
+            else:
+                await callback.message.edit_text(text)
 
     await state.clear()
     await callback.answer()
@@ -199,5 +227,9 @@ async def process_mock_payment(callback: types.CallbackQuery, state: FSMContext,
 @router.callback_query(F.data == "cancel_booking", BookingSession.confirming_booking)
 async def cancel_booking(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.edit_text("Запись отменена.")
+    text = "Запись отменена."
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text)
+    else:
+        await callback.message.edit_text(text)
     await callback.answer()

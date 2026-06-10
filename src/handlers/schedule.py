@@ -59,9 +59,14 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
         profile = (await session.execute(stmt_p)).scalar_one_or_none()
         if not profile:
-            await callback.message.edit_text("❌ Профиль тренера не найден.", reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
+            text = "❌ Профиль тренера не найден."
+            kb = types.InlineKeyboardMarkup(inline_keyboard=[
                 [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")]
-            ]))
+            ])
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=text, reply_markup=kb)
+            else:
+                await callback.message.edit_text(text, reply_markup=kb)
             return
 
         now_utc = datetime.now(UTC).replace(tzinfo=None)
@@ -81,7 +86,11 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         kb_back = add_admin_button(kb_back, is_admin=is_admin)
 
         if not slots:
-            await callback.message.edit_text("📭 У вас пока нет запланированных слотов на ближайшие 14 дней.", reply_markup=kb_back)
+            text = "📭 У вас пока нет запланированных слотов на ближайшее время."
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=text, reply_markup=kb_back)
+            else:
+                await callback.message.edit_text(text, reply_markup=kb_back)
             return
 
         # Group by date for better summary
@@ -106,7 +115,10 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
                 text += f"  {status_icon} {start_moscow.strftime('%H:%M')}—{end_moscow.strftime('%H:%M')} | {int(s.price)}₽ ({fmt_ru})\n"
             text += "\n"
 
-        await callback.message.edit_text(text, reply_markup=kb_back, parse_mode="Markdown")
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=text, reply_markup=kb_back, parse_mode="Markdown")
+        else:
+            await callback.message.edit_text(text, reply_markup=kb_back, parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data == "sche_add")
@@ -168,7 +180,11 @@ async def add_slot_duration(callback: types.CallbackQuery, state: FSMContext):
         [types.InlineKeyboardButton(text="Онлайн", callback_data="as_fmt_ONLINE")],
         [types.InlineKeyboardButton(text="Гибрид", callback_data="as_fmt_HYBRID")]
     ])
-    await callback.message.edit_text("Выберите формат для этого слота:", reply_markup=kb)
+    text = "Выберите формат для этого слота:"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb)
+    else:
+        await callback.message.edit_text(text, reply_markup=kb)
     await state.set_state(ScheduleState.choosing_format)
     await callback.answer()
 
@@ -319,7 +335,10 @@ async def template_menu(callback: types.CallbackQuery, is_admin: bool = False, e
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")]
         ])
         kb = add_admin_button(kb, is_admin=is_admin)
-        await callback.message.edit_text(text, reply_markup=kb)
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=text, reply_markup=kb)
+        else:
+            await callback.message.edit_text(text, reply_markup=kb)
 
 @router.callback_query(F.data == "temp_clear")
 async def temp_clear(callback: types.CallbackQuery, effective_user_id: int = None):
@@ -340,7 +359,11 @@ async def temp_add_start(callback: types.CallbackQuery, state: FSMContext):
         [types.InlineKeyboardButton(text=d[0], callback_data=f"tday_{d[1]}") for d in days[:4]],
         [types.InlineKeyboardButton(text=d[0], callback_data=f"tday_{d[1]}") for d in days[4:]]
     ])
-    await callback.message.edit_text("Выберите день недели:", reply_markup=kb)
+    text = "Выберите день недели:"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb)
+    else:
+        await callback.message.edit_text(text, reply_markup=kb)
     await state.set_state(TemplateState.choosing_days)
 
 @router.callback_query(F.data.startswith("tday_"), TemplateState.choosing_days)
@@ -382,7 +405,11 @@ async def quick_gen_start(callback: types.CallbackQuery, state: FSMContext):
         [types.InlineKeyboardButton(text="На 30 дней", callback_data="gen_p_30")],
         [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")]
     ])
-    await callback.message.edit_text("Выберите период генерации слотов:", reply_markup=kb)
+    text = "Выберите период генерации слотов:"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb)
+    else:
+        await callback.message.edit_text(text, reply_markup=kb)
     await state.set_state(GenerateSlotsState.choosing_period)
     await callback.answer()
 
@@ -396,7 +423,11 @@ async def quick_gen_period(callback: types.CallbackQuery, state: FSMContext):
         [types.InlineKeyboardButton(text="90 минут", callback_data="gen_s_90")],
         [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_quick_gen")]
     ])
-    await callback.message.edit_text("Выберите шаг между слотами:", reply_markup=kb)
+    text = "Выберите шаг между слотами:"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb)
+    else:
+        await callback.message.edit_text(text, reply_markup=kb)
     await state.set_state(GenerateSlotsState.choosing_step)
     await callback.answer()
 
@@ -420,7 +451,10 @@ async def quick_gen_step(callback: types.CallbackQuery, state: FSMContext, effec
         [types.InlineKeyboardButton(text="🚀 Сгенерировать", callback_data="gen_confirm")],
         [types.InlineKeyboardButton(text="❌ Отмена", callback_data="sche_back")]
     ])
-    await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
     await state.set_state(GenerateSlotsState.confirming)
     await callback.answer()
 
@@ -429,7 +463,11 @@ async def quick_gen_confirm(callback: types.CallbackQuery, state: FSMContext, ef
     data = await state.get_data()
     user_id = effective_user_id or callback.from_user.id
 
-    await callback.message.edit_text("⏳ Генерирую слоты, пожалуйста, подождите...")
+    msg = "⏳ Генерирую слоты, пожалуйста, подождите..."
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=msg)
+    else:
+        await callback.message.edit_text(msg)
 
     try:
         count = await generate_slots_from_quick_template(
@@ -637,7 +675,11 @@ async def delete_slot_callback(callback: types.CallbackQuery, effective_user_id:
             kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"slot_del_conf_{s.id}")])
 
         kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")])
-        await callback.message.edit_text("Выберите слот для удаления:", reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb))
+        text = "Выберите слот для удаления:"
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb))
+        else:
+            await callback.message.edit_text(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb))
 
 @router.callback_query(F.data.startswith("slot_del_conf_"))
 async def process_slot_deletion(callback: types.CallbackQuery, effective_user_id: int = None):
@@ -658,7 +700,11 @@ async def process_slot_deletion(callback: types.CallbackQuery, effective_user_id
 
 @router.callback_query(F.data == "sche_config_duration")
 async def config_duration_start(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.edit_text("Введите стандартную длительность занятия в минутах (например, 60 или 90):")
+    text = "Введите стандартную длительность занятия в минутах (например, 60 или 90):"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text)
+    else:
+        await callback.message.edit_text(text)
     await state.set_state("waiting_for_duration")
     await callback.answer()
 
