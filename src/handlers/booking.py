@@ -157,13 +157,18 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
         )
     await callback.answer()
 
+from sqlalchemy.orm import selectinload
+
 @router.callback_query(F.data.startswith("pay_success_"))
 async def process_mock_payment(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
     slot_id = int(callback.data.split("_")[2])
     user_id = effective_user_id or callback.from_user.id
 
     async with SessionLocal() as session:
-        slot = await session.get(TimeSlot, slot_id)
+        stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(selectinload(TimeSlot.trainer_profile))
+        res = await session.execute(stmt)
+        slot = res.scalar_one_or_none()
+
         if slot and slot.status == "free":
             slot.status = "booked"
             slot.client_id = user_id

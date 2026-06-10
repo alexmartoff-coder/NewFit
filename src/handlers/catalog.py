@@ -116,6 +116,23 @@ async def process_price_min(message: types.Message, state: FSMContext, is_admin:
     except ValueError:
         await message.answer("Введите число.")
 
+@router.callback_query(F.data == "price_max")
+async def filter_price_max(callback: types.CallbackQuery, state: FSMContext):
+    await state.set_state(CatalogFilter.entering_price_max)
+    await callback.message.answer("Введите максимальную цену:")
+    await callback.answer()
+
+@router.message(CatalogFilter.entering_price_max)
+async def process_price_max(message: types.Message, state: FSMContext, is_admin: bool = False):
+    try:
+        val = float(message.text)
+        await state.update_data(price_max=val)
+        kb = get_filter_kb()
+        kb = add_admin_button(kb, is_admin=is_admin)
+        await message.answer(f"Макс. цена: {val}", reply_markup=kb)
+    except ValueError:
+        await message.answer("Введите число.")
+
 @router.callback_query(F.data == "filter_reset")
 async def filter_reset(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
     await state.clear()
