@@ -443,73 +443,84 @@ async def quick_gen_confirm(callback: types.CallbackQuery, state: FSMContext, ef
     await callback.answer()
 
 async def generate_slots_from_quick_template(user_id: int, days: int, interval: int) -> int:
-    from dateutil.rrule import rrule, DAILY, MO, TU, WE, TH, FR, SA, SU
     from dateutil.tz import gettz, UTC
+    from datetime import datetime, time, timedelta
+    from dateutil.rrule import rrule, DAILY, MO, TU, WE, TH, FR, SA, SU
 
     moscow_tz = gettz('Europe/Moscow')
-
     now_moscow = datetime.now(moscow_tz)
+
     start_date = now_moscow.date()
     end_date = start_date + timedelta(days=days)
 
     async with SessionLocal() as session:
-        # Get trainer profile
-        stmt_profile = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
-        res_profile = await session.execute(stmt_profile)
-        profile = res_profile.scalar_one_or_none()
-        if not profile: return 0
+        # Получаем профиль
+        profile_stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+        profile = (await session.execute(profile_stmt)).scalar_one_or_none()
+        if not profile:
+            return 0
 
-        default_price = profile.price_single or 2500.0
+        default_price = float(profile.price_single or 2500.0)
 
         count = 0
 
-        # Rules for weekdays and weekends
+        # Правила для будней и выходных
         rules = [
-            rrule(DAILY, dtstart=now_moscow, until=datetime.combine(end_date, time(23,0), moscow_tz), byweekday=(MO, TU, WE, TH, FR)),
-            rrule(DAILY, dtstart=now_moscow, until=datetime.combine(end_date, time(22,0), moscow_tz), byweekday=(SA, SU))
+            rrule(DAILY, dtstart=datetime.combine(start_date, time.min), until=datetime.combine(end_date, time.max), byweekday=(MO, TU, WE, TH, FR)),
+            rrule(DAILY, dtstart=datetime.combine(start_date, time.min), until=datetime.combine(end_date, time.max), byweekday=(SA, SU))
         ]
 
         for rule in rules:
             for day_dt in rule:
                 day = day_dt.date()
-                if day < start_date: continue
-
                 is_weekend = day.weekday() >= 5
-                start_h, end_h = (9, 22) if is_weekend else (7, 23)
+                start_h = 9 if is_weekend else 7
+                end_h = 22 if is_weekend else 23
 
-                current_time = datetime.combine(day, time(start_h, 0)).replace(tzinfo=moscow_tz)
-                limit_time = datetime.combine(day, time(end_h, 0)).replace(tzinfo=moscow_tz)
+                current = datetime.combine(day, time(start_h, 0)).replace(tzinfo=moscow_tz)
 
-                while current_time + timedelta(minutes=interval) <= limit_time:
-                    slot_start_utc = current_time.astimezone(UTC).replace(tzinfo=None)
-                    slot_end_utc = (current_time + timedelta(minutes=interval)).astimezone(UTC).replace(tzinfo=None)
+                while current.hour < end_h:
+                    end_slot = current + timedelta(minutes=interval)
+                    # Проверяем, чтобы конец слота не выходил за границу рабочего дня
+                    if end_slot.hour > end_h or (end_slot.hour == end_h and end_slot.minute > 0):
+                        break
 
-                    if current_time > now_moscow:
-                        # Simple overlap check
-                        overlap_stmt = select(TimeSlot).where(
-                            TimeSlot.trainer_profile_id == profile.id,
-                            TimeSlot.start_time < slot_end_utc,
-                            TimeSlot.end_time > slot_start_utc
-                        )
-                        overlap_res = await session.execute(overlap_stmt)
+                    start_utc = current.astimezone(UTC).replace(tzinfo=None)
+                    end_utc = end_slot.astimezone(UTC).replace(tzinfo=None)
 
-                        if not overlap_res.scalar_one_or_none():
-                            new_slot = TimeSlot(
-                                trainer_profile_id=profile.id,
-                                start_time=slot_start_utc,
-                                end_time=slot_end_utc,
-                                status="free",
-                                format="hybrid",
-                                price=default_price
-                            )
-                            session.add(new_slot)
-                            await session.flush()
-                            count += 1
+                    # Пропускаем слоты в прошлом
+                    if current < now_moscow:
+                        current += timedelta(minutes=interval)
+                        continue
 
-                    current_time += timedelta(minutes=interval)
+                    # Проверка пересечения
+                    overlap_stmt = select(TimeSlot).where(
+                        TimeSlot.trainer_profile_id == profile.id,
+                        TimeSlot.start_time < end_utc,
+                        TimeSlot.end_time > start_utc
+                    )
+                    overlap = await session.execute(overlap_stmt)
+
+                    if overlap.scalar_one_or_none():
+                        current += timedelta(minutes=interval)
+                        continue
+
+                    slot = TimeSlot(
+                        trainer_profile_id=profile.id,
+                        start_time=start_utc,
+                        end_time=end_utc,
+                        format="hybrid",
+                        price=default_price,
+                        status="free"
+                    )
+                    session.add(slot)
+                    await session.flush()
+                    count += 1
+
+                    current += timedelta(minutes=interval)
 
         await session.commit()
-    return count
+        return count
 
 @router.callback_query(F.data == "sche_generate")
 async def generate_slots_handler(callback: types.CallbackQuery, effective_user_id: int = None):
