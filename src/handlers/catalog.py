@@ -225,7 +225,8 @@ async def apply_filters(callback: types.CallbackQuery, state: FSMContext):
                 )
                 kb = types.InlineKeyboardMarkup(
                     inline_keyboard=[
-                        [types.InlineKeyboardButton(text="📅 Записаться", callback_data=f"book_{trainer_profile.user_id}")]
+                        [types.InlineKeyboardButton(text="📅 Записаться", callback_data=f"book_{trainer_profile.user_id}")],
+                        [types.InlineKeyboardButton(text="🔙 Назад к фильтрам", callback_data="filter_back")]
                     ]
                 )
                 if trainer_profile.photo_url:
