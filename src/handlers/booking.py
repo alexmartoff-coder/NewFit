@@ -8,8 +8,10 @@ from src.utils.db import SessionLocal
 from src.keyboards.inline import add_admin_button
 from sqlalchemy import select, update
 from datetime import datetime, timedelta
+import logging
 
 router = Router()
+logger = logging.getLogger(__name__)
 
 @router.callback_query(F.data.startswith("book_"))
 async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
@@ -48,6 +50,7 @@ async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_adm
                 text=d.strftime("%d.%m (%a)"),
                 callback_data=f"bdate_{d.isoformat()}"
             )])
+        kb.append([types.InlineKeyboardButton(text="🔙 Назад в каталог", callback_data="filter_apply")])
 
     kb_markup = types.InlineKeyboardMarkup(inline_keyboard=kb)
     kb_markup = add_admin_button(kb_markup, is_admin=is_admin)
@@ -95,6 +98,7 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
             kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"slot_{s.id}")])
 
         kb.append([types.InlineKeyboardButton(text="🔙 К выбору даты", callback_data=f"book_{trainer_user_id}")])
+        kb.append([types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="client_menu")])
         kb_markup = types.InlineKeyboardMarkup(inline_keyboard=kb)
         kb_markup = add_admin_button(kb_markup, is_admin=is_admin)
 
@@ -122,9 +126,11 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
         await state.update_data(slot_id=slot_id, start_time=slot.start_time.isoformat())
         await state.set_state(BookingSession.confirming_booking)
 
+        selected_date = slot.start_time.date().isoformat()
         kb = types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [types.InlineKeyboardButton(text="✅ Да, записаться", callback_data="confirm_booking")],
+                [types.InlineKeyboardButton(text="🔙 К выбору времени", callback_data=f"bdate_{selected_date}")],
                 [types.InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_booking")]
             ]
         )
@@ -164,7 +170,8 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
 
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="💳 Оплатить", url=payment_link)],
-            [types.InlineKeyboardButton(text="✅ Я оплатил (симуляция)", callback_data=f"pay_success_{slot_id}")]
+            [types.InlineKeyboardButton(text="✅ Я оплатил (симуляция)", callback_data=f"pay_success_{slot_id}")],
+            [types.InlineKeyboardButton(text="🔙 Назад к подтверждению", callback_data=f"slot_{slot_id}")]
         ])
 
         text = (
@@ -209,11 +216,30 @@ async def process_mock_payment(callback: types.CallbackQuery, state: FSMContext,
             await ReminderService.schedule_reminders(session, new_booking.id, user_id, slot.start_time)
 
             await session.commit()
-            text = "💳 Оплата прошла успешно!\n\nВы записаны на тренировку. Мы пришлем вам напоминание за 24 и 2 часа до начала."
+            text = "💳 Оплата прошла успешно!\n\n✅ Вы успешно записаны на тренировку.\n📅 Мы пришлем вам напоминание за 24 и 2 часа до начала."
+
+            # Show main menu keyboard to client
+            from src.keyboards.common import get_client_main_kb
+            kb = get_client_main_kb()
+
             if callback.message.photo:
-                await callback.message.edit_caption(caption=text)
+                await callback.message.answer(text, reply_markup=kb)
             else:
-                await callback.message.edit_text(text)
+                await callback.message.edit_text(text, reply_markup=None)
+                await callback.message.answer("Воспользуйтесь меню ниже для навигации:", reply_markup=kb)
+
+            # Notify trainer
+            try:
+                trainer_text = (
+                    f"🆕 **Новая запись!**\n\n"
+                    f"👤 Клиент: {callback.from_user.full_name}\n"
+                    f"⏰ Время: {slot.start_time.strftime('%d.%m %H:%M')}\n"
+                    f"🏷 Формат: {slot.format}\n"
+                    f"💰 Оплачено: {slot.price}₽"
+                )
+                await callback.bot.send_message(slot.trainer_profile.user_id, trainer_text, parse_mode="Markdown")
+            except Exception as e:
+                logger.error(f"Failed to notify trainer {slot.trainer_profile.user_id}: {e}")
         else:
             text = "Срок действия оплаты истек или слот уже занят."
             if callback.message.photo:
