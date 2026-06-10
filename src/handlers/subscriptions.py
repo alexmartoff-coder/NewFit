@@ -38,10 +38,11 @@ async def process_sub_purchase(callback: types.CallbackQuery, is_admin: bool = F
         ]
     )
     kb = add_admin_button(kb, is_admin=is_admin)
-    await callback.message.edit_text(
-        f"Вы выбрали пакет на {count} занятий за {price}₽.\nОплатите по ссылке ниже:",
-        reply_markup=kb
-    )
+    text = f"Вы выбрали пакет на {count} занятий за {price}₽.\nОплатите по ссылке ниже:"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb)
+    else:
+        await callback.message.edit_text(text, reply_markup=kb)
     await callback.answer()
 
 @router.callback_query(F.data.startswith("verify_sub_"))
@@ -66,5 +67,9 @@ async def verify_sub_mock(callback: types.CallbackQuery):
         session.add(sub)
         await session.commit()
 
-    await callback.message.edit_text(f"Оплата подтверждена! Вам начислено {count} занятий.")
+    text = f"Оплата подтверждена! Вам начислено {count} занятий."
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text)
+    else:
+        await callback.message.edit_text(text)
     await callback.answer()

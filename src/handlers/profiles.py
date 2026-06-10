@@ -145,7 +145,10 @@ async def connect_google_calendar(event: types.Message | types.CallbackQuery, ef
             if isinstance(event, types.Message):
                 await message.answer(text, reply_markup=keyboard, parse_mode="Markdown")
             else:
-                await event.message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
+                if event.message.photo:
+                    await event.message.edit_caption(caption=text, reply_markup=keyboard, parse_mode="Markdown")
+                else:
+                    await event.message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
             return
 
         # Not connected, show instruction
@@ -169,16 +172,23 @@ async def connect_google_calendar(event: types.Message | types.CallbackQuery, ef
         if isinstance(event, types.Message):
             await message.answer(instruction_text, reply_markup=keyboard, parse_mode="Markdown", disable_web_page_preview=True)
         else:
-            await event.message.edit_text(instruction_text, reply_markup=keyboard, parse_mode="Markdown", disable_web_page_preview=True)
+            if event.message.photo:
+                await event.message.edit_caption(caption=instruction_text, reply_markup=keyboard, parse_mode="Markdown")
+            else:
+                await event.message.edit_text(instruction_text, reply_markup=keyboard, parse_mode="Markdown", disable_web_page_preview=True)
 
 @router.callback_query(F.data == "trainer_google_enter_keys")
 async def start_enter_keys(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.edit_text(
+    text = (
         "🔑 **Введите ваш Google Client ID**\n\n"
         "Он выглядит примерно так:\n"
         "`123456789012-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com`\n\n"
         "Отправьте его одним сообщением:"
     )
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text)
+    else:
+        await callback.message.edit_text(text)
     await state.set_state(GoogleKeysState.waiting_for_client_id)
     await callback.answer()
 
@@ -235,7 +245,12 @@ async def trainer_google_disconnect(callback: types.CallbackQuery, effective_use
             sched.google_refresh_token = None
             sched.sync_enabled = False
             await session.commit()
-    await callback.message.edit_text("🔌 Google Календарь отключен.")
+
+    text = "🔌 Google Календарь отключен."
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text)
+    else:
+        await callback.message.edit_text(text)
     await callback.answer()
 
 @router.callback_query(F.data == "trainer_google_settings")

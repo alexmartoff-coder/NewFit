@@ -52,6 +52,24 @@ async def admin_panel(message: Message, is_admin: bool = False):
 
 @router.callback_query(F.data == "admin_add_user")
 async def add_admin_prompt(callback: CallbackQuery, state: FSMContext):
+    text = (
+        "📝 **Добавление администратора**\n\n"
+        "Введите Telegram ID пользователя и его роль через пробел:\n\n"
+        "`ID роль`\n\n"
+        "**Роли:**\n"
+        "• `co_admin` — полный доступ\n"
+        "• `tester_trainer` — тестирование за тренера\n"
+        "• `tester_client` — тестирование за клиента\n"
+        "• `tester_both` — тестирование за обе роли\n\n"
+        "Пример: `123456789 co_admin`"
+    )
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text, parse_mode="Markdown")
+    await state.set_state(AdminStates.waiting_for_admin_id)
+
+async def _legacy_add_admin_prompt(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
         "📝 **Добавление администратора**\n\n"
         "Введите Telegram ID пользователя и его роль через пробел:\n\n"
@@ -124,22 +142,33 @@ async def list_admins(callback: CallbackQuery):
         admins = admins.scalars().all()
 
     if not admins:
-        await callback.message.edit_text("📭 Список администраторов пуст.")
+        text = "📭 Список администраторов пуст."
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=text)
+        else:
+            await callback.message.edit_text(text)
         return
 
     text = "📋 **Список администраторов и тестировщиков:**\n\n"
     for admin in admins:
         text += f"• `{admin.user_id}` — {admin.role}\n"
 
-    await callback.message.edit_text(text, parse_mode="Markdown")
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text, parse_mode="Markdown")
 
 
 @router.callback_query(F.data == "admin_remove")
 async def remove_admin_prompt(callback: CallbackQuery, state: FSMContext):
-    await callback.message.edit_text(
+    text = (
         "🗑 **Удаление администратора**\n\n"
         "Введите Telegram ID пользователя, которого нужно удалить из админов:"
     )
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text)
+    else:
+        await callback.message.edit_text(text)
     await state.set_state(AdminStates.waiting_for_remove_admin_id)
 
 @router.message(AdminStates.waiting_for_remove_admin_id)
@@ -175,13 +204,21 @@ async def confirm_remove_admin(callback: CallbackQuery, state: FSMContext):
         await session.execute(delete(Admin).where(Admin.user_id == user_id))
         await session.commit()
 
-    await callback.message.edit_text(f"✅ Администратор `{user_id}` удалён.", parse_mode="Markdown")
+    text = f"✅ Администратор `{user_id}` удалён."
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text, parse_mode="Markdown")
     await state.clear()
     await admin_panel(callback.message, is_admin=True)
 
 @router.callback_query(F.data == "admin_impersonate_trainer")
 async def impersonate_trainer_prompt(callback: CallbackQuery, state: FSMContext):
-    await callback.message.edit_text("🎭 **Войти как тренер**\n\nВведите Telegram ID тренера:")
+    text = "🎭 **Войти как тренер**\n\nВведите Telegram ID тренера:"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text)
+    else:
+        await callback.message.edit_text(text)
     await state.set_state(AdminStates.waiting_for_impersonate_trainer_id)
 
 @router.message(AdminStates.waiting_for_impersonate_trainer_id)
@@ -205,7 +242,11 @@ async def process_imp_trainer(message: Message, state: FSMContext):
 
 @router.callback_query(F.data == "admin_impersonate_client")
 async def impersonate_client_prompt(callback: CallbackQuery, state: FSMContext):
-    await callback.message.edit_text("👤 **Войти как клиент**\n\nВведите Telegram ID клиента:")
+    text = "👤 **Войти как клиент**\n\nВведите Telegram ID клиента:"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text)
+    else:
+        await callback.message.edit_text(text)
     await state.set_state(AdminStates.waiting_for_impersonate_client_id)
 
 @router.message(AdminStates.waiting_for_impersonate_client_id)
@@ -230,7 +271,11 @@ async def process_imp_client(message: Message, state: FSMContext):
 @router.callback_query(F.data == "admin_stop_impersonate")
 async def stop_impersonate(callback: CallbackQuery, state: FSMContext):
     await state.update_data(impersonate_trainer_id=None, impersonate_client_id=None)
-    await callback.message.edit_text("✅ Режим входа отключён. Вы снова в админ-панели.")
+    text = "✅ Режим входа отключён. Вы снова в админ-панели."
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text)
+    else:
+        await callback.message.edit_text(text)
 
     # Restore admin's own menu
     from src.keyboards.common import get_role_kb

@@ -45,7 +45,12 @@ async def filter_spec(callback: types.CallbackQuery, state: FSMContext, is_admin
     from src.keyboards.common import get_spec_kb
     kb = get_spec_kb(selected_specs=selected)
     kb = add_admin_button(kb, is_admin=is_admin)
-    await callback.message.edit_text("Выберите направления (можно несколько):", reply_markup=kb)
+
+    text = "Выберите направления (можно несколько):"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb)
+    else:
+        await callback.message.edit_text(text, reply_markup=kb)
     await callback.answer()
 
 @router.callback_query(F.data.startswith("spec_"), CatalogFilter.entering_specialization)
@@ -53,7 +58,11 @@ async def process_filter_spec_callback(callback: types.CallbackQuery, state: FSM
     if callback.data == "spec_done":
         kb = get_filter_kb()
         kb = add_admin_button(kb, is_admin=is_admin)
-        await callback.message.edit_text("Фильтры настроены:", reply_markup=kb)
+        text = "Фильтры настроены:"
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=text, reply_markup=kb)
+        else:
+            await callback.message.edit_text(text, reply_markup=kb)
         await callback.answer()
         return
 
@@ -138,7 +147,11 @@ async def filter_reset(callback: types.CallbackQuery, state: FSMContext, is_admi
     await state.clear()
     kb = get_filter_kb()
     kb = add_admin_button(kb, is_admin=is_admin)
-    await callback.message.edit_text("Фильтры сброшены. Выберите снова:", reply_markup=kb)
+    text = "Фильтры сброшены. Выберите снова:"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb)
+    else:
+        await callback.message.edit_text(text, reply_markup=kb)
     await callback.answer()
 
 @router.callback_query(F.data == "filter_apply")
