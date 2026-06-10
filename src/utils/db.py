@@ -46,6 +46,29 @@ async def init_db(engine):
                     REFERENCES trainer_profiles(id)
                     ON DELETE CASCADE;
 
+                    -- 3. Исправление таблицы bookings (добавление недостающих колонок)
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='slot_id') THEN
+                        ALTER TABLE bookings ADD COLUMN slot_id INTEGER;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='trainer_id') THEN
+                        ALTER TABLE bookings ADD COLUMN trainer_id BIGINT;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='client_id') THEN
+                        ALTER TABLE bookings ADD COLUMN client_id BIGINT;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='status') THEN
+                        ALTER TABLE bookings ADD COLUMN status VARCHAR(50);
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='price') THEN
+                        ALTER TABLE bookings ADD COLUMN price INTEGER;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='paid') THEN
+                        ALTER TABLE bookings ADD COLUMN paid BOOLEAN DEFAULT FALSE;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='booked_at') THEN
+                        ALTER TABLE bookings ADD COLUMN booked_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW();
+                    END IF;
+
                 EXCEPTION WHEN OTHERS THEN
                     RAISE NOTICE 'Ошибка при обновлении схемы: %', SQLERRM;
                 END $$;
