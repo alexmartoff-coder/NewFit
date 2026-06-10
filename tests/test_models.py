@@ -36,7 +36,7 @@ async def test_create_trainer_profile(db_session):
     profile = TrainerProfile(
         user_id=user.id,
         city="Moscow",
-        experience="5 years",
+        experience=5,
         work_format=WorkFormat.HYBRID,
         price_single=2000.0,
         price_package=20000.0
