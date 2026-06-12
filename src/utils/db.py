@@ -26,54 +26,38 @@ async def init_db(engine):
             await conn.run_sync(Base.metadata.create_all)
 
             # Применяем исправление схемы только для PostgreSQL
-            if "postgresql" in str(engine.url):
-                fix_sql = """
-                DO $$
-                BEGIN
-                    -- 1. Удаляем старый некорректный ключ, если он существует
-                    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'time_slots_trainer_id_fkey') THEN
-                        ALTER TABLE time_slots DROP CONSTRAINT time_slots_trainer_id_fkey;
-                    END IF;
-
-                    -- 2. Убеждаемся, что trainer_profile_id ссылается на trainer_profiles(id), а не на users(id)
-                    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'time_slots_trainer_profile_id_fkey') THEN
-                         ALTER TABLE time_slots DROP CONSTRAINT time_slots_trainer_profile_id_fkey;
-                    END IF;
-
+            if "postgresql" in str(engine.url).lower():
+                # Исправляем time_slots
+                await conn.execute(text("ALTER TABLE time_slots DROP CONSTRAINT IF EXISTS time_slots_trainer_id_fkey"))
+                await conn.execute(text("ALTER TABLE time_slots DROP CONSTRAINT IF EXISTS time_slots_trainer_profile_id_fkey"))
+                await conn.execute(text("""
                     ALTER TABLE time_slots
                     ADD CONSTRAINT time_slots_trainer_profile_id_fkey
                     FOREIGN KEY (trainer_profile_id)
                     REFERENCES trainer_profiles(id)
-                    ON DELETE CASCADE;
+                    ON DELETE CASCADE
+                """))
 
-                    -- 3. Исправление таблицы bookings (добавление недостающих колонок)
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='slot_id') THEN
-                        ALTER TABLE bookings ADD COLUMN slot_id INTEGER;
-                    END IF;
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='trainer_id') THEN
-                        ALTER TABLE bookings ADD COLUMN trainer_id BIGINT;
-                    END IF;
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='client_id') THEN
-                        ALTER TABLE bookings ADD COLUMN client_id BIGINT;
-                    END IF;
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='status') THEN
-                        ALTER TABLE bookings ADD COLUMN status VARCHAR(50);
-                    END IF;
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='price') THEN
-                        ALTER TABLE bookings ADD COLUMN price INTEGER;
-                    END IF;
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='paid') THEN
-                        ALTER TABLE bookings ADD COLUMN paid BOOLEAN DEFAULT FALSE;
-                    END IF;
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='booked_at') THEN
-                        ALTER TABLE bookings ADD COLUMN booked_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW();
-                    END IF;
+                # Исправляем bookings (используем ADD COLUMN IF NOT EXISTS для надежности)
+                await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS slot_id INTEGER"))
+                await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS trainer_id BIGINT"))
+                await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_id BIGINT"))
+                await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS status VARCHAR(50)"))
+                await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS price FLOAT"))
+                await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS paid BOOLEAN DEFAULT FALSE"))
+                await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_notes TEXT"))
+                await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS trainer_notes TEXT"))
+                await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booked_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()"))
 
-                EXCEPTION WHEN OTHERS THEN
-                    RAISE NOTICE 'Ошибка при обновлении схемы: %', SQLERRM;
-                END $$;
-                """
-                await conn.execute(text(fix_sql))
+                # Добавляем UNIQUE для slot_id если его нет
+                await conn.execute(text("""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'bookings_slot_id_key') THEN
+                            ALTER TABLE bookings ADD CONSTRAINT bookings_slot_id_key UNIQUE (slot_id);
+                        END IF;
+                    END $$;
+                """))
 
         async with engine.connect() as conn:
             # Добавляем список специализаций, если их еще нет
