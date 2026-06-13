@@ -141,42 +141,7 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
             f"Время: `{slot.start_time.strftime('%d.%m.%Y %H:%M')}`\n"
             f"Формат: `{slot.format}`\n"
             f"Цена: `{slot.price}₽`\n\n"
-            f"💳 После подтверждения вам придет ссылка на оплату."
-        )
-        if callback.message.photo:
-            await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
-        else:
-            await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
-    await callback.answer()
-
-@router.callback_query(F.data == "confirm_booking", BookingSession.confirming_booking)
-async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
-    data = await state.get_data()
-    slot_id = data['slot_id']
-    user_id = effective_user_id or callback.from_user.id
-
-    async with SessionLocal() as session:
-        slot = await session.get(TimeSlot, slot_id)
-        if not slot or slot.status != "free":
-            text = "К сожалению, этот слот уже занят."
-            if callback.message.photo:
-                await callback.message.edit_caption(caption=text)
-            else:
-                await callback.message.edit_text(text)
-            return
-
-        # Use mock payment link
-        payment_link = await PaymentService.create_payment_link(slot.price, f"Запись на {slot.start_time}", user_id)
-
-        kb = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="💳 Оплатить", url=payment_link)],
-            [types.InlineKeyboardButton(text="✅ Я оплатил (симуляция)", callback_data=f"pay_success_{slot_id}")],
-            [types.InlineKeyboardButton(text="🔙 Назад к подтверждению", callback_data=f"slot_{slot_id}")]
-        ])
-
-        text = (
-            f"Для завершения записи на {slot.start_time.strftime('%d.%m %H:%M')} необходимо оплатить `{slot.price}₽`.\n\n"
-            "После оплаты ваша запись будет подтверждена автоматически."
+            f"Нажмите подтвердить для завершения записи."
         )
         if callback.message.photo:
             await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
@@ -186,9 +151,10 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
 
 from sqlalchemy.orm import selectinload
 
-@router.callback_query(F.data.startswith("pay_success_"))
-async def process_mock_payment(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
-    slot_id = int(callback.data.split("_")[2])
+@router.callback_query(F.data == "confirm_booking", BookingSession.confirming_booking)
+async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
+    data = await state.get_data()
+    slot_id = data['slot_id']
     user_id = effective_user_id or callback.from_user.id
 
     async with SessionLocal() as session:
@@ -206,7 +172,7 @@ async def process_mock_payment(callback: types.CallbackQuery, state: FSMContext,
                 client_id=user_id,
                 status="confirmed",
                 price=slot.price,
-                paid=True
+                paid=False # Payment skipped for now
             )
             session.add(new_booking)
             await session.flush()
@@ -216,16 +182,19 @@ async def process_mock_payment(callback: types.CallbackQuery, state: FSMContext,
             await ReminderService.schedule_reminders(session, new_booking.id, user_id, slot.start_time)
 
             await session.commit()
-            text = "💳 Оплата прошла успешно!\n\n✅ Вы успешно записаны на тренировку.\n📅 Мы пришлем вам напоминание за 24 и 2 часа до начала."
+            text = "✅ **Запись успешно подтверждена!**\n\nВы успешно записаны на тренировку.\n📅 Мы пришлем вам напоминание за 24 и 2 часа до начала."
 
             # Show main menu keyboard to client
             from src.keyboards.common import get_client_main_kb
             kb = get_client_main_kb()
 
             if callback.message.photo:
-                await callback.message.answer(text, reply_markup=kb)
+                await callback.message.answer(text, reply_markup=kb, parse_mode="Markdown")
             else:
-                await callback.message.edit_text(text, reply_markup=None)
+                try:
+                    await callback.message.edit_text(text, reply_markup=None, parse_mode="Markdown")
+                except exceptions.TelegramBadRequest:
+                    pass
                 await callback.message.answer("Воспользуйтесь меню ниже для навигации:", reply_markup=kb)
 
             # Notify trainer
@@ -235,13 +204,13 @@ async def process_mock_payment(callback: types.CallbackQuery, state: FSMContext,
                     f"👤 Клиент: {callback.from_user.full_name}\n"
                     f"⏰ Время: {slot.start_time.strftime('%d.%m %H:%M')}\n"
                     f"🏷 Формат: {slot.format}\n"
-                    f"💰 Оплачено: {slot.price}₽"
+                    f"💰 Цена: {slot.price}₽"
                 )
                 await callback.bot.send_message(slot.trainer_profile.user_id, trainer_text, parse_mode="Markdown")
             except Exception as e:
                 logger.error(f"Failed to notify trainer {slot.trainer_profile.user_id}: {e}")
         else:
-            text = "Срок действия оплаты истек или слот уже занят."
+            text = "К сожалению, этот слот уже занят или недоступен."
             if callback.message.photo:
                 await callback.message.edit_caption(caption=text)
             else:

@@ -154,6 +154,7 @@ class TimeSlot(Base):
     __tablename__ = "time_slots"
 
     id = Column(Integer, primary_key=True)
+    booking: Mapped["Booking"] = relationship(back_populates="slot", uselist=False)
     trainer_profile_id = Column(Integer, ForeignKey("trainer_profiles.id", ondelete="CASCADE"), nullable=False)
     client_id = Column(BigInteger, ForeignKey("users.id"), nullable=True)
     start_time = Column(DateTime, nullable=False)
@@ -173,8 +174,10 @@ class Booking(Base):
 
     id = Column(Integer, primary_key=True)
     slot_id = Column(Integer, ForeignKey("time_slots.id"), unique=True)
+    slot: Mapped["TimeSlot"] = relationship(back_populates="booking")
     trainer_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
     client_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
+    client_user: Mapped["User"] = relationship("User", foreign_keys=[client_id], overlaps="bookings_as_client")
     status = Column(String(50), default="pending")  # pending, confirmed, canceled, completed
     price = Column(Float, nullable=True)
     paid = Column(Boolean, default=False)

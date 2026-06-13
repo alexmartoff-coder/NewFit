@@ -99,8 +99,40 @@ async def show_instructions(message: types.Message):
     await message.answer("Инструкции по проведению гибридных тренировок и использованию бота.")
 
 @router.message(F.text == "📅 Мои занятия и абонементы")
-async def show_my_bookings(message: types.Message):
-    await message.answer("У вас пока нет запланированных занятий.")
+async def show_my_bookings(message: types.Message, effective_user_id: int = None):
+    user_id = effective_user_id or message.from_user.id
+    async with SessionLocal() as session:
+        from src.models.models import Booking, TimeSlot, User
+        from sqlalchemy.orm import selectinload
+
+        stmt = (
+            select(Booking)
+            .where(Booking.client_id == user_id)
+            .options(selectinload(Booking.slot).selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user))
+            .order_by(Booking.booked_at.desc())
+        )
+        res = await session.execute(stmt)
+        bookings = res.scalars().all()
+
+        if not bookings:
+            await message.answer("У вас пока нет запланированных занятий.")
+            return
+
+        text = "📅 **Ваши ближайшие занятия:**\n\n"
+        for b in bookings:
+            slot = b.slot
+            trainer_name = slot.trainer_profile.user.full_name
+            status_map = {"confirmed": "✅ Подтверждено", "pending": "⏳ Ожидает", "canceled": "❌ Отменено"}
+
+            text += (
+                f"👤 Тренер: {trainer_name}\n"
+                f"⏰ Время: {slot.start_time.strftime('%d.%m %H:%M')}\n"
+                f"🏷 Формат: {slot.format}\n"
+                f"📊 Статус: {status_map.get(b.status, b.status)}\n"
+                f"-------------------\n"
+            )
+
+        await message.answer(text, parse_mode="Markdown")
 
 @router.message(F.text == "🏆 Топ тренеров")
 async def show_leaderboard(message: types.Message):
