@@ -95,6 +95,22 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
 
         # Group by date for better summary
         from collections import defaultdict
+        from sqlalchemy.orm import selectinload
+
+        # Re-fetch with client relationship for booked slots
+        stmt = (
+            select(TimeSlot)
+            .where(
+                TimeSlot.trainer_profile_id == profile.id,
+                TimeSlot.start_time >= now_utc,
+                TimeSlot.start_time <= end_view_utc
+            )
+            .options(selectinload(TimeSlot.booking).selectinload(Booking.client_user))
+            .order_by(TimeSlot.start_time.asc())
+        )
+        res = await session.execute(stmt)
+        slots = res.scalars().all()
+
         grouped = defaultdict(list)
         for s in slots:
             # Convert UTC from DB to Moscow for grouping and display
@@ -112,7 +128,12 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
                 status_icon = "🟢" if s.status == "free" else ("🔴" if s.status == "booked" else "⚪")
                 fmt_val = s.format.value if hasattr(s.format, 'value') else str(s.format)
                 fmt_ru = fmt_map.get(fmt_val, fmt_val.lower())
-                text += f"  {status_icon} {start_moscow.strftime('%H:%M')}—{end_moscow.strftime('%H:%M')} | {int(s.price)}₽ ({fmt_ru})\n"
+
+                info = f"{start_moscow.strftime('%H:%M')}—{end_moscow.strftime('%H:%M')} | {int(s.price)}₽ ({fmt_ru})"
+                if s.status == "booked" and s.booking and s.booking.client_user:
+                    info += f" — 👤 {s.booking.client_user.full_name}"
+
+                text += f"  {status_icon} {info}\n"
             text += "\n"
 
         if callback.message.photo:
