@@ -176,7 +176,7 @@ class Booking(Base):
     trainer_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
     client_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
     status = Column(String(50), default="pending")  # pending, confirmed, canceled, completed
-    price = Column(Integer, nullable=True)
+    price = Column(Float, nullable=True)
     paid = Column(Boolean, default=False)
     client_notes = Column(Text, nullable=True)
     trainer_notes = Column(Text, nullable=True)
