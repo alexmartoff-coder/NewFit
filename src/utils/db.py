@@ -41,9 +41,15 @@ async def init_db(engine):
                 # Исправляем bookings (используем ADD COLUMN IF NOT EXISTS для надежности)
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS slot_id INTEGER"))
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS trainer_id BIGINT"))
+                await conn.execute(text("ALTER TABLE bookings ALTER COLUMN trainer_id TYPE BIGINT"))
+
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_id BIGINT"))
+                await conn.execute(text("ALTER TABLE bookings ALTER COLUMN client_id TYPE BIGINT"))
+
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS status VARCHAR(50)"))
+
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS price FLOAT"))
+                await conn.execute(text("ALTER TABLE bookings ALTER COLUMN price TYPE FLOAT"))
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS paid BOOLEAN DEFAULT FALSE"))
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_notes TEXT"))
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS trainer_notes TEXT"))
