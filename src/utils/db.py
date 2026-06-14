@@ -46,6 +46,17 @@ async def init_db(engine):
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_id BIGINT"))
                 await conn.execute(text("ALTER TABLE bookings ALTER COLUMN client_id TYPE BIGINT"))
 
+                await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS start_time TIMESTAMP WITHOUT TIME ZONE"))
+                await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS end_time TIMESTAMP WITHOUT TIME ZONE"))
+
+                # Попробуем заполнить пустые значения из связанных слотов
+                await conn.execute(text("""
+                    UPDATE bookings b
+                    SET start_time = ts.start_time, end_time = ts.end_time
+                    FROM time_slots ts
+                    WHERE b.slot_id = ts.id AND (b.start_time IS NULL OR b.end_time IS NULL)
+                """))
+
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS status VARCHAR(50)"))
 
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS price FLOAT"))

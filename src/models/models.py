@@ -178,6 +178,8 @@ class Booking(Base):
     trainer_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
     client_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
     client_user: Mapped["User"] = relationship("User", foreign_keys=[client_id], overlaps="bookings_as_client")
+    start_time = Column(DateTime, nullable=False)
+    end_time = Column(DateTime, nullable=False)
     status = Column(String(50), default="pending")  # pending, confirmed, canceled, completed
     price = Column(Float, nullable=True)
     paid = Column(Boolean, default=False)
