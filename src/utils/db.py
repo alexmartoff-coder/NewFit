@@ -62,17 +62,26 @@ async def init_db(engine):
                     DECLARE
                         r RECORD;
                     BEGIN
-                        -- Удаляем все существующие FK для client_id и trainer_profile_id
-                        FOR r IN (SELECT constraint_name
-                                  FROM information_schema.key_column_usage
-                                  WHERE table_name = 'bookings' AND column_name IN ('client_id', 'trainer_profile_id'))
+                        -- 1. Удаляем все существующие FK в таблице bookings
+                        FOR r IN (
+                            SELECT conname
+                            FROM pg_constraint
+                            WHERE conrelid = 'bookings'::regclass AND contype = 'f'
+                        )
                         LOOP
-                            EXECUTE 'ALTER TABLE bookings DROP CONSTRAINT ' || quote_ident(r.constraint_name);
+                            EXECUTE 'ALTER TABLE bookings DROP CONSTRAINT ' || quote_ident(r.conname);
                         END LOOP;
 
-                        -- Создаем правильные ключи
-                        ALTER TABLE bookings ADD CONSTRAINT bookings_client_id_fkey FOREIGN KEY (client_id) REFERENCES users(id);
-                        ALTER TABLE bookings ADD CONSTRAINT bookings_trainer_profile_id_fkey FOREIGN KEY (trainer_profile_id) REFERENCES trainer_profiles(id);
+                        -- 2. Исправляем типы колонок
+                        ALTER TABLE bookings ALTER COLUMN trainer_profile_id TYPE INTEGER USING trainer_profile_id::integer;
+                        ALTER TABLE bookings ALTER COLUMN client_id TYPE BIGINT USING client_id::bigint;
+                        ALTER TABLE bookings ALTER COLUMN slot_id TYPE INTEGER USING slot_id::integer;
+
+                        -- 3. Создаем правильные ключи заново
+                        ALTER TABLE bookings ADD CONSTRAINT bookings_client_id_fkey FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE;
+                        ALTER TABLE bookings ADD CONSTRAINT bookings_trainer_profile_id_fkey FOREIGN KEY (trainer_profile_id) REFERENCES trainer_profiles(id) ON DELETE CASCADE;
+                        ALTER TABLE bookings ADD CONSTRAINT bookings_slot_id_fkey FOREIGN KEY (slot_id) REFERENCES time_slots(id) ON DELETE CASCADE;
+
                     EXCEPTION WHEN OTHERS THEN
                         RAISE NOTICE 'Skipping constraint recreation: %', SQLERRM;
                     END $$;

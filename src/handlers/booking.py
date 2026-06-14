@@ -158,6 +158,12 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
     user_id = effective_user_id or callback.from_user.id
 
     async with SessionLocal() as session:
+        # Safety check: ensure client user exists in 'users' table
+        client_user = await session.get(User, user_id)
+        if not client_user:
+            await callback.answer("Ошибка: пользователь не найден в базе данных.", show_alert=True)
+            return
+
         stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(selectinload(TimeSlot.trainer_profile))
         res = await session.execute(stmt)
         slot = res.scalar_one_or_none()
