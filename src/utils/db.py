@@ -55,6 +55,14 @@ async def init_db(engine):
 
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_id BIGINT"))
                 await conn.execute(text("ALTER TABLE bookings ALTER COLUMN client_id TYPE BIGINT"))
+                # Исправляем constraint для client_id, так как он может ошибочно указывать на client_profiles
+                await conn.execute(text("ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_client_id_fkey"))
+                await conn.execute(text("""
+                    ALTER TABLE bookings
+                    ADD CONSTRAINT bookings_client_id_fkey
+                    FOREIGN KEY (client_id)
+                    REFERENCES users(id)
+                """))
 
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS start_time TIMESTAMP WITHOUT TIME ZONE"))
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS end_time TIMESTAMP WITHOUT TIME ZONE"))
