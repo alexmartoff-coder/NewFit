@@ -55,13 +55,27 @@ async def init_db(engine):
 
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_id BIGINT"))
                 await conn.execute(text("ALTER TABLE bookings ALTER COLUMN client_id TYPE BIGINT"))
-                # Исправляем constraint для client_id, так как он может ошибочно указывать на client_profiles
-                await conn.execute(text("ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_client_id_fkey"))
+
+                # Полная переустановка всех внешних ключей в таблице bookings (PostgreSQL)
                 await conn.execute(text("""
-                    ALTER TABLE bookings
-                    ADD CONSTRAINT bookings_client_id_fkey
-                    FOREIGN KEY (client_id)
-                    REFERENCES users(id)
+                    DO $$
+                    DECLARE
+                        r RECORD;
+                    BEGIN
+                        -- Удаляем все существующие FK для client_id и trainer_profile_id
+                        FOR r IN (SELECT constraint_name
+                                  FROM information_schema.key_column_usage
+                                  WHERE table_name = 'bookings' AND column_name IN ('client_id', 'trainer_profile_id'))
+                        LOOP
+                            EXECUTE 'ALTER TABLE bookings DROP CONSTRAINT ' || quote_ident(r.constraint_name);
+                        END LOOP;
+
+                        -- Создаем правильные ключи
+                        ALTER TABLE bookings ADD CONSTRAINT bookings_client_id_fkey FOREIGN KEY (client_id) REFERENCES users(id);
+                        ALTER TABLE bookings ADD CONSTRAINT bookings_trainer_profile_id_fkey FOREIGN KEY (trainer_profile_id) REFERENCES trainer_profiles(id);
+                    EXCEPTION WHEN OTHERS THEN
+                        RAISE NOTICE 'Skipping constraint recreation: %', SQLERRM;
+                    END $$;
                 """))
 
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS start_time TIMESTAMP WITHOUT TIME ZONE"))
