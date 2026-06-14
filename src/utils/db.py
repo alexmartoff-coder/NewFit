@@ -78,6 +78,10 @@ async def init_db(engine):
                     END $$;
                 """))
 
+                # Исправляем reminders
+                await conn.execute(text("ALTER TABLE reminders ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending'"))
+                await conn.execute(text("ALTER TABLE reminders ALTER COLUMN user_id TYPE BIGINT"))
+
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS start_time TIMESTAMP WITHOUT TIME ZONE"))
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS end_time TIMESTAMP WITHOUT TIME ZONE"))
 

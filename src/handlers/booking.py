@@ -201,9 +201,13 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
 
             # Notify trainer
             try:
+                # Fetch client user info to get the correct name (could be impersonated)
+                client_user = await session.get(User, user_id)
+                client_name = client_user.full_name if client_user else callback.from_user.full_name
+
                 trainer_text = (
                     f"🆕 **Новая запись!**\n\n"
-                    f"👤 Клиент: {callback.from_user.full_name}\n"
+                    f"👤 Клиент: {client_name}\n"
                     f"⏰ Время: {slot.start_time.strftime('%d.%m %H:%M')}\n"
                     f"🏷 Формат: {slot.format}\n"
                     f"💰 Цена: {slot.price}₽"
