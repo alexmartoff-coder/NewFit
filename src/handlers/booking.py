@@ -164,6 +164,20 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             await callback.answer("Ошибка: пользователь не найден в базе данных.", show_alert=True)
             return
 
+        # 1. Автосоздание профиля клиента
+        stmt_cp = select(ClientProfile).where(ClientProfile.user_id == user_id)
+        res_cp = await session.execute(stmt_cp)
+        client_profile = res_cp.scalar_one_or_none()
+
+        if not client_profile:
+            client_profile = ClientProfile(
+                user_id=user_id,
+                full_name=client_user.full_name,
+                status="active"
+            )
+            session.add(client_profile)
+            await session.flush() # Получаем ID
+
         stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(selectinload(TimeSlot.trainer_profile))
         res = await session.execute(stmt)
         slot = res.scalar_one_or_none()
@@ -175,7 +189,7 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             new_booking = Booking(
                 slot_id=slot_id,
                 trainer_profile_id=slot.trainer_profile_id,
-                client_id=user_id,
+                client_id=client_profile.id,
                 start_time=slot.start_time,
                 end_time=slot.end_time,
                 status="confirmed",
