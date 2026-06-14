@@ -57,6 +57,7 @@ async def init_db(engine):
                     WHERE b.slot_id = ts.id AND (b.start_time IS NULL OR b.end_time IS NULL)
                 """))
 
+                await conn.execute(text("ALTER TABLE bookings ALTER COLUMN is_online DROP NOT NULL"))
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS status VARCHAR(50)"))
 
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS price FLOAT"))
