@@ -170,6 +170,8 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
                 slot_id=slot_id,
                 trainer_id=slot.trainer_profile.user_id,
                 client_id=user_id,
+                start_time=slot.start_time,
+                end_time=slot.end_time,
                 status="confirmed",
                 price=slot.price,
                 paid=False # Payment skipped for now
