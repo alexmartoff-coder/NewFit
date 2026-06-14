@@ -45,7 +45,6 @@ class User(Base):
     admins = relationship("Admin", foreign_keys="Admin.user_id")
     schedule = relationship("TrainerSchedule", back_populates="trainer", uselist=False)
     time_slots = relationship("TimeSlot", foreign_keys="TimeSlot.client_id")
-    bookings_as_trainer = relationship("Booking", foreign_keys="Booking.trainer_id")
     bookings_as_client = relationship("Booking", foreign_keys="Booking.client_id")
 
 class TrainerProfile(Base):
@@ -69,6 +68,7 @@ class TrainerProfile(Base):
         secondary=trainer_specializations, backref="trainers"
     )
     subscriptions: Mapped[List["Subscription"]] = relationship(back_populates="trainer")
+    bookings: Mapped[List["Booking"]] = relationship(back_populates="trainer_profile")
 
 class ClientProfile(Base):
     __tablename__ = "client_profiles"
@@ -175,7 +175,8 @@ class Booking(Base):
     id = Column(Integer, primary_key=True)
     slot_id = Column(Integer, ForeignKey("time_slots.id"), unique=True)
     slot: Mapped["TimeSlot"] = relationship(back_populates="booking")
-    trainer_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
+    trainer_profile_id = Column(Integer, ForeignKey("trainer_profiles.id"), nullable=False)
+    trainer_profile: Mapped["TrainerProfile"] = relationship(back_populates="bookings")
     client_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
     client_user: Mapped["User"] = relationship("User", foreign_keys=[client_id], overlaps="bookings_as_client")
     start_time = Column(DateTime, nullable=False)

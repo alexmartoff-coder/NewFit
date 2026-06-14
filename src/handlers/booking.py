@@ -168,7 +168,7 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
 
             new_booking = Booking(
                 slot_id=slot_id,
-                trainer_id=slot.trainer_profile.user_id,
+                trainer_profile_id=slot.trainer_profile_id,
                 client_id=user_id,
                 start_time=slot.start_time,
                 end_time=slot.end_time,

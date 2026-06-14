@@ -54,7 +54,7 @@ async def test_create_booking_with_times(db_session):
     # Create booking
     booking = Booking(
         slot_id=slot.id,
-        trainer_id=trainer_user.id,
+        trainer_profile_id=profile.id,
         client_id=client_user.id,
         start_time=slot.start_time,
         end_time=slot.end_time,
