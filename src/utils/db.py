@@ -40,8 +40,18 @@ async def init_db(engine):
 
                 # Исправляем bookings (используем ADD COLUMN IF NOT EXISTS для надежности)
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS slot_id INTEGER"))
-                await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS trainer_id BIGINT"))
-                await conn.execute(text("ALTER TABLE bookings ALTER COLUMN trainer_id TYPE BIGINT"))
+
+                # Переименовываем trainer_id в trainer_profile_id и меняем тип
+                await conn.execute(text("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='trainer_id') THEN
+                            ALTER TABLE bookings RENAME COLUMN trainer_id TO trainer_profile_id;
+                        END IF;
+                    END $$;
+                """))
+                await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS trainer_profile_id INTEGER"))
+                await conn.execute(text("ALTER TABLE bookings ALTER COLUMN trainer_profile_id TYPE INTEGER USING trainer_profile_id::integer"))
 
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_id BIGINT"))
                 await conn.execute(text("ALTER TABLE bookings ALTER COLUMN client_id TYPE BIGINT"))
