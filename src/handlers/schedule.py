@@ -2,7 +2,7 @@ from aiogram import Router, F, types
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from sqlalchemy import select, delete, and_
-from src.models.models import User, TimeSlot, TrainerSchedule, ScheduleTemplate, WorkFormat
+from src.models.models import User, TimeSlot, TrainerSchedule, ScheduleTemplate, WorkFormat, Booking
 from src.utils.db import SessionLocal
 from src.keyboards.inline import add_admin_button
 from datetime import datetime, timedelta, time
@@ -72,26 +72,6 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         now_utc = datetime.now(UTC).replace(tzinfo=None)
         # Fetch slots for the next 14 days
         end_view_utc = now_utc + timedelta(days=14)
-        stmt = select(TimeSlot).where(
-            TimeSlot.trainer_profile_id == profile.id,
-            TimeSlot.start_time >= now_utc,
-            TimeSlot.start_time <= end_view_utc
-        ).order_by(TimeSlot.start_time.asc())
-        res = await session.execute(stmt)
-        slots = res.scalars().all()
-
-        kb_back = types.InlineKeyboardMarkup(
-            inline_keyboard=[[types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")]]
-        )
-        kb_back = add_admin_button(kb_back, is_admin=is_admin)
-
-        if not slots:
-            text = "📭 У вас пока нет запланированных слотов на ближайшее время."
-            if callback.message.photo:
-                await callback.message.edit_caption(caption=text, reply_markup=kb_back)
-            else:
-                await callback.message.edit_text(text, reply_markup=kb_back)
-            return
 
         # Group by date for better summary
         from collections import defaultdict
@@ -110,6 +90,19 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         )
         res = await session.execute(stmt)
         slots = res.scalars().all()
+
+        kb_back = types.InlineKeyboardMarkup(
+            inline_keyboard=[[types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")]]
+        )
+        kb_back = add_admin_button(kb_back, is_admin=is_admin)
+
+        if not slots:
+            text = "📭 У вас пока нет запланированных слотов на ближайшее время."
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=text, reply_markup=kb_back)
+            else:
+                await callback.message.edit_text(text, reply_markup=kb_back)
+            return
 
         grouped = defaultdict(list)
         for s in slots:
