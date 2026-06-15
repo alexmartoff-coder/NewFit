@@ -62,7 +62,15 @@ async def init_db(engine):
                     UPDATE client_profiles cp
                     SET full_name = u.full_name
                     FROM users u
-                    WHERE cp.user_id = u.id AND cp.full_name IS NULL
+                    WHERE cp.user_id = u.id AND (cp.full_name IS NULL OR cp.full_name = 'None')
+                """))
+
+                # Миграция данных: если в bookings.client_id лежит Telegram ID, заменяем его на client_profiles.id
+                await conn.execute(text("""
+                    UPDATE bookings b
+                    SET client_id = cp.id
+                    FROM client_profiles cp
+                    WHERE b.client_id = cp.user_id AND b.client_id > 1000000
                 """))
 
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_id INTEGER"))
