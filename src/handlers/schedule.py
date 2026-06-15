@@ -124,7 +124,8 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
 
                 info = f"{start_moscow.strftime('%H:%M')}—{end_moscow.strftime('%H:%M')} | {int(s.price)}₽ ({fmt_ru})"
                 if s.status == "booked" and s.booking and s.booking.client:
-                    info += f" — 👤 {s.booking.client.full_name}"
+                    client_name = s.booking.client.full_name or "Клиент"
+                    info += f" — 👤 {client_name}"
 
                 text += f"  {status_icon} {info}\n"
             text += "\n"

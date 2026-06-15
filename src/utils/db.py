@@ -57,6 +57,14 @@ async def init_db(engine):
                 await conn.execute(text("ALTER TABLE client_profiles ADD COLUMN IF NOT EXISTS full_name VARCHAR(128)"))
                 await conn.execute(text("ALTER TABLE client_profiles ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active'"))
 
+                # Заполняем имена в профилях клиентов из таблицы users
+                await conn.execute(text("""
+                    UPDATE client_profiles cp
+                    SET full_name = u.full_name
+                    FROM users u
+                    WHERE cp.user_id = u.id AND cp.full_name IS NULL
+                """))
+
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_id INTEGER"))
 
                 # Полная переустановка всех внешних ключей в таблице bookings (PostgreSQL)
