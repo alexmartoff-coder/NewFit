@@ -34,7 +34,7 @@ async def start_reg(callback: types.CallbackQuery, state: FSMContext, effective_
         kb = None
         if user and user.full_name:
             kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text=f"Оставить: {user.full_name}", callback_data="skip_step")]
+                [types.InlineKeyboardButton(text=f"Не менять ({user.full_name})", callback_data="skip_step")]
             ])
             kb = add_admin_button(kb, is_admin=is_admin)
 
@@ -60,7 +60,7 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
             if profile and profile.city:
                 # Add skip button to city keyboard
                 skip_kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                    [types.InlineKeyboardButton(text=f"Оставить: {profile.city}", callback_data="skip_step")]
+                    [types.InlineKeyboardButton(text=f"Не менять ({profile.city})", callback_data="skip_step")]
                 ])
                 await callback.message.answer(f"Шаг 2/9\n\nУкажите город работы:", reply_markup=kb)
                 await callback.message.answer("Или нажмите кнопку ниже, чтобы не менять:", reply_markup=add_admin_button(skip_kb, is_admin=is_admin))
@@ -79,16 +79,16 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
             await state.set_state(TrainerOnboarding.formats)
             kb = get_format_kb()
             skip_kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text=f"Оставить: {profile.experience} лет", callback_data="skip_step")]
+                [types.InlineKeyboardButton(text=f"Не менять ({profile.experience} лет)", callback_data="skip_step")]
             ])
             await callback.message.answer("Шаг 5/9\n\nКакие форматы вы предлагаете?", reply_markup=add_admin_button(kb, is_admin=is_admin))
-            await callback.message.answer("Или не менять опыт:", reply_markup=skip_kb)
+            await callback.message.answer("Или нажмите, чтобы не менять:", reply_markup=skip_kb)
 
         elif current_state == TrainerOnboarding.price_single:
             await state.update_data(price_single=profile.price_single)
             await state.set_state(TrainerOnboarding.price_package)
             skip_kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text=f"Оставить: {profile.price_single}₽", callback_data="skip_step")]
+                [types.InlineKeyboardButton(text=f"Не менять ({profile.price_single}₽)", callback_data="skip_step")]
             ])
             await callback.message.answer("Шаг 7/9\n\nУкажите цену за абонемент на 12 занятий (в ₽):", reply_markup=add_admin_button(skip_kb, is_admin=is_admin))
 
@@ -96,7 +96,7 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
             await state.update_data(price_package=profile.price_package)
             await state.set_state(TrainerOnboarding.photo)
             skip_kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text=f"Оставить текущее фото", callback_data="skip_step")]
+                [types.InlineKeyboardButton(text=f"Не менять фото", callback_data="skip_step")]
             ])
             await callback.message.answer("Шаг 8/9\n\nЗагрузите ваше фото или оставьте прежнее:", reply_markup=add_admin_button(skip_kb, is_admin=is_admin))
 
@@ -105,7 +105,7 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
             await state.set_state(TrainerOnboarding.video)
             kb = types.InlineKeyboardMarkup(inline_keyboard=[
                 [types.InlineKeyboardButton(text="Пропустить", callback_data="skip_video")],
-                [types.InlineKeyboardButton(text="Оставить прежнее видео", callback_data="skip_step")]
+                [types.InlineKeyboardButton(text="Не менять видео", callback_data="skip_step")]
             ])
             await callback.message.answer("Шаг 9/9\n\nЗагрузите видео-презентацию:", reply_markup=add_admin_button(kb, is_admin=is_admin))
 
@@ -125,7 +125,7 @@ async def process_name(message: types.Message, state: FSMContext, effective_user
         kb = get_city_kb()
         if profile and profile.city:
             skip_kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text=f"Оставить: {profile.city}", callback_data="skip_step")]
+                [types.InlineKeyboardButton(text=f"Не менять ({profile.city})", callback_data="skip_step")]
             ])
             await message.answer("Шаг 2/9\n\nУкажите город работы:", reply_markup=kb)
             await message.answer("Или не менять:", reply_markup=add_admin_button(skip_kb, is_admin=is_admin))
@@ -149,7 +149,7 @@ async def process_city(message: types.Message, state: FSMContext, is_admin: bool
         await message.answer("Шаг 3/9\n\nВыберите ваши основные направления:", reply_markup=add_admin_button(kb, is_admin=is_admin))
 
 @router.callback_query(F.data.startswith("spec_"), TrainerOnboarding.specialization)
-async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
+async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     if callback.data == "spec_done":
         data = await state.get_data()
         if not data.get('specializations'):
@@ -167,7 +167,7 @@ async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext
             kb = None
             if profile and profile.experience is not None:
                 kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                    [types.InlineKeyboardButton(text=f"Оставить: {profile.experience} лет", callback_data="skip_step")]
+                    [types.InlineKeyboardButton(text=f"Не менять ({profile.experience} лет)", callback_data="skip_step")]
                 ])
                 kb = add_admin_button(kb, is_admin=is_admin)
 
@@ -200,7 +200,7 @@ async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext
 
         # Update keyboard to show checkmarks
         kb = get_spec_kb(selected_specs=specs)
-        await callback.message.edit_reply_markup(reply_markup=kb)
+        await callback.message.edit_reply_markup(reply_markup=add_admin_button(kb, is_admin=is_admin))
 
     await callback.answer()
 
@@ -222,7 +222,7 @@ async def process_experience(message: types.Message, state: FSMContext, is_admin
 
             if profile and profile.work_format:
                 skip_kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                    [types.InlineKeyboardButton(text=f"Оставить: {profile.work_format}", callback_data="fmt_" + str(profile.work_format).lower())]
+                    [types.InlineKeyboardButton(text=f"Не менять ({profile.work_format})", callback_data="fmt_" + str(profile.work_format).lower())]
                 ])
                 await message.answer("Или не менять:", reply_markup=skip_kb)
 
@@ -249,7 +249,7 @@ async def process_formats_callback(callback: types.CallbackQuery, state: FSMCont
         kb = None
         if profile and profile.price_single:
             kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text=f"Оставить: {profile.price_single}₽", callback_data="skip_step")]
+                [types.InlineKeyboardButton(text=f"Не менять ({profile.price_single}₽)", callback_data="skip_step")]
             ])
             kb = add_admin_button(kb, is_admin=is_admin)
 
@@ -272,7 +272,7 @@ async def process_price_single(message: types.Message, state: FSMContext, is_adm
             kb = None
             if profile and profile.price_package:
                 kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                    [types.InlineKeyboardButton(text=f"Оставить: {profile.price_package}₽", callback_data="skip_step")]
+                    [types.InlineKeyboardButton(text=f"Не менять ({profile.price_package}₽)", callback_data="skip_step")]
                 ])
                 kb = add_admin_button(kb, is_admin=is_admin)
 

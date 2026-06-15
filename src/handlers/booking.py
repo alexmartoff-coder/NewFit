@@ -88,9 +88,17 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
 
         kb = []
         fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
+        from dateutil.tz import gettz, UTC
+        moscow_tz = gettz('Europe/Moscow')
+
         for s in slots:
-            start_str = s.start_time.strftime('%H:%M')
-            end_str = s.end_time.strftime('%H:%M')
+            # Ensure MSK conversion for button labels
+            s_start = s.start_time.replace(tzinfo=UTC) if s.start_time.tzinfo is None else s.start_time.astimezone(UTC)
+            s_end = s.end_time.replace(tzinfo=UTC) if s.end_time.tzinfo is None else s.end_time.astimezone(UTC)
+
+            start_str = s_start.astimezone(moscow_tz).strftime('%H:%M')
+            end_str = s_end.astimezone(moscow_tz).strftime('%H:%M')
+
             fmt_val = s.format.value if hasattr(s.format, 'value') else str(s.format)
             fmt_ru = fmt_map.get(fmt_val, fmt_val.lower())
 
