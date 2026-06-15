@@ -29,7 +29,11 @@ async def client_start(event: types.Message | types.CallbackQuery, is_admin: boo
         client_profile = res.scalar_one_or_none()
 
         if not client_profile:
-            client_profile = ClientProfile(user_id=user.id)
+            client_profile = ClientProfile(
+                user_id=user.id,
+                full_name=user.full_name,
+                status="active"
+            )
             session.add(client_profile)
 
         await session.commit()

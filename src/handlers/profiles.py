@@ -91,6 +91,9 @@ async def show_schedule(message: types.Message, effective_user_id: int = None):
 async def show_clients(message: types.Message, effective_user_id: int = None):
     user_id = effective_user_id or message.from_user.id
     async with SessionLocal() as session:
+        from dateutil.tz import gettz, UTC
+        moscow_tz = gettz('Europe/Moscow')
+
         # Get trainer profile
         stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
         profile = (await session.execute(stmt_p)).scalar_one_or_none()
@@ -102,7 +105,7 @@ async def show_clients(message: types.Message, effective_user_id: int = None):
         stmt = (
             select(Booking)
             .where(Booking.trainer_profile_id == profile.id)
-            .options(selectinload(Booking.client))
+            .options(selectinload(Booking.client).selectinload(ClientProfile.user))
             .order_by(Booking.start_time.asc())
         )
         res = await session.execute(stmt)
@@ -113,17 +116,26 @@ async def show_clients(message: types.Message, effective_user_id: int = None):
             return
 
         text = "👥 **Список записей клиентов:**\n\n"
-        now = datetime.now()
+        now_utc = datetime.now(UTC).replace(tzinfo=None)
+
         for b in bookings:
-            status_icon = "✅" if b.start_time > now else "📜"
+            status_icon = "✅" if b.start_time > now_utc else "📜"
+            start_moscow = b.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
+
+            client_name = b.client.full_name or "Клиент"
+            username = b.client.user.username if b.client.user else None
+            contact_btn = ""
+            if username:
+                contact_btn = f" | [Написать](https://t.me/{username})"
+
             text += (
-                f"{status_icon} {b.start_time.strftime('%d.%m %H:%M')}\n"
-                f"👤 Клиент: {b.client.full_name}\n"
+                f"{status_icon} {start_moscow.strftime('%d.%m %H:%M')}\n"
+                f"👤 Клиент: {client_name}{contact_btn}\n"
                 f"💰 Цена: {int(b.price)}₽\n"
                 f"-------------------\n"
             )
 
-        await message.answer(text, parse_mode="Markdown")
+        await message.answer(text, parse_mode="Markdown", disable_web_page_preview=True)
 
 @router.message(F.text == "💰 Финансы и выплаты")
 @router.message(F.text == "/earnings")
@@ -164,6 +176,8 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
     async with SessionLocal() as session:
         from src.models.models import Booking, TimeSlot, User, ClientProfile
         from sqlalchemy.orm import selectinload
+        from dateutil.tz import gettz, UTC
+        moscow_tz = gettz('Europe/Moscow')
 
         # Получаем профиль клиента
         cp_stmt = select(ClientProfile).where(ClientProfile.user_id == user_id)
@@ -178,7 +192,7 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
             select(Booking)
             .where(Booking.client_id == client_profile.id)
             .options(selectinload(Booking.slot).selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user))
-            .order_by(Booking.booked_at.desc())
+            .order_by(Booking.start_time.asc())
         )
         res = await session.execute(stmt)
         bookings = res.scalars().all()
@@ -193,9 +207,12 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
             trainer_name = slot.trainer_profile.user.full_name
             status_map = {"confirmed": "✅ Подтверждено", "pending": "⏳ Ожидает", "canceled": "❌ Отменено"}
 
+            # Конвертируем время в МСК
+            start_moscow = slot.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
+
             text += (
                 f"👤 Тренер: {trainer_name}\n"
-                f"⏰ Время: {slot.start_time.strftime('%d.%m %H:%M')}\n"
+                f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
                 f"🏷 Формат: {slot.format}\n"
                 f"📊 Статус: {status_map.get(b.status, b.status)}\n"
                 f"-------------------\n"

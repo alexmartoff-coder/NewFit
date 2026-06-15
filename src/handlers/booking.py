@@ -126,19 +126,23 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
         await state.update_data(slot_id=slot_id, start_time=slot.start_time.isoformat())
         await state.set_state(BookingSession.confirming_booking)
 
+        from dateutil.tz import gettz, UTC
+        moscow_tz = gettz('Europe/Moscow')
+        start_moscow = slot.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
+
         selected_date = slot.start_time.date().isoformat()
         kb = types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [types.InlineKeyboardButton(text="✅ Да, записаться", callback_data="confirm_booking")],
                 [types.InlineKeyboardButton(text="🔙 К выбору времени", callback_data=f"bdate_{selected_date}")],
-                [types.InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_booking")]
+                [types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="client_menu")]
             ]
         )
         kb = add_admin_button(kb, is_admin=is_admin)
 
         text = (
             f"📍 **Подтверждение записи**\n\n"
-            f"Время: `{slot.start_time.strftime('%d.%m.%Y %H:%M')}`\n"
+            f"Время: `{start_moscow.strftime('%d.%m.%Y %H:%M')}` (МСК)\n"
             f"Формат: `{slot.format}`\n"
             f"Цена: `{slot.price}₽`\n\n"
             f"Нажмите подтвердить для завершения записи."
@@ -221,14 +225,19 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
 
             # Notify trainer
             try:
+                from dateutil.tz import gettz, UTC
+                moscow_tz = gettz('Europe/Moscow')
                 # Fetch client user info to get the correct name (could be impersonated)
                 client_user = await session.get(User, user_id)
                 client_name = client_user.full_name if client_user else callback.from_user.full_name
 
+                # Convert time to Moscow for notification
+                start_moscow = slot.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
+
                 trainer_text = (
                     f"🆕 **Новая запись!**\n\n"
                     f"👤 Клиент: {client_name}\n"
-                    f"⏰ Время: {slot.start_time.strftime('%d.%m %H:%M')}\n"
+                    f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
                     f"🏷 Формат: {slot.format}\n"
                     f"💰 Цена: {slot.price}₽"
                 )
