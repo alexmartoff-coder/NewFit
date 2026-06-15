@@ -57,31 +57,47 @@ async def init_db(engine):
                 await conn.execute(text("ALTER TABLE client_profiles ADD COLUMN IF NOT EXISTS full_name VARCHAR(128)"))
                 await conn.execute(text("ALTER TABLE client_profiles ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active'"))
 
-                # Заполняем имена в профилях клиентов из таблицы users
+                # 1. Исправляем client_profiles (добавляем колонки)
+                await conn.execute(text("ALTER TABLE client_profiles ADD COLUMN IF NOT EXISTS full_name VARCHAR(128)"))
+                await conn.execute(text("ALTER TABLE client_profiles ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active'"))
+
+                # 2. Создаем отсутствующие профили клиентов для тех, кто уже есть в bookings (по Telegram ID)
+                await conn.execute(text("""
+                    INSERT INTO client_profiles (user_id, full_name, status)
+                    SELECT DISTINCT client_id, 'Клиент', 'active'
+                    FROM bookings
+                    WHERE client_id > 1000000
+                    ON CONFLICT (user_id) DO NOTHING
+                """))
+
+                # 3. Заполняем имена в профилях клиентов из таблицы users
                 await conn.execute(text("""
                     UPDATE client_profiles cp
                     SET full_name = u.full_name
                     FROM users u
-                    WHERE cp.user_id = u.id AND (cp.full_name IS NULL OR cp.full_name = 'None')
+                    WHERE cp.user_id = u.id AND (cp.full_name IS NULL OR cp.full_name = 'None' OR cp.full_name = 'Клиент')
                 """))
 
-                # Миграция данных: если в bookings.client_id лежит Telegram ID, заменяем его на client_profiles.id
+                # 4. Проверяем наличие колонки client_id и ее тип (временно BIGINT для миграции)
+                await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_id BIGINT"))
+
+                # 5. Убеждаемся что client_profiles.id существует и является SERIAL
                 await conn.execute(text("""
-                    UPDATE bookings b
-                    SET client_id = cp.id
-                    FROM client_profiles cp
-                    WHERE b.client_id = cp.user_id AND b.client_id > 1000000
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='client_profiles' AND column_name='id') THEN
+                            ALTER TABLE client_profiles ADD COLUMN id SERIAL PRIMARY KEY;
+                        END IF;
+                    END $$;
                 """))
 
-                await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_id INTEGER"))
-
-                # Полная переустановка всех внешних ключей в таблице bookings (PostgreSQL)
+                # 6. Атомарно исправляем схему и мигрируем данные
                 await conn.execute(text("""
                     DO $$
                     DECLARE
                         r RECORD;
                     BEGIN
-                        -- 1. Удаляем все существующие FK в таблице bookings
+                        -- а) Удаляем все существующие FK в таблице bookings
                         FOR r IN (
                             SELECT conname
                             FROM pg_constraint
@@ -91,18 +107,30 @@ async def init_db(engine):
                             EXECUTE 'ALTER TABLE bookings DROP CONSTRAINT ' || quote_ident(r.conname);
                         END LOOP;
 
-                        -- 2. Исправляем типы колонок
+                        -- б) Миграция данных: заменяем Telegram ID на client_profiles.id
+                        -- Делаем это ДО изменения типа колонки
+                        UPDATE bookings b
+                        SET client_id = cp.id
+                        FROM client_profiles cp
+                        WHERE b.client_id = cp.user_id AND b.client_id > 1000000;
+
+                        -- в) Исправляем типы колонок
                         ALTER TABLE bookings ALTER COLUMN trainer_profile_id TYPE INTEGER USING trainer_profile_id::integer;
+
+                        -- Явно приводим client_id к integer, если там остались Telegram ID которые не смапились - они обнулятся или вызовут ошибку?
+                        -- Лучше оставить NULL если не нашли профиль
+                        UPDATE bookings SET client_id = NULL WHERE client_id > 1000000;
                         ALTER TABLE bookings ALTER COLUMN client_id TYPE INTEGER USING client_id::integer;
+
                         ALTER TABLE bookings ALTER COLUMN slot_id TYPE INTEGER USING slot_id::integer;
 
-                        -- 3. Создаем правильные ключи заново
+                        -- г) Создаем правильные ключи заново
                         ALTER TABLE bookings ADD CONSTRAINT bookings_client_id_fkey FOREIGN KEY (client_id) REFERENCES client_profiles(id) ON DELETE CASCADE;
                         ALTER TABLE bookings ADD CONSTRAINT bookings_trainer_profile_id_fkey FOREIGN KEY (trainer_profile_id) REFERENCES trainer_profiles(id) ON DELETE CASCADE;
                         ALTER TABLE bookings ADD CONSTRAINT bookings_slot_id_fkey FOREIGN KEY (slot_id) REFERENCES time_slots(id) ON DELETE CASCADE;
 
                     EXCEPTION WHEN OTHERS THEN
-                        RAISE NOTICE 'Skipping constraint recreation: %', SQLERRM;
+                        RAISE NOTICE 'Error in bookings migration: %', SQLERRM;
                     END $$;
                 """))
 
