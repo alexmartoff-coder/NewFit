@@ -91,6 +91,35 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         res = await session.execute(stmt)
         slots = res.scalars().all()
 
+        # Check for rolling window replenishment
+        stmt_config = select(TrainerSchedule).where(TrainerSchedule.trainer_id == user_id)
+        res_config = await session.execute(stmt_config)
+        config = res_config.scalar_one_or_none()
+
+        if config and config.rolling_window:
+            # If we have less than (window / 2) days of slots, or last_replenished is old
+            # For simplicity, if we have slots, we don't replenish.
+            # But the user wants them to appear automatically.
+            # Let's check if we have any slots in the last half of the window.
+            replenish_threshold = now_utc + timedelta(days=config.rolling_window // 2)
+            stmt_future = select(TimeSlot).where(
+                TimeSlot.trainer_profile_id == profile.id,
+                TimeSlot.start_time > replenish_threshold
+            ).limit(1)
+            future_res = await session.execute(stmt_future)
+
+            if not future_res.scalar():
+                logger.info(f"Replenishing slots for trainer {user_id} (rolling window {config.rolling_window}d)")
+                # We need interval. We'll default to 60 if not set.
+                await generate_slots_from_quick_template(
+                    user_id=user_id,
+                    days=config.rolling_window,
+                    interval=config.slot_duration or 60
+                )
+                # Re-fetch slots
+                res = await session.execute(stmt)
+                slots = res.scalars().all()
+
         kb_back = types.InlineKeyboardMarkup(
             inline_keyboard=[[types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")]]
         )
@@ -489,12 +518,22 @@ async def quick_gen_confirm(callback: types.CallbackQuery, state: FSMContext, ef
         await callback.message.edit_text(msg)
 
     try:
+        # Save rolling window preference
+        async with SessionLocal() as session:
+            stmt = select(TrainerSchedule).where(TrainerSchedule.trainer_id == user_id)
+            res = await session.execute(stmt)
+            config = res.scalar_one_or_none()
+            if config:
+                config.rolling_window = data['period']
+                config.last_replenished = datetime.now(UTC).replace(tzinfo=None)
+                await session.commit()
+
         count = await generate_slots_from_quick_template(
             user_id=user_id,
             days=data['period'],
             interval=data['step']
         )
-        await callback.message.answer(f"✅ Успешно! Сгенерировано новых слотов: {count}")
+        await callback.message.answer(f"✅ Успешно! Сгенерировано новых слотов: {count}.\n🔄 Автогенерация на {data['period']} дн. включена.")
     except Exception as e:
         logger.exception("Ошибка при быстрой генерации слотов")
         await callback.message.answer("❌ Произошла ошибка при генерации. Попробуйте еще раз или обратитесь в поддержку.")
