@@ -39,9 +39,11 @@ async def show_profile_cmd(message: types.Message, effective_user_id: int = None
         else:
             await message.answer(f"👤 Профиль клиента: {user.full_name}")
 
+from sqlalchemy.orm import selectinload
+
 @router.message(F.text == "👤 Мой профиль")
 async def show_profile(message: types.Message, is_admin: bool = False, effective_user_id: int = None):
-    user_id = effective_user_id
+    user_id = effective_user_id or message.from_user.id
     async with SessionLocal() as session:
         user = await session.get(User, user_id)
         if not user:
@@ -49,11 +51,35 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
             return
 
         if user.role == UserRole.TRAINER:
-            kb = get_trainer_main_kb(is_admin=is_admin)
-            await message.answer("👨‍🏫 Личный кабинет тренера\n\nВыберите раздел:", reply_markup=kb)
+            stmt = select(TrainerProfile).where(TrainerProfile.user_id == user.id).options(selectinload(TrainerProfile.specializations))
+            res = await session.execute(stmt)
+            profile = res.scalar_one_or_none()
+
+            if profile:
+                specs = ", ".join([s.name for s in profile.specializations]) or "не указаны"
+                text = (
+                    f"👨‍🏫 **Ваш профиль тренера**\n\n"
+                    f"👤 Имя: {user.full_name}\n"
+                    f"📍 Город: {profile.city}\n"
+                    f"💪 Опыт: {profile.experience} лет\n"
+                    f"🎯 Специализации: {specs}\n"
+                    f"💰 Цена (разовое): {profile.price_single}₽\n"
+                    f"💳 Цена (пакет 12): {profile.price_package}₽\n"
+                    f"⭐ Рейтинг: {profile.rating}\n"
+                    f"🏷 Формат: {profile.work_format}\n"
+                )
+                kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                    [types.InlineKeyboardButton(text="📝 Редактировать профиль", callback_data="start_registration")]
+                ])
+                kb = add_admin_button(kb, is_admin=is_admin)
+                await message.answer(text, reply_markup=kb, parse_mode="Markdown")
+
+            kb_main = get_trainer_main_kb(is_admin=is_admin)
+            await message.answer("Управление кабинетом:", reply_markup=kb_main)
+
         elif user.role == UserRole.CLIENT:
             kb = get_client_main_kb(is_admin=is_admin)
-            await message.answer("🏋️‍♀️ Личный кабинет клиента\n\nВыберите раздел:", reply_markup=kb)
+            await message.answer(f"🏋️‍♀️ **Личный кабинет клиента**\n\n👤 Имя: {user.full_name}", reply_markup=kb, parse_mode="Markdown")
 
 @router.message(F.text == "📆 Расписание и запись")
 @router.message(F.text == "/schedule")
@@ -62,8 +88,42 @@ async def show_schedule(message: types.Message, effective_user_id: int = None):
 
 @router.message(F.text == "👥 Мои клиенты")
 @router.message(F.text == "/clients")
-async def show_clients(message: types.Message):
-    await message.answer("Список ваших активных клиентов пуст.")
+async def show_clients(message: types.Message, effective_user_id: int = None):
+    user_id = effective_user_id or message.from_user.id
+    async with SessionLocal() as session:
+        # Get trainer profile
+        stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+        profile = (await session.execute(stmt_p)).scalar_one_or_none()
+        if not profile:
+            await message.answer("❌ Профиль тренера не найден.")
+            return
+
+        # Fetch bookings with client profiles
+        stmt = (
+            select(Booking)
+            .where(Booking.trainer_profile_id == profile.id)
+            .options(selectinload(Booking.client))
+            .order_by(Booking.start_time.asc())
+        )
+        res = await session.execute(stmt)
+        bookings = res.scalars().all()
+
+        if not bookings:
+            await message.answer("У вас пока нет записей от клиентов.")
+            return
+
+        text = "👥 **Список записей клиентов:**\n\n"
+        now = datetime.now()
+        for b in bookings:
+            status_icon = "✅" if b.start_time > now else "📜"
+            text += (
+                f"{status_icon} {b.start_time.strftime('%d.%m %H:%M')}\n"
+                f"👤 Клиент: {b.client.full_name}\n"
+                f"💰 Цена: {int(b.price)}₽\n"
+                f"-------------------\n"
+            )
+
+        await message.answer(text, parse_mode="Markdown")
 
 @router.message(F.text == "💰 Финансы и выплаты")
 @router.message(F.text == "/earnings")

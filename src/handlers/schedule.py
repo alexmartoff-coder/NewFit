@@ -35,7 +35,7 @@ class TemplateState(StatesGroup):
 async def show_schedule_menu(message: types.Message, is_admin: bool = False, effective_user_id: int = None):
     kb = types.InlineKeyboardMarkup(
         inline_keyboard=[
-            [types.InlineKeyboardButton(text="📅 Посмотреть слоты", callback_data="sche_view")],
+            [types.InlineKeyboardButton(text="📅 Просмотреть слоты", callback_data="sche_view")],
             [types.InlineKeyboardButton(text="➕ Создать новый слот", callback_data="sche_add")],
             [types.InlineKeyboardButton(text="⚡ Быстрая генерация слотов", callback_data="sche_quick_gen")],
             [types.InlineKeyboardButton(text="🔁 Повторяющееся расписание", callback_data="sche_template_menu")],
@@ -85,7 +85,7 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
                 TimeSlot.start_time >= now_utc,
                 TimeSlot.start_time <= end_view_utc
             )
-            .options(selectinload(TimeSlot.booking).selectinload(Booking.client_user))
+            .options(selectinload(TimeSlot.booking).selectinload(Booking.client))
             .order_by(TimeSlot.start_time.asc())
         )
         res = await session.execute(stmt)
@@ -123,8 +123,8 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
                 fmt_ru = fmt_map.get(fmt_val, fmt_val.lower())
 
                 info = f"{start_moscow.strftime('%H:%M')}—{end_moscow.strftime('%H:%M')} | {int(s.price)}₽ ({fmt_ru})"
-                if s.status == "booked" and s.booking and s.booking.client_user:
-                    info += f" — 👤 {s.booking.client_user.full_name}"
+                if s.status == "booked" and s.booking and s.booking.client:
+                    info += f" — 👤 {s.booking.client.full_name}"
 
                 text += f"  {status_icon} {info}\n"
             text += "\n"
