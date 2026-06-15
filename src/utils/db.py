@@ -53,10 +53,6 @@ async def init_db(engine):
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS trainer_profile_id INTEGER"))
                 await conn.execute(text("ALTER TABLE bookings ALTER COLUMN trainer_profile_id TYPE INTEGER USING trainer_profile_id::integer"))
 
-                # Исправляем client_profiles
-                await conn.execute(text("ALTER TABLE client_profiles ADD COLUMN IF NOT EXISTS full_name VARCHAR(128)"))
-                await conn.execute(text("ALTER TABLE client_profiles ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active'"))
-
                 # 1. Исправляем client_profiles (добавляем колонки)
                 await conn.execute(text("ALTER TABLE client_profiles ADD COLUMN IF NOT EXISTS full_name VARCHAR(128)"))
                 await conn.execute(text("ALTER TABLE client_profiles ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active'"))
@@ -133,6 +129,10 @@ async def init_db(engine):
                         RAISE NOTICE 'Error in bookings migration: %', SQLERRM;
                     END $$;
                 """))
+
+                # 7. Добавляем колонки для "Rolling Window" в trainer_schedules
+                await conn.execute(text("ALTER TABLE trainer_schedules ADD COLUMN IF NOT EXISTS rolling_window INTEGER"))
+                await conn.execute(text("ALTER TABLE trainer_schedules ADD COLUMN IF NOT EXISTS last_replenished TIMESTAMP WITHOUT TIME ZONE"))
 
                 # Исправляем reminders
                 await conn.execute(text("ALTER TABLE reminders ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending'"))

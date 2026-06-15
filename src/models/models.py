@@ -132,6 +132,8 @@ class TrainerSchedule(Base):
     sync_enabled = Column(Boolean, default=True)
     timezone = Column(String(50), default="Europe/Moscow")
     slot_duration = Column(Integer, default=60)
+    rolling_window = Column(Integer, nullable=True) # In days: 7, 14, 30
+    last_replenished = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     trainer = relationship("User", back_populates="schedule")
