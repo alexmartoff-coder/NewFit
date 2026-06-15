@@ -24,31 +24,129 @@ async def trainer_start(message: types.Message, state: FSMContext, is_admin: boo
     )
 
 @router.callback_query(F.data == "start_registration")
-async def start_reg(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
+async def start_reg(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None, is_admin: bool = False):
     user_id = effective_user_id or callback.from_user.id
     await state.update_data(telegram_id=user_id)
     await state.set_state(TrainerOnboarding.full_name)
-    await callback.message.answer("Шаг 1/9\n\nНапишите ваше ФИО:")
+
+    async with SessionLocal() as session:
+        user = await session.get(User, user_id)
+        kb = None
+        if user and user.full_name:
+            kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                [types.InlineKeyboardButton(text=f"Оставить: {user.full_name}", callback_data="skip_step")]
+            ])
+            kb = add_admin_button(kb, is_admin=is_admin)
+
+    await callback.message.answer("Шаг 1/9\n\nНапишите ваше ФИО:", reply_markup=kb)
+    await callback.answer()
+
+@router.callback_query(F.data == "skip_step")
+async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
+    current_state = await state.get_state()
+    user_id = effective_user_id or callback.from_user.id
+
+    async with SessionLocal() as session:
+        user = await session.get(User, user_id)
+        stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id).options(selectinload(TrainerProfile.specializations))
+        res = await session.execute(stmt)
+        profile = res.scalar_one_or_none()
+
+        if current_state == TrainerOnboarding.full_name:
+            # full_name is already in 'user' object, but we'll re-set it in state for consistency
+            await state.update_data(full_name=user.full_name)
+            await state.set_state(TrainerOnboarding.city)
+            kb = get_city_kb()
+            if profile and profile.city:
+                # Add skip button to city keyboard
+                skip_kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                    [types.InlineKeyboardButton(text=f"Оставить: {profile.city}", callback_data="skip_step")]
+                ])
+                await callback.message.answer(f"Шаг 2/9\n\nУкажите город работы:", reply_markup=kb)
+                await callback.message.answer("Или нажмите кнопку ниже, чтобы не менять:", reply_markup=add_admin_button(skip_kb, is_admin=is_admin))
+            else:
+                await callback.message.answer(f"Шаг 2/9\n\nУкажите город работы:", reply_markup=kb)
+
+        elif current_state == TrainerOnboarding.city:
+            await state.update_data(city=profile.city)
+            await state.set_state(TrainerOnboarding.specialization)
+            await state.update_data(specializations=[s.name for s in profile.specializations])
+            kb = get_spec_kb(selected_specs=[s.name for s in profile.specializations])
+            await callback.message.answer("Шаг 3/9\n\nВыберите ваши основные направления:", reply_markup=add_admin_button(kb, is_admin=is_admin))
+
+        elif current_state == TrainerOnboarding.experience:
+            await state.update_data(experience=profile.experience)
+            await state.set_state(TrainerOnboarding.formats)
+            kb = get_format_kb()
+            skip_kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                [types.InlineKeyboardButton(text=f"Оставить: {profile.experience} лет", callback_data="skip_step")]
+            ])
+            await callback.message.answer("Шаг 5/9\n\nКакие форматы вы предлагаете?", reply_markup=add_admin_button(kb, is_admin=is_admin))
+            await callback.message.answer("Или не менять опыт:", reply_markup=skip_kb)
+
+        elif current_state == TrainerOnboarding.price_single:
+            await state.update_data(price_single=profile.price_single)
+            await state.set_state(TrainerOnboarding.price_package)
+            skip_kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                [types.InlineKeyboardButton(text=f"Оставить: {profile.price_single}₽", callback_data="skip_step")]
+            ])
+            await callback.message.answer("Шаг 7/9\n\nУкажите цену за абонемент на 12 занятий (в ₽):", reply_markup=add_admin_button(skip_kb, is_admin=is_admin))
+
+        elif current_state == TrainerOnboarding.price_package:
+            await state.update_data(price_package=profile.price_package)
+            await state.set_state(TrainerOnboarding.photo)
+            skip_kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                [types.InlineKeyboardButton(text=f"Оставить текущее фото", callback_data="skip_step")]
+            ])
+            await callback.message.answer("Шаг 8/9\n\nЗагрузите ваше фото или оставьте прежнее:", reply_markup=add_admin_button(skip_kb, is_admin=is_admin))
+
+        elif current_state == TrainerOnboarding.photo:
+            await state.update_data(photo_url=profile.photo_url)
+            await state.set_state(TrainerOnboarding.video)
+            kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                [types.InlineKeyboardButton(text="Пропустить", callback_data="skip_video")],
+                [types.InlineKeyboardButton(text="Оставить прежнее видео", callback_data="skip_step")]
+            ])
+            await callback.message.answer("Шаг 9/9\n\nЗагрузите видео-презентацию:", reply_markup=add_admin_button(kb, is_admin=is_admin))
+
     await callback.answer()
 
 @router.message(TrainerOnboarding.full_name)
-async def process_name(message: types.Message, state: FSMContext, effective_user_id: int = None):
+async def process_name(message: types.Message, state: FSMContext, effective_user_id: int = None, is_admin: bool = False):
     user_id = effective_user_id or message.from_user.id
     await state.update_data(full_name=message.text, telegram_id=user_id)
     await state.set_state(TrainerOnboarding.city)
-    await message.answer(
-        "Шаг 2/9\n\nУкажите город работы (или \"Онлайн\", если работаете только онлайн):",
-        reply_markup=get_city_kb()
-    )
+
+    async with SessionLocal() as session:
+        stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+        res = await session.execute(stmt)
+        profile = res.scalar_one_or_none()
+
+        kb = get_city_kb()
+        if profile and profile.city:
+            skip_kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                [types.InlineKeyboardButton(text=f"Оставить: {profile.city}", callback_data="skip_step")]
+            ])
+            await message.answer("Шаг 2/9\n\nУкажите город работы:", reply_markup=kb)
+            await message.answer("Или не менять:", reply_markup=add_admin_button(skip_kb, is_admin=is_admin))
+        else:
+            await message.answer("Шаг 2/9\n\nУкажите город работы:", reply_markup=kb)
 
 @router.message(TrainerOnboarding.city)
-async def process_city(message: types.Message, state: FSMContext, is_admin: bool = False):
+async def process_city(message: types.Message, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     await state.update_data(city=message.text)
     await state.set_state(TrainerOnboarding.specialization)
-    await state.update_data(specializations=[])
-    kb = get_spec_kb()
-    kb = add_admin_button(kb, is_admin=is_admin)
-    await message.answer("Шаг 3/9\n\nВыберите ваши основные направления (можно несколько):", reply_markup=kb)
+
+    user_id = effective_user_id or message.from_user.id
+    async with SessionLocal() as session:
+        stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id).options(selectinload(TrainerProfile.specializations))
+        res = await session.execute(stmt)
+        profile = res.scalar_one_or_none()
+
+        specs = [s.name for s in profile.specializations] if profile else []
+        await state.update_data(specializations=specs)
+        kb = get_spec_kb(selected_specs=specs)
+        await message.answer("Шаг 3/9\n\nВыберите ваши основные направления:", reply_markup=add_admin_button(kb, is_admin=is_admin))
 
 @router.callback_query(F.data.startswith("spec_"), TrainerOnboarding.specialization)
 async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
@@ -57,8 +155,23 @@ async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext
         if not data.get('specializations'):
             await callback.answer("Выберите хотя бы одно направление!")
             return
+
+        user_id = effective_user_id or callback.from_user.id
         await state.set_state(TrainerOnboarding.experience)
-        await callback.message.answer("Шаг 4/9\n\nСколько лет опыта в фитнесе?")
+
+        async with SessionLocal() as session:
+            stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+            res = await session.execute(stmt)
+            profile = res.scalar_one_or_none()
+
+            kb = None
+            if profile and profile.experience is not None:
+                kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                    [types.InlineKeyboardButton(text=f"Оставить: {profile.experience} лет", callback_data="skip_step")]
+                ])
+                kb = add_admin_button(kb, is_admin=is_admin)
+
+            await callback.message.answer("Шаг 4/9\n\nСколько лет опыта в фитнесе?", reply_markup=kb)
         await callback.answer()
         return
 
@@ -92,20 +205,32 @@ async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext
     await callback.answer()
 
 @router.message(TrainerOnboarding.experience)
-async def process_experience(message: types.Message, state: FSMContext, is_admin: bool = False):
+async def process_experience(message: types.Message, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     try:
-        # Enforce numeric input for experience since the DB column is now Integer
         exp = int(message.text)
         await state.update_data(experience=exp)
         await state.set_state(TrainerOnboarding.formats)
-        kb = get_format_kb()
-        kb = add_admin_button(kb, is_admin=is_admin)
-        await message.answer("Шаг 5/9\n\nКакие форматы вы предлагаете?", reply_markup=kb)
+
+        user_id = effective_user_id or message.from_user.id
+        async with SessionLocal() as session:
+            stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+            res = await session.execute(stmt)
+            profile = res.scalar_one_or_none()
+
+            kb = get_format_kb()
+            await message.answer("Шаг 5/9\n\nКакие форматы вы предлагаете?", reply_markup=add_admin_button(kb, is_admin=is_admin))
+
+            if profile and profile.work_format:
+                skip_kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                    [types.InlineKeyboardButton(text=f"Оставить: {profile.work_format}", callback_data="fmt_" + str(profile.work_format).lower())]
+                ])
+                await message.answer("Или не менять:", reply_markup=skip_kb)
+
     except ValueError:
         await message.answer("Пожалуйста, введите число (количество полных лет опыта).")
 
 @router.callback_query(F.data.startswith("fmt_"), TrainerOnboarding.formats)
-async def process_formats_callback(callback: types.CallbackQuery, state: FSMContext):
+async def process_formats_callback(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     fmt_map = {
         "fmt_offline": WorkFormat.OFFLINE,
         "fmt_online": WorkFormat.ONLINE,
@@ -114,16 +239,44 @@ async def process_formats_callback(callback: types.CallbackQuery, state: FSMCont
     work_format = fmt_map.get(callback.data)
     await state.update_data(work_format=work_format)
     await state.set_state(TrainerOnboarding.price_single)
-    await callback.message.answer("Шаг 6/9\n\nУкажите вашу цену за разовое занятие (в ₽):")
+
+    user_id = effective_user_id or callback.from_user.id
+    async with SessionLocal() as session:
+        stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+        res = await session.execute(stmt)
+        profile = res.scalar_one_or_none()
+
+        kb = None
+        if profile and profile.price_single:
+            kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                [types.InlineKeyboardButton(text=f"Оставить: {profile.price_single}₽", callback_data="skip_step")]
+            ])
+            kb = add_admin_button(kb, is_admin=is_admin)
+
+        await callback.message.answer("Шаг 6/9\n\nУкажите вашу цену за разовое занятие (в ₽):", reply_markup=kb)
     await callback.answer()
 
 @router.message(TrainerOnboarding.price_single)
-async def process_price_single(message: types.Message, state: FSMContext):
+async def process_price_single(message: types.Message, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     try:
         price = float(message.text)
         await state.update_data(price_single=price)
         await state.set_state(TrainerOnboarding.price_package)
-        await message.answer("Шаг 7/9\n\nУкажите цену за абонемент на 12 занятий (в ₽):")
+
+        user_id = effective_user_id or message.from_user.id
+        async with SessionLocal() as session:
+            stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+            res = await session.execute(stmt)
+            profile = res.scalar_one_or_none()
+
+            kb = None
+            if profile and profile.price_package:
+                kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                    [types.InlineKeyboardButton(text=f"Оставить: {profile.price_package}₽", callback_data="skip_step")]
+                ])
+                kb = add_admin_button(kb, is_admin=is_admin)
+
+            await message.answer("Шаг 7/9\n\nУкажите цену за абонемент на 12 занятий (в ₽):", reply_markup=kb)
     except ValueError:
         await message.answer("Пожалуйста, введите число.")
 

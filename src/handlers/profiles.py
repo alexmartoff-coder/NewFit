@@ -208,7 +208,8 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
             status_map = {"confirmed": "✅ Подтверждено", "pending": "⏳ Ожидает", "canceled": "❌ Отменено"}
 
             # Конвертируем время в МСК
-            start_moscow = slot.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
+            s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
+            start_moscow = s_start.astimezone(moscow_tz)
 
             text += (
                 f"👤 Тренер: {trainer_name}\n"
