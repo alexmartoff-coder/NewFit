@@ -128,9 +128,10 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
 
         from dateutil.tz import gettz, UTC
         moscow_tz = gettz('Europe/Moscow')
-        start_moscow = slot.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
+        s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
+        start_moscow = s_start.astimezone(moscow_tz)
 
-        selected_date = slot.start_time.date().isoformat()
+        selected_date = s_start.date().isoformat()
         kb = types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [types.InlineKeyboardButton(text="✅ Да, записаться", callback_data="confirm_booking")],
@@ -232,7 +233,8 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
                 client_name = client_user.full_name if client_user else callback.from_user.full_name
 
                 # Convert time to Moscow for notification
-                start_moscow = slot.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
+                s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
+                start_moscow = s_start.astimezone(moscow_tz)
 
                 trainer_text = (
                     f"🆕 **Новая запись!**\n\n"

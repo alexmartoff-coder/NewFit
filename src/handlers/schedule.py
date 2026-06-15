@@ -115,8 +115,12 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         for date_obj, day_slots in sorted(grouped.items()):
             text += f"🗓 `{date_obj.strftime('%d.%m (%a)')}`\n"
             for s in day_slots:
-                start_moscow = s.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
-                end_moscow = s.end_time.replace(tzinfo=UTC).astimezone(moscow_tz)
+                # Ensure we handle naive vs aware datetimes consistently
+                s_start = s.start_time.replace(tzinfo=UTC) if s.start_time.tzinfo is None else s.start_time.astimezone(UTC)
+                s_end = s.end_time.replace(tzinfo=UTC) if s.end_time.tzinfo is None else s.end_time.astimezone(UTC)
+
+                start_moscow = s_start.astimezone(moscow_tz)
+                end_moscow = s_end.astimezone(moscow_tz)
 
                 status_icon = "🟢" if s.status == "free" else ("🔴" if s.status == "booked" else "⚪")
                 fmt_val = s.format.value if hasattr(s.format, 'value') else str(s.format)
