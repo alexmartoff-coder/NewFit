@@ -45,7 +45,6 @@ class User(Base):
     admins = relationship("Admin", foreign_keys="Admin.user_id")
     schedule = relationship("TrainerSchedule", back_populates="trainer", uselist=False)
     time_slots = relationship("TimeSlot", foreign_keys="TimeSlot.client_id")
-    bookings_as_client = relationship("Booking", foreign_keys="Booking.client_id")
 
 class TrainerProfile(Base):
     __tablename__ = "trainer_profiles"
@@ -74,7 +73,9 @@ class ClientProfile(Base):
     __tablename__ = "client_profiles"
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), unique=True)
+    full_name: Mapped[str] = mapped_column(String(128), nullable=True)
     city: Mapped[Optional[str]] = mapped_column(String(100))
+    status: Mapped[str] = mapped_column(String(20), default="active")
 
     user: Mapped["User"] = relationship(back_populates="client_profile")
     subscriptions: Mapped[List["Subscription"]] = relationship(back_populates="client")
@@ -177,8 +178,8 @@ class Booking(Base):
     slot: Mapped["TimeSlot"] = relationship(back_populates="booking")
     trainer_profile_id = Column(Integer, ForeignKey("trainer_profiles.id"), nullable=False)
     trainer_profile: Mapped["TrainerProfile"] = relationship(back_populates="bookings")
-    client_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
-    client_user: Mapped["User"] = relationship("User", foreign_keys=[client_id], overlaps="bookings_as_client")
+    client_id = Column(Integer, ForeignKey("client_profiles.id"), nullable=False)
+    client: Mapped["ClientProfile"] = relationship()
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=False)
     status = Column(String(50), default="pending")  # pending, confirmed, canceled, completed

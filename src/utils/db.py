@@ -53,8 +53,11 @@ async def init_db(engine):
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS trainer_profile_id INTEGER"))
                 await conn.execute(text("ALTER TABLE bookings ALTER COLUMN trainer_profile_id TYPE INTEGER USING trainer_profile_id::integer"))
 
-                await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_id BIGINT"))
-                await conn.execute(text("ALTER TABLE bookings ALTER COLUMN client_id TYPE BIGINT"))
+                # Исправляем client_profiles
+                await conn.execute(text("ALTER TABLE client_profiles ADD COLUMN IF NOT EXISTS full_name VARCHAR(128)"))
+                await conn.execute(text("ALTER TABLE client_profiles ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active'"))
+
+                await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_id INTEGER"))
 
                 # Полная переустановка всех внешних ключей в таблице bookings (PostgreSQL)
                 await conn.execute(text("""
@@ -74,11 +77,11 @@ async def init_db(engine):
 
                         -- 2. Исправляем типы колонок
                         ALTER TABLE bookings ALTER COLUMN trainer_profile_id TYPE INTEGER USING trainer_profile_id::integer;
-                        ALTER TABLE bookings ALTER COLUMN client_id TYPE BIGINT USING client_id::bigint;
+                        ALTER TABLE bookings ALTER COLUMN client_id TYPE INTEGER USING client_id::integer;
                         ALTER TABLE bookings ALTER COLUMN slot_id TYPE INTEGER USING slot_id::integer;
 
                         -- 3. Создаем правильные ключи заново
-                        ALTER TABLE bookings ADD CONSTRAINT bookings_client_id_fkey FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE;
+                        ALTER TABLE bookings ADD CONSTRAINT bookings_client_id_fkey FOREIGN KEY (client_id) REFERENCES client_profiles(id) ON DELETE CASCADE;
                         ALTER TABLE bookings ADD CONSTRAINT bookings_trainer_profile_id_fkey FOREIGN KEY (trainer_profile_id) REFERENCES trainer_profiles(id) ON DELETE CASCADE;
                         ALTER TABLE bookings ADD CONSTRAINT bookings_slot_id_fkey FOREIGN KEY (slot_id) REFERENCES time_slots(id) ON DELETE CASCADE;
 

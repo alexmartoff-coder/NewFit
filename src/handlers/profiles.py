@@ -102,12 +102,21 @@ async def show_instructions(message: types.Message):
 async def show_my_bookings(message: types.Message, effective_user_id: int = None):
     user_id = effective_user_id or message.from_user.id
     async with SessionLocal() as session:
-        from src.models.models import Booking, TimeSlot, User
+        from src.models.models import Booking, TimeSlot, User, ClientProfile
         from sqlalchemy.orm import selectinload
+
+        # Получаем профиль клиента
+        cp_stmt = select(ClientProfile).where(ClientProfile.user_id == user_id)
+        cp_res = await session.execute(cp_stmt)
+        client_profile = cp_res.scalar_one_or_none()
+
+        if not client_profile:
+            await message.answer("У вас пока нет запланированных занятий.")
+            return
 
         stmt = (
             select(Booking)
-            .where(Booking.client_id == user_id)
+            .where(Booking.client_id == client_profile.id)
             .options(selectinload(Booking.slot).selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user))
             .order_by(Booking.booked_at.desc())
         )
