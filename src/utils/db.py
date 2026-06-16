@@ -32,6 +32,14 @@ async def init_db(engine):
         if "postgresql" in str(engine.url).lower():
             logger.info("Applying PostgreSQL schema fixes...")
             async with engine.connect() as conn:
+                # Исправляем Enum UserRole
+                try:
+                    await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'BEAUTY'"))
+                    await conn.commit()
+                except Exception as e:
+                    await conn.rollback()
+                    logger.warning(f"Could not add BEAUTY to userrole enum: {e}")
+
                 # Вспомогательная функция для добавления колонки
                 async def add_column_safe(table, col_name, col_type):
                     try:
