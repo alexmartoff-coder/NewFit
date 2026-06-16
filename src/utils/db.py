@@ -130,9 +130,34 @@ async def init_db(engine):
                     END $$;
                 """))
 
-                # 7. Добавляем колонки для "Rolling Window" в trainer_schedules
+                # 7. Добавляем колонки для "Rolling Window" и Google интеграции в trainer_schedules
+                logger.info("Checking trainer_schedules columns...")
                 await conn.execute(text("ALTER TABLE trainer_schedules ADD COLUMN IF NOT EXISTS rolling_window INTEGER"))
                 await conn.execute(text("ALTER TABLE trainer_schedules ADD COLUMN IF NOT EXISTS last_replenished TIMESTAMP WITHOUT TIME ZONE"))
+                await conn.execute(text("ALTER TABLE trainer_schedules ADD COLUMN IF NOT EXISTS google_client_id VARCHAR(200)"))
+                await conn.execute(text("ALTER TABLE trainer_schedules ADD COLUMN IF NOT EXISTS google_client_secret VARCHAR(200)"))
+                await conn.execute(text("ALTER TABLE trainer_schedules ADD COLUMN IF NOT EXISTS google_calendar_id VARCHAR(200)"))
+                await conn.execute(text("ALTER TABLE trainer_schedules ADD COLUMN IF NOT EXISTS google_refresh_token TEXT"))
+                await conn.execute(text("ALTER TABLE trainer_schedules ADD COLUMN IF NOT EXISTS google_access_token TEXT"))
+                await conn.execute(text("ALTER TABLE trainer_schedules ADD COLUMN IF NOT EXISTS token_expires_at TIMESTAMP WITHOUT TIME ZONE"))
+                await conn.execute(text("ALTER TABLE trainer_schedules ADD COLUMN IF NOT EXISTS sync_enabled BOOLEAN DEFAULT TRUE"))
+                await conn.execute(text("ALTER TABLE trainer_schedules ADD COLUMN IF NOT EXISTS timezone VARCHAR(50) DEFAULT 'Europe/Moscow'"))
+                await conn.execute(text("ALTER TABLE trainer_schedules ADD COLUMN IF NOT EXISTS slot_duration INTEGER DEFAULT 60"))
+                await conn.execute(text("ALTER TABLE trainer_schedules ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()"))
+
+                # 8. Исправляем trainer_profiles
+                logger.info("Checking trainer_profiles columns...")
+                await conn.execute(text("ALTER TABLE trainer_profiles ADD COLUMN IF NOT EXISTS price_single FLOAT DEFAULT 0.0"))
+                await conn.execute(text("ALTER TABLE trainer_profiles ADD COLUMN IF NOT EXISTS price_package FLOAT DEFAULT 0.0"))
+                await conn.execute(text("ALTER TABLE trainer_profiles ADD COLUMN IF NOT EXISTS rating FLOAT DEFAULT 5.0"))
+                await conn.execute(text("ALTER TABLE trainer_profiles ADD COLUMN IF NOT EXISTS is_premium BOOLEAN DEFAULT FALSE"))
+                await conn.execute(text("ALTER TABLE trainer_profiles ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'approved'"))
+
+                # 9. Исправляем time_slots
+                logger.info("Checking time_slots columns...")
+                await conn.execute(text("ALTER TABLE time_slots ADD COLUMN IF NOT EXISTS format VARCHAR(20) DEFAULT 'hybrid'"))
+                await conn.execute(text("ALTER TABLE time_slots ADD COLUMN IF NOT EXISTS google_event_id VARCHAR(200)"))
+                await conn.execute(text("ALTER TABLE time_slots ADD COLUMN IF NOT EXISTS notes TEXT"))
 
                 # Исправляем reminders
                 await conn.execute(text("ALTER TABLE reminders ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending'"))
