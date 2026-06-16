@@ -2,7 +2,7 @@ import pytest
 import pytest_asyncio
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from src.models.models import Base, User, UserRole, TrainerProfile, ClientProfile, WorkFormat, TimeSlot, Booking
+from src.models.models import Base, User, UserRole, ProfessionalProfile, ClientProfile, WorkFormat, TimeSlot, Booking
 
 DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -25,7 +25,7 @@ async def test_create_booking_with_times(db_session):
     db_session.add(trainer_user)
     await db_session.commit()
 
-    profile = TrainerProfile(
+    profile = ProfessionalProfile(
         user_id=trainer_user.id,
         city="Moscow",
         work_format=WorkFormat.HYBRID
@@ -46,7 +46,7 @@ async def test_create_booking_with_times(db_session):
     start_time = datetime.utcnow() + timedelta(hours=1)
     end_time = start_time + timedelta(hours=1)
     slot = TimeSlot(
-        trainer_profile_id=profile.id,
+        professional_profile_id=profile.id,
         start_time=start_time,
         end_time=end_time,
         status="free",
@@ -58,7 +58,7 @@ async def test_create_booking_with_times(db_session):
     # Create booking
     booking = Booking(
         slot_id=slot.id,
-        trainer_profile_id=profile.id,
+        professional_profile_id=profile.id,
         client_id=client_profile.id,
         start_time=slot.start_time,
         end_time=slot.end_time,

@@ -1,7 +1,7 @@
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from src.models.models import Base, User, UserRole, TrainerProfile, WorkFormat
+from src.models.models import Base, User, UserRole, ProfessionalProfile, WorkFormat
 
 DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -28,12 +28,12 @@ async def test_create_user(db_session):
     assert db_user.role == UserRole.CLIENT
 
 @pytest.mark.asyncio
-async def test_create_trainer_profile(db_session):
+async def test_create_professional_profile(db_session):
     user = User(id=456, full_name="Trainer User", role=UserRole.TRAINER)
     db_session.add(user)
     await db_session.commit()
 
-    profile = TrainerProfile(
+    profile = ProfessionalProfile(
         user_id=user.id,
         city="Moscow",
         experience=5,
