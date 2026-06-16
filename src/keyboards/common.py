@@ -4,7 +4,8 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 
 def get_role_kb(is_admin: bool = False):
     kb = [
-        [KeyboardButton(text="👨‍🏫 Я тренер"), KeyboardButton(text="🏋️‍♀️ Я клиент")],
+        [KeyboardButton(text="Тренер"), KeyboardButton(text="Клиент")],
+        [KeyboardButton(text="Бьюти")],
         [KeyboardButton(text="❓ Узнать больше о NewFit")]
     ]
     if is_admin:
@@ -13,14 +14,9 @@ def get_role_kb(is_admin: bool = False):
 
 def get_trainer_main_kb(is_admin: bool = False):
     kb = [
-        [KeyboardButton(text="👤 Мой профиль"), KeyboardButton(text="📅 Моё расписание")],
-        [KeyboardButton(text="👥 Мои клиенты"), KeyboardButton(text="💰 Финансы и выплаты")],
-        [KeyboardButton(text="📊 Статистика")],
-        [KeyboardButton(text="📹 Создать контент (рилсы)")],
-        [KeyboardButton(text="🚀 Продвижение"), KeyboardButton(text="⭐ Повысить видимость")],
-        [KeyboardButton(text="🔗 Подключить Google Календарь")],
-        [KeyboardButton(text="⚙️ Настройки"), KeyboardButton(text="❓ Поддержка")],
-        [KeyboardButton(text="📋 Инструкции")]
+        [KeyboardButton(text="Мой профиль"), KeyboardButton(text="Моё расписание")],
+        [KeyboardButton(text="Мои клиенты"), KeyboardButton(text="Статистика")],
+        [KeyboardButton(text="Поддержка"), KeyboardButton(text="Инструкции")]
     ]
     if is_admin:
         kb.append([KeyboardButton(text="🛠 Админ")])
@@ -46,20 +42,32 @@ def get_format_kb():
         ]
     )
 
-def get_spec_kb(selected_specs: list = None):
+def get_spec_kb(selected_specs: list = None, role: str = "TRAINER"):
     if selected_specs is None:
         selected_specs = []
 
-    specs = [
-        ("Силовые тренировки", "spec_strength"),
-        ("Похудение и жиросжигание", "spec_weight_loss"),
-        ("Функциональный тренинг", "spec_func"),
-        ("Реабилитация и ОФП", "spec_rehab"),
-        ("Кроссфит / HIIT", "spec_crossfit"),
-        ("Тренировки для женщин/мужчин", "spec_gender"),
-        ("Работа с подростками", "spec_teens"),
-        ("Другое (свой вариант)", "spec_other"),
-    ]
+    if role == "BEAUTY":
+        specs = [
+            ("Маникюр", "spec_manicure"),
+            ("Педикюр", "spec_pedicure"),
+            ("Массаж", "spec_massage"),
+            ("Косметология", "spec_cosmetology"),
+            ("Парикмахерские услуги", "spec_hair"),
+            ("Брови и ресницы", "spec_brows"),
+            ("Макияж", "spec_makeup"),
+            ("Другое", "spec_other"),
+        ]
+    else:
+        specs = [
+            ("Силовые тренировки", "spec_strength"),
+            ("Похудение и жиросжигание", "spec_weight_loss"),
+            ("Функциональный тренинг", "spec_func"),
+            ("Реабилитация и ОФП", "spec_rehab"),
+            ("Кроссфит / HIIT", "spec_crossfit"),
+            ("Тренировки для женщин/мужчин", "spec_gender"),
+            ("Работа с подростками", "spec_teens"),
+            ("Другое (свой вариант)", "spec_other"),
+        ]
 
     kb = []
     for name, callback_data in specs:

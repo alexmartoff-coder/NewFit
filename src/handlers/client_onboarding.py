@@ -6,7 +6,7 @@ from src.keyboards.common import get_client_main_kb
 
 router = Router()
 
-@router.message(F.text == "🏋️‍♀️ Я клиент")
+@router.message(F.text == "Клиент")
 @router.callback_query(F.data == "client_menu")
 async def client_start(event: types.Message | types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
     message = event if isinstance(event, types.Message) else event.message

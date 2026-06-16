@@ -12,12 +12,18 @@ from sqlalchemy.orm import selectinload
 router = Router()
 logger = logging.getLogger(__name__)
 
-@router.message(F.text == "👨‍🏫 Я тренер")
-async def trainer_start(message: types.Message, state: FSMContext, is_admin: bool = False):
+@router.message(F.text == "Тренер")
+@router.message(F.text == "Бьюти")
+async def provider_start(message: types.Message, state: FSMContext, is_admin: bool = False):
+    role = UserRole.TRAINER if "тренер" in message.text.lower() else UserRole.BEAUTY
+    await state.update_data(role=role)
     kb = get_start_reg_kb()
     kb = add_admin_button(kb, is_admin=is_admin)
+
+    role_text = "профессиональный профиль" if role == UserRole.TRAINER else "профиль бьюти-мастера"
+
     await message.answer(
-        "Отлично! Давайте создадим ваш профессиональный профиль в NewFit.\n\n"
+        f"Отлично! Давайте создадим ваш {role_text} в NewFit.\n\n"
         "Это займёт около 3-4 минут.\n\n"
         "Готовы начать?",
         reply_markup=kb
@@ -71,7 +77,8 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
             await state.update_data(city=profile.city)
             await state.set_state(TrainerOnboarding.specialization)
             await state.update_data(specializations=[s.name for s in profile.specializations])
-            kb = get_spec_kb(selected_specs=[s.name for s in profile.specializations])
+            data = await state.get_data()
+            kb = get_spec_kb(selected_specs=[s.name for s in profile.specializations], role=data.get('role', 'TRAINER'))
             await callback.message.answer("Шаг 3/9\n\nВыберите ваши основные направления:", reply_markup=add_admin_button(kb, is_admin=is_admin))
 
         elif current_state == TrainerOnboarding.experience:
@@ -145,7 +152,8 @@ async def process_city(message: types.Message, state: FSMContext, is_admin: bool
 
         specs = [s.name for s in profile.specializations] if profile else []
         await state.update_data(specializations=specs)
-        kb = get_spec_kb(selected_specs=specs)
+        data = await state.get_data()
+        kb = get_spec_kb(selected_specs=specs, role=data.get('role', 'TRAINER'))
         await message.answer("Шаг 3/9\n\nВыберите ваши основные направления:", reply_markup=add_admin_button(kb, is_admin=is_admin))
 
 @router.callback_query(F.data.startswith("spec_"), TrainerOnboarding.specialization)
@@ -186,7 +194,18 @@ async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext
         "spec_other": "Другое"
     }
 
-    spec = spec_map.get(callback.data)
+    beauty_map = {
+        "spec_manicure": "Маникюр",
+        "spec_pedicure": "Педикюр",
+        "spec_massage": "Массаж",
+        "spec_cosmetology": "Косметология",
+        "spec_hair": "Парикмахерские услуги",
+        "spec_brows": "Брови и ресницы",
+        "spec_makeup": "Макияж",
+        "spec_other": "Другое"
+    }
+
+    spec = spec_map.get(callback.data) or beauty_map.get(callback.data)
     if spec:
         data = await state.get_data()
         specs = data.get('specializations', [])
@@ -199,7 +218,7 @@ async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext
         await state.update_data(specializations=specs)
 
         # Update keyboard to show checkmarks
-        kb = get_spec_kb(selected_specs=specs)
+        kb = get_spec_kb(selected_specs=specs, role=data.get('role', 'TRAINER'))
         await callback.message.edit_reply_markup(reply_markup=add_admin_button(kb, is_admin=is_admin))
 
     await callback.answer()
@@ -335,16 +354,17 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
 
             # === 1. User ===
             user = await session.get(User, user_id)
+            role = data.get('role', UserRole.TRAINER)
             if not user:
                 user = User(
                     id=user_id,
                     username=username,
                     full_name=data.get('full_name', 'Не указано'),
-                    role=UserRole.TRAINER
+                    role=role
                 )
                 session.add(user)
             else:
-                user.role = UserRole.TRAINER
+                user.role = role
                 user.full_name = data.get('full_name', user.full_name)
                 user.username = username or user.username
 
@@ -401,9 +421,12 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
 
         await state.clear()
 
+        role_success_text = "Ваш профиль успешно создан / обновлён."
+        if data.get('role') == UserRole.BEAUTY:
+            role_success_text = "Ваш профиль бьюти-мастера успешно создан / обновлён."
+
         await message.answer(
-            "Поздравляем! 🎉\n\n"
-            "Ваш профиль успешно создан / обновлён.",
+            f"Поздравляем! 🎉\n\n{role_success_text}",
             reply_markup=get_trainer_main_kb(is_admin=is_admin)
         )
 
