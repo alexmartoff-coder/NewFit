@@ -41,7 +41,7 @@ async def show_profile_cmd(message: types.Message, effective_user_id: int = None
 
 from sqlalchemy.orm import selectinload
 
-@router.message(F.text == "👤 Мой профиль")
+@router.message(F.text == "Мой профиль")
 async def show_profile(message: types.Message, is_admin: bool = False, effective_user_id: int = None):
     user_id = effective_user_id or message.from_user.id
     async with SessionLocal() as session:
@@ -86,7 +86,7 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
 async def show_schedule(message: types.Message, effective_user_id: int = None):
     await message.answer("Ваше расписание на сегодня пусто. Интеграция с Google Calendar будет доступна в следующем обновлении.")
 
-@router.message(F.text == "👥 Мои клиенты")
+@router.message(F.text == "Мои клиенты")
 @router.message(F.text == "/clients")
 async def show_clients(message: types.Message, effective_user_id: int = None):
     user_id = effective_user_id or message.from_user.id
@@ -142,7 +142,7 @@ async def show_clients(message: types.Message, effective_user_id: int = None):
 async def show_finances(message: types.Message):
     await message.answer("Ваш баланс: 0₽. Выплаты производятся автоматически раз в неделю.")
 
-@router.message(F.text == "📊 Статистика")
+@router.message(F.text == "Статистика")
 async def show_stats(message: types.Message):
     await message.answer("Ваша активность за последние 30 дней: 0 занятий.")
 
@@ -162,13 +162,9 @@ async def show_premium(message: types.Message):
 async def show_settings(message: types.Message):
     await message.answer("Настройки профиля и уведомлений.")
 
-@router.message(F.text == "❓ Поддержка")
+@router.message(F.text == "Поддержка")
 async def show_support(message: types.Message):
     await message.answer("Служба поддержки NewFit: @NewFitSupport")
-
-@router.message(F.text == "📋 Инструкции")
-async def show_instructions(message: types.Message):
-    await message.answer("Инструкции по проведению гибридных тренировок и использованию бота.")
 
 @router.message(F.text == "📅 Мои занятия и абонементы")
 async def show_my_bookings(message: types.Message, effective_user_id: int = None):
@@ -382,7 +378,7 @@ async def trainer_menu_redirect(callback: types.CallbackQuery):
     await show_profile(callback.message, is_admin=False) # Simplified, middleware would handle is_admin
     await callback.answer()
 
-@router.message(F.text == "📋 Инструкции")
+@router.message(F.text == "Инструкции")
 async def show_instructions_detailed(message: types.Message):
     instruction = (
         "📋 **Инструкция по настройке Google API:**\n\n"

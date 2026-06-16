@@ -11,6 +11,7 @@ class UserRole(str, Enum):
     TRAINER = "TRAINER"
     CLIENT = "CLIENT"
     ADMIN = "ADMIN"
+    BEAUTY = "BEAUTY"
 
 class WorkFormat(str, Enum):
     OFFLINE = "OFFLINE"
