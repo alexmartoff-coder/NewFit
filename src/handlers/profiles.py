@@ -166,7 +166,8 @@ async def show_settings(message: types.Message):
 async def show_support(message: types.Message):
     await message.answer("Служба поддержки NewFit: @NewFitSupport")
 
-@router.message(F.text == "📅 Мои занятия и абонементы")
+@router.message(F.text == "Мои записи")
+@router.message(F.text == "/bookings")
 async def show_my_bookings(message: types.Message, effective_user_id: int = None):
     user_id = effective_user_id or message.from_user.id
     async with SessionLocal() as session:
