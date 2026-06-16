@@ -9,16 +9,34 @@ from src.states.catalog import CatalogFilter
 
 router = Router()
 
-@router.message(F.text == "🔍 Найти тренера")
+@router.message(F.text == "Выбрать услугу")
 @router.message(F.text == "/search")
 async def start_catalog(message: types.Message, state: FSMContext):
     await state.clear()
-    from src.keyboards.common import get_city_kb
-    await message.answer(
-        "Выберите город:",
-        reply_markup=get_city_kb()
-    )
-    await state.set_state(CatalogFilter.entering_city)
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="Фитнес", callback_data="cat_type_fitness")],
+        [types.InlineKeyboardButton(text="Бьюти", callback_data="cat_type_beauty")]
+    ])
+    await message.answer("Какая сфера услуг вас интересует?", reply_markup=kb)
+
+@router.callback_query(F.data.startswith("cat_type_"))
+async def process_catalog_type(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
+    cat_type = callback.data.split("_")[2]
+    await state.update_data(catalog_type=cat_type)
+
+    # Directly show specializations (services) buttons
+    from src.keyboards.common import get_spec_kb
+    role = "TRAINER" if cat_type == "fitness" else "BEAUTY"
+    kb = get_spec_kb(role=role)
+    kb = add_admin_button(kb, is_admin=is_admin)
+
+    text = "Выберите услугу:"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb)
+    else:
+        await callback.message.edit_text(text, reply_markup=kb)
+    await state.set_state(CatalogFilter.entering_specialization)
+    await callback.answer()
 
 @router.callback_query(F.data == "filter_city")
 async def filter_city(callback: types.CallbackQuery, state: FSMContext):
@@ -77,7 +95,18 @@ async def process_filter_spec_callback(callback: types.CallbackQuery, state: FSM
         "spec_other": "Другое"
     }
 
-    spec = spec_map.get(callback.data)
+    beauty_map = {
+        "spec_manicure": "Маникюр",
+        "spec_pedicure": "Педикюр",
+        "spec_massage": "Массаж",
+        "spec_cosmetology": "Косметология",
+        "spec_hair": "Парикмахерские услуги",
+        "spec_brows": "Брови и ресницы",
+        "spec_makeup": "Макияж",
+        "spec_other": "Другое"
+    }
+
+    spec = spec_map.get(callback.data) or beauty_map.get(callback.data)
     if spec:
         data = await state.get_data()
         specs = data.get('specializations', [])
@@ -88,7 +117,8 @@ async def process_filter_spec_callback(callback: types.CallbackQuery, state: FSM
         await state.update_data(specializations=specs)
 
         from src.keyboards.common import get_spec_kb
-        kb = get_spec_kb(selected_specs=specs)
+        role = "TRAINER" if data.get('catalog_type') == "fitness" else "BEAUTY"
+        kb = get_spec_kb(selected_specs=specs, role=role)
         kb = add_admin_button(kb, is_admin=is_admin)
         await callback.message.edit_reply_markup(reply_markup=kb)
 

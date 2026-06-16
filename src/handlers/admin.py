@@ -44,6 +44,7 @@ async def admin_panel(message: Message, is_admin: bool = False):
         [InlineKeyboardButton(text="🔓 Выйти из режима входа", callback_data="admin_stop_impersonate")],
         [InlineKeyboardButton(text="📋 Список админов", callback_data="admin_list")],
         [InlineKeyboardButton(text="🗑 Удалить админа", callback_data="admin_remove")],
+        [InlineKeyboardButton(text="🔥 Удалить пользователей", callback_data="admin_delete_all_users")],
         [InlineKeyboardButton(text="🔄 Начать с начала", callback_data="admin_start_over")],
     ])
 
@@ -297,6 +298,58 @@ async def admin_start_over(callback: CallbackQuery, state: FSMContext):
         reply_markup=get_role_kb(is_admin=True)
     )
     await callback.answer()
+
+@router.callback_query(F.data == "admin_delete_all_users")
+async def delete_users_prompt(callback: CallbackQuery):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔥 ДА, УДАЛИТЬ ВСЕХ (кроме админов)", callback_data="admin_confirm_delete_all")],
+        [InlineKeyboardButton(text="🔙 Отмена", callback_data="admin_panel")]
+    ])
+    await callback.message.edit_text(
+        "⚠️ **ВНИМАНИЕ**\n\n"
+        "Это действие удалит ВСЕХ пользователей (тренеров, клиентов, бьюти) и их данные (слоты, записи, профили).\n\n"
+        "Администраторы останутся. Вы уверены?",
+        reply_markup=kb,
+        parse_mode="Markdown"
+    )
+
+@router.callback_query(F.data == "admin_confirm_delete_all")
+async def confirm_delete_all(callback: CallbackQuery):
+    async with SessionLocal() as session:
+        # Get admin IDs to preserve them
+        admin_stmt = select(Admin.user_id)
+        admin_res = await session.execute(admin_stmt)
+        admin_ids = list(admin_res.scalars().all())
+
+        # We also want to keep the current user if they are owner but not in Admin table yet
+        # But usually they should be. Let's just use NOT IN admin_ids.
+
+        # SQLAlchemy delete users not in admin list
+        # To avoid FK issues, we should probably delete profiles first, but cascade should handle it.
+        # Actually, let's delete TrainerProfile, ClientProfile, etc. first if cascade is not set properly.
+
+        # For safety and completeness:
+        from src.models.models import TrainerProfile, ClientProfile, TimeSlot, Booking, Subscription, Review, Reminder, TrainerSchedule, ScheduleTemplate
+
+        # Order matters if no cascade: Reviews -> Bookings -> TimeSlots -> Profiles -> Users
+        await session.execute(delete(Review))
+        await session.execute(delete(Reminder))
+        await session.execute(delete(Subscription))
+        await session.execute(delete(Booking))
+        await session.execute(delete(TimeSlot))
+        await session.execute(delete(TrainerSchedule))
+        await session.execute(delete(ScheduleTemplate))
+        await session.execute(delete(TrainerProfile))
+        await session.execute(delete(ClientProfile))
+
+        # Now delete users except admins
+        from sqlalchemy import not_
+        await session.execute(delete(User).where(not_(User.id.in_(admin_ids))))
+
+        await session.commit()
+
+    await callback.message.edit_text("✅ Все не-админ пользователи и их данные удалены. Теперь вы можете тестировать на чистых аккаунтах.")
+    await admin_panel(callback.message, is_admin=True)
 
 @router.callback_query(F.data == "admin_back")
 async def back_to_admin(callback: CallbackQuery):

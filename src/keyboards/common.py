@@ -24,10 +24,8 @@ def get_trainer_main_kb(is_admin: bool = False):
 
 def get_client_main_kb(is_admin: bool = False):
     kb = [
-        [KeyboardButton(text="🔍 Найти тренера")],
-        [KeyboardButton(text="📅 Мои занятия и абонементы"), KeyboardButton(text="🏆 Топ тренеров")],
-        [KeyboardButton(text="🔥 Челленджи и мотивация"), KeyboardButton(text="👥 Сообщество NewFit")],
-        [KeyboardButton(text="💬 Мои чаты с тренерами")]
+        [KeyboardButton(text="Выбрать услугу")],
+        [KeyboardButton(text="Мои записи"), KeyboardButton(text="💬 Мои чаты с тренерами")]
     ]
     if is_admin:
         kb.append([KeyboardButton(text="🛠 Админ")])
