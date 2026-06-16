@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional
-from sqlalchemy import BigInteger, String, ForeignKey, Float, DateTime, Boolean, Table, Column, Enum as SQLEnum, Integer, Text
+from sqlalchemy import BigInteger, String, ForeignKey, Float, DateTime, Boolean, Table, Column, Enum as SQLEnum, Integer, Text, JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
@@ -57,6 +57,7 @@ class TrainerProfile(Base):
     work_format: Mapped[WorkFormat] = mapped_column(SQLEnum(WorkFormat))
     price_single: Mapped[float] = mapped_column(Float, default=0.0)
     price_package: Mapped[float] = mapped_column(Float, default=0.0)
+    service_prices: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     photo_url: Mapped[Optional[str]] = mapped_column(String(512))
     video_presentation_url: Mapped[Optional[str]] = mapped_column(String(512))
     rating: Mapped[float] = mapped_column(Float, default=5.0)
