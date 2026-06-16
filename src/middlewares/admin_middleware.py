@@ -14,7 +14,7 @@ class AdminMiddleware(BaseMiddleware):
 
         data["is_owner"] = False
         data["is_admin"] = False
-        data["can_test_trainer"] = False
+        data["can_test_professional"] = False
         data["can_test_client"] = False
         data["effective_user_id"] = user_id
 
@@ -22,17 +22,17 @@ class AdminMiddleware(BaseMiddleware):
         state = data.get("state")
         if state:
             fsm_data = await state.get_data()
-            imp_trainer_id = fsm_data.get("impersonate_trainer_id")
+            imp_professional_id = fsm_data.get("impersonate_professional_id")
             imp_client_id = fsm_data.get("impersonate_client_id")
-            if imp_trainer_id:
-                data["effective_user_id"] = imp_trainer_id
+            if imp_professional_id:
+                data["effective_user_id"] = imp_professional_id
             elif imp_client_id:
                 data["effective_user_id"] = imp_client_id
 
         if user_id == OWNER_ID:
             data["is_owner"] = True
             data["is_admin"] = True
-            data["can_test_trainer"] = True
+            data["can_test_professional"] = True
             data["can_test_client"] = True
         else:
             # Get SessionLocal from data or use it directly if it was injected by another middleware
@@ -46,7 +46,7 @@ class AdminMiddleware(BaseMiddleware):
                 admin = admin.scalar_one_or_none()
                 if admin:
                     data["is_admin"] = True
-                    data["can_test_trainer"] = admin.can_test_trainer
+                    data["can_test_professional"] = admin.can_test_professional
                     data["can_test_client"] = admin.can_test_client
 
         return await handler(event, data)

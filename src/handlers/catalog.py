@@ -1,7 +1,7 @@
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import select, and_, func
-from src.models.models import TrainerProfile, User, Specialization
+from src.models.models import ProfessionalProfile, User, Specialization
 from src.utils.db import SessionLocal
 from src.keyboards.catalog import get_filter_kb, get_price_filter_kb
 from src.keyboards.inline import add_admin_button
@@ -198,15 +198,15 @@ async def apply_filters(callback: types.CallbackQuery, state: FSMContext):
 
     async with SessionLocal() as session:
         from sqlalchemy.orm import selectinload
-        query = select(TrainerProfile, User).join(User, TrainerProfile.user_id == User.id).options(selectinload(TrainerProfile.specializations))
+        query = select(ProfessionalProfile, User).join(User, ProfessionalProfile.user_id == User.id).options(selectinload(ProfessionalProfile.specializations))
 
-        filters = [TrainerProfile.status == "approved"]
+        filters = [ProfessionalProfile.status == "approved"]
         if 'city' in data:
-            filters.append(func.lower(TrainerProfile.city) == func.lower(data['city']))
+            filters.append(func.lower(ProfessionalProfile.city) == func.lower(data['city']))
         if 'price_min' in data:
-            filters.append(TrainerProfile.price_single >= data['price_min'])
+            filters.append(ProfessionalProfile.price_single >= data['price_min'])
         if 'price_max' in data:
-            filters.append(TrainerProfile.price_single <= data['price_max'])
+            filters.append(ProfessionalProfile.price_single <= data['price_max'])
 
         if filters:
             query = query.where(and_(*filters))
@@ -224,9 +224,9 @@ async def apply_filters(callback: types.CallbackQuery, state: FSMContext):
 
             if spec_ids:
                 # Trainer must have AT LEAST ONE of the selected specializations
-                query = query.where(TrainerProfile.specializations.any(Specialization.id.in_(spec_ids)))
+                query = query.where(ProfessionalProfile.specializations.any(Specialization.id.in_(spec_ids)))
             else:
-                await callback.message.answer("Тренеры с выбранными специализациями не найдены.")
+                await callback.message.answer("Мастера с выбранными специализациями не найдены.")
                 await callback.answer()
                 return
 
@@ -238,29 +238,29 @@ async def apply_filters(callback: types.CallbackQuery, state: FSMContext):
         query = query.offset(offset).limit(limit)
 
         result = await session.execute(query)
-        trainers = result.all()
+        professionals = result.all()
 
-        if not trainers:
-            await callback.message.answer("К сожалению, тренеров по вашему запросу не найдено.")
+        if not professionals:
+            await callback.message.answer("К сожалению, профессионалов по вашему запросу не найдено.")
         else:
-            for trainer_profile, user in trainers:
+            for professional_profile, user in professionals:
                 text = (
                     f"👤 {user.full_name}\n"
-                    f"📍 Город: {trainer_profile.city}\n"
-                    f"💪 Опыт: {trainer_profile.experience}\n"
-                    f"💰 Разовое: {trainer_profile.price_single}₽\n"
-                    f"💳 12 занятий: {trainer_profile.price_package}₽\n"
-                    f"⭐ Рейтинг: {trainer_profile.rating}\n"
-                    f"📝 Формат: {trainer_profile.work_format.value}"
+                    f"📍 Город: {professional_profile.city}\n"
+                    f"💪 Опыт: {professional_profile.experience}\n"
+                    f"💰 Разовое: {professional_profile.price_single}₽\n"
+                    f"💳 12 занятий: {professional_profile.price_package}₽\n"
+                    f"⭐ Рейтинг: {professional_profile.rating}\n"
+                    f"📝 Формат: {professional_profile.work_format.value}"
                 )
                 kb = types.InlineKeyboardMarkup(
                     inline_keyboard=[
-                        [types.InlineKeyboardButton(text="📅 Записаться", callback_data=f"book_{trainer_profile.user_id}")],
+                        [types.InlineKeyboardButton(text="📅 Записаться", callback_data=f"book_{professional_profile.user_id}")],
                         [types.InlineKeyboardButton(text="🔙 Назад к фильтрам", callback_data="filter_back")]
                     ]
                 )
-                if trainer_profile.photo_url:
-                    await callback.message.answer_photo(trainer_profile.photo_url, caption=text, reply_markup=kb)
+                if professional_profile.photo_url:
+                    await callback.message.answer_photo(professional_profile.photo_url, caption=text, reply_markup=kb)
                 else:
                     await callback.message.answer(text, reply_markup=kb)
 

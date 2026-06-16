@@ -1,6 +1,6 @@
 from aiogram.fsm.state import State, StatesGroup
 
-class TrainerOnboarding(StatesGroup):
+class ProfessionalOnboarding(StatesGroup):
     full_name = State()
     city = State()
     specialization = State()

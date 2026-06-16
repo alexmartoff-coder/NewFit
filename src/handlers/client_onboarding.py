@@ -39,7 +39,7 @@ async def client_start(event: types.Message | types.CallbackQuery, is_admin: boo
         await session.commit()
 
     text = (
-        "🏋️‍♀️ NewFit — найди своего тренера\n\n"
+        "🏋️‍♀️ NewFit — найди своего мастера\n\n"
         "Что хотите сделать?"
     )
     if isinstance(event, types.CallbackQuery):

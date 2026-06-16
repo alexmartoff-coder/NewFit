@@ -16,9 +16,9 @@ async def cmd_start(message: types.Message, is_admin: bool = False, effective_us
         # If user exists and has a role, redirect to their menu
         if user and user.role:
             if user.role in [UserRole.TRAINER, UserRole.BEAUTY]:
-                from src.keyboards.common import get_trainer_main_kb
-                kb = get_trainer_main_kb(is_admin=is_admin)
-                role_text = "тренера" if user.role == UserRole.TRAINER else "бьюти-мастера"
+                from src.keyboards.common import get_professional_main_kb
+                kb = get_professional_main_kb(is_admin=is_admin)
+                role_text = "мастера" if user.role == UserRole.TRAINER else "бьюти-мастера"
                 await message.answer(f"С возвращением! Личный кабинет {role_text}:", reply_markup=kb)
                 return
             elif user.role == UserRole.CLIENT:
@@ -40,7 +40,7 @@ async def cmd_start(message: types.Message, is_admin: bool = False, effective_us
 
     await message.answer(
         "Добро пожаловать в NewFit — экосистему для фитнеса будущего! 🔥\n\n"
-        "Здесь тренеры находят клиентов, а клиенты — лучших тренеров.\n\n"
+        "Здесь мастера находят клиентов, а клиенты — лучших мастеров.\n\n"
         "Выберите свою роль:",
         reply_markup=reply_markup
     )
@@ -60,8 +60,8 @@ async def admin_button_handler(message: types.Message, is_admin: bool = False):
 @router.message(F.text == "❓ Узнать больше о NewFit")
 async def learn_more(message: types.Message):
     await message.answer(
-        "NewFit — это единая экосистема для фитнес-тренеров и клиентов в Telegram.\n"
-        "Мы помогаем тренерам автоматизировать запись, а клиентам — быстро находить профессионалов."
+        "NewFit — это единая экосистема для фитнес-мастеров и клиентов в Telegram.\n"
+        "Мы помогаем мастерам автоматизировать запись, а клиентам — быстро находить профессионалов."
     )
 
 @router.message(F.text == "/help")

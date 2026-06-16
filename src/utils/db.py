@@ -52,13 +52,13 @@ async def init_db(engine):
 
                 # Исправляем time_slots FK
                 try:
-                    await conn.execute(text("ALTER TABLE time_slots DROP CONSTRAINT IF EXISTS time_slots_trainer_id_fkey"))
-                    await conn.execute(text("ALTER TABLE time_slots DROP CONSTRAINT IF EXISTS time_slots_trainer_profile_id_fkey"))
+                    await conn.execute(text("ALTER TABLE time_slots DROP CONSTRAINT IF EXISTS time_slots_professional_id_fkey"))
+                    await conn.execute(text("ALTER TABLE time_slots DROP CONSTRAINT IF EXISTS time_slots_professional_profile_id_fkey"))
                     await conn.execute(text("""
                         ALTER TABLE time_slots
-                        ADD CONSTRAINT time_slots_trainer_profile_id_fkey
-                        FOREIGN KEY (trainer_profile_id)
-                        REFERENCES trainer_profiles(id)
+                        ADD CONSTRAINT time_slots_professional_profile_id_fkey
+                        FOREIGN KEY (professional_profile_id)
+                        REFERENCES professional_profiles(id)
                         ON DELETE CASCADE
                     """))
                     await conn.commit()
@@ -67,7 +67,7 @@ async def init_db(engine):
 
                 # Исправляем bookings (колонки)
                 await add_column_safe("bookings", "slot_id", "INTEGER")
-                await add_column_safe("bookings", "trainer_profile_id", "INTEGER")
+                await add_column_safe("bookings", "professional_profile_id", "INTEGER")
                 await add_column_safe("bookings", "client_id", "BIGINT")
                 await add_column_safe("bookings", "start_time", "TIMESTAMP WITHOUT TIME ZONE")
                 await add_column_safe("bookings", "end_time", "TIMESTAMP WITHOUT TIME ZONE")
@@ -75,34 +75,34 @@ async def init_db(engine):
                 await add_column_safe("bookings", "price", "FLOAT")
                 await add_column_safe("bookings", "paid", "BOOLEAN DEFAULT FALSE")
                 await add_column_safe("bookings", "client_notes", "TEXT")
-                await add_column_safe("bookings", "trainer_notes", "TEXT")
+                await add_column_safe("bookings", "professional_notes", "TEXT")
                 await add_column_safe("bookings", "booked_at", "TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()")
 
                 # Исправляем client_profiles
                 await add_column_safe("client_profiles", "full_name", "VARCHAR(128)")
                 await add_column_safe("client_profiles", "status", "VARCHAR(20) DEFAULT 'active'")
 
-                # Исправляем trainer_schedules (ВСЕ КОЛОНКИ ОДНА ЗА ОДНОЙ)
-                await add_column_safe("trainer_schedules", "google_client_id", "VARCHAR(200)")
-                await add_column_safe("trainer_schedules", "google_client_secret", "VARCHAR(200)")
-                await add_column_safe("trainer_schedules", "google_calendar_id", "VARCHAR(200)")
-                await add_column_safe("trainer_schedules", "google_refresh_token", "TEXT")
-                await add_column_safe("trainer_schedules", "google_access_token", "TEXT")
-                await add_column_safe("trainer_schedules", "token_expires_at", "TIMESTAMP WITHOUT TIME ZONE")
-                await add_column_safe("trainer_schedules", "sync_enabled", "BOOLEAN DEFAULT TRUE")
-                await add_column_safe("trainer_schedules", "timezone", "VARCHAR(50) DEFAULT 'Europe/Moscow'")
-                await add_column_safe("trainer_schedules", "slot_duration", "INTEGER DEFAULT 60")
-                await add_column_safe("trainer_schedules", "rolling_window", "INTEGER")
-                await add_column_safe("trainer_schedules", "last_replenished", "TIMESTAMP WITHOUT TIME ZONE")
-                await add_column_safe("trainer_schedules", "updated_at", "TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()")
+                # Исправляем professional_schedules (ВСЕ КОЛОНКИ ОДНА ЗА ОДНОЙ)
+                await add_column_safe("professional_schedules", "google_client_id", "VARCHAR(200)")
+                await add_column_safe("professional_schedules", "google_client_secret", "VARCHAR(200)")
+                await add_column_safe("professional_schedules", "google_calendar_id", "VARCHAR(200)")
+                await add_column_safe("professional_schedules", "google_refresh_token", "TEXT")
+                await add_column_safe("professional_schedules", "google_access_token", "TEXT")
+                await add_column_safe("professional_schedules", "token_expires_at", "TIMESTAMP WITHOUT TIME ZONE")
+                await add_column_safe("professional_schedules", "sync_enabled", "BOOLEAN DEFAULT TRUE")
+                await add_column_safe("professional_schedules", "timezone", "VARCHAR(50) DEFAULT 'Europe/Moscow'")
+                await add_column_safe("professional_schedules", "slot_duration", "INTEGER DEFAULT 60")
+                await add_column_safe("professional_schedules", "rolling_window", "INTEGER")
+                await add_column_safe("professional_schedules", "last_replenished", "TIMESTAMP WITHOUT TIME ZONE")
+                await add_column_safe("professional_schedules", "updated_at", "TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()")
 
-                # Исправляем trainer_profiles
-                await add_column_safe("trainer_profiles", "price_single", "FLOAT DEFAULT 0.0")
-                await add_column_safe("trainer_profiles", "price_package", "FLOAT DEFAULT 0.0")
-                await add_column_safe("trainer_profiles", "service_prices", "JSON")
-                await add_column_safe("trainer_profiles", "rating", "FLOAT DEFAULT 5.0")
-                await add_column_safe("trainer_profiles", "is_premium", "BOOLEAN DEFAULT FALSE")
-                await add_column_safe("trainer_profiles", "status", "VARCHAR(20) DEFAULT 'approved'")
+                # Исправляем professional_profiles
+                await add_column_safe("professional_profiles", "price_single", "FLOAT DEFAULT 0.0")
+                await add_column_safe("professional_profiles", "price_package", "FLOAT DEFAULT 0.0")
+                await add_column_safe("professional_profiles", "service_prices", "JSON")
+                await add_column_safe("professional_profiles", "rating", "FLOAT DEFAULT 5.0")
+                await add_column_safe("professional_profiles", "is_premium", "BOOLEAN DEFAULT FALSE")
+                await add_column_safe("professional_profiles", "status", "VARCHAR(20) DEFAULT 'approved'")
 
                 # Исправляем time_slots (доп колонки)
                 await add_column_safe("time_slots", "format", "VARCHAR(20) DEFAULT 'hybrid'")
@@ -119,11 +119,11 @@ async def init_db(engine):
 
                 # Миграция данных bookings (сложная часть)
                 try:
-                    # Переименовываем trainer_id если он есть
+                    # Переименовываем professional_id если он есть
                     await conn.execute(text("""
                         DO $$ BEGIN
-                            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='trainer_id') THEN
-                                ALTER TABLE bookings RENAME COLUMN trainer_id TO trainer_profile_id;
+                            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='professional_id') THEN
+                                ALTER TABLE bookings RENAME COLUMN professional_id TO professional_profile_id;
                             END IF;
                         END $$;
                     """))
@@ -162,7 +162,7 @@ async def init_db(engine):
                     await conn.execute(text("UPDATE bookings SET client_id = NULL WHERE client_id > 1000000"))
 
                     # Меняем типы колонок
-                    await conn.execute(text("ALTER TABLE bookings ALTER COLUMN trainer_profile_id TYPE INTEGER USING trainer_profile_id::integer"))
+                    await conn.execute(text("ALTER TABLE bookings ALTER COLUMN professional_profile_id TYPE INTEGER USING professional_profile_id::integer"))
                     await conn.execute(text("ALTER TABLE bookings ALTER COLUMN client_id TYPE INTEGER USING client_id::integer"))
                     await conn.execute(text("ALTER TABLE bookings ALTER COLUMN slot_id TYPE INTEGER USING slot_id::integer"))
 
@@ -170,8 +170,8 @@ async def init_db(engine):
                     await conn.execute(text("ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_client_id_fkey"))
                     await conn.execute(text("ALTER TABLE bookings ADD CONSTRAINT bookings_client_id_fkey FOREIGN KEY (client_id) REFERENCES client_profiles(id) ON DELETE CASCADE"))
 
-                    await conn.execute(text("ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_trainer_profile_id_fkey"))
-                    await conn.execute(text("ALTER TABLE bookings ADD CONSTRAINT bookings_trainer_profile_id_fkey FOREIGN KEY (trainer_profile_id) REFERENCES trainer_profiles(id) ON DELETE CASCADE"))
+                    await conn.execute(text("ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_professional_profile_id_fkey"))
+                    await conn.execute(text("ALTER TABLE bookings ADD CONSTRAINT bookings_professional_profile_id_fkey FOREIGN KEY (professional_profile_id) REFERENCES professional_profiles(id) ON DELETE CASCADE"))
 
                     await conn.execute(text("ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_slot_id_fkey"))
                     await conn.execute(text("ALTER TABLE bookings ADD CONSTRAINT bookings_slot_id_fkey FOREIGN KEY (slot_id) REFERENCES time_slots(id) ON DELETE CASCADE"))

@@ -2,7 +2,7 @@ from aiogram import Router, F, types
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from sqlalchemy import select, delete, and_
-from src.models.models import User, TimeSlot, TrainerSchedule, ScheduleTemplate, WorkFormat, Booking
+from src.models.models import User, TimeSlot, ProfessionalSchedule, ProfessionalTemplate, WorkFormat, Booking
 from src.utils.db import SessionLocal
 from src.keyboards.inline import add_admin_button
 from datetime import datetime, timedelta, time
@@ -44,7 +44,7 @@ async def show_schedule_menu(message: types.Message, is_admin: bool = False, eff
     kb = add_admin_button(kb, is_admin=is_admin)
     await message.answer("Управление вашим расписанием:", reply_markup=kb)
 
-from src.models.models import TrainerProfile
+from src.models.models import ProfessionalProfile
 
 @router.callback_query(F.data == "sche_view")
 async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
@@ -53,10 +53,10 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
 
     async with SessionLocal() as session:
         # Resolve profile
-        stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+        stmt_p = select(ProfessionalProfile).where(ProfessionalProfile.user_id == user_id)
         profile = (await session.execute(stmt_p)).scalar_one_or_none()
         if not profile:
-            text = "❌ Профиль тренера не найден."
+            text = "❌ Профиль мастера не найден."
             kb = types.InlineKeyboardMarkup(inline_keyboard=[
                 [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")]
             ])
@@ -78,7 +78,7 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         stmt = (
             select(TimeSlot)
             .where(
-                TimeSlot.trainer_profile_id == profile.id,
+                TimeSlot.professional_profile_id == profile.id,
                 TimeSlot.start_time >= now_utc,
                 TimeSlot.start_time <= end_view_utc
             )
@@ -89,7 +89,7 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         slots = res.scalars().all()
 
         # Check for rolling window replenishment
-        stmt_config = select(TrainerSchedule).where(TrainerSchedule.trainer_id == user_id)
+        stmt_config = select(ProfessionalSchedule).where(ProfessionalSchedule.professional_id == user_id)
         res_config = await session.execute(stmt_config)
         config = res_config.scalar_one_or_none()
 
@@ -100,13 +100,13 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
             # Let's check if we have any slots in the last half of the window.
             replenish_threshold = now_utc + timedelta(days=config.rolling_window // 2)
             stmt_future = select(TimeSlot).where(
-                TimeSlot.trainer_profile_id == profile.id,
+                TimeSlot.professional_profile_id == profile.id,
                 TimeSlot.start_time > replenish_threshold
             ).limit(1)
             future_res = await session.execute(stmt_future)
 
             if not future_res.scalar():
-                logger.info(f"Replenishing slots for trainer {user_id} (rolling window {config.rolling_window}d)")
+                logger.info(f"Replenishing slots for professional {user_id} (rolling window {config.rolling_window}d)")
                 # We need interval. We'll default to 60 if not set.
                 await generate_slots_from_quick_template(
                     user_id=user_id,
@@ -255,16 +255,16 @@ async def save_new_time_slot(message: types.Message, state: FSMContext, data: di
 
         async with SessionLocal() as session:
             # Resolve profile
-            stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+            stmt_p = select(ProfessionalProfile).where(ProfessionalProfile.user_id == user_id)
             profile = (await session.execute(stmt_p)).scalar_one_or_none()
             if not profile:
-                await message.answer("❌ Профиль тренера не найден.")
+                await message.answer("❌ Профиль мастера не найден.")
                 await state.clear()
                 return
 
             # Проверка на пересечения
             stmt_overlap = select(TimeSlot).where(
-                TimeSlot.trainer_profile_id == profile.id,
+                TimeSlot.professional_profile_id == profile.id,
                 and_(
                     TimeSlot.start_time < end_time,
                     TimeSlot.end_time > start_time
@@ -277,7 +277,7 @@ async def save_new_time_slot(message: types.Message, state: FSMContext, data: di
                 return
 
             new_slot = TimeSlot(
-                trainer_profile_id=profile.id,
+                professional_profile_id=profile.id,
                 start_time=start_time,
                 end_time=end_time,
                 status="free",
@@ -327,20 +327,20 @@ async def process_block_time(message: types.Message, state: FSMContext, effectiv
         dt = datetime.strptime(message.text, "%d.%m.%Y %H:%M")
         user_id = effective_user_id or message.from_user.id
         async with SessionLocal() as session:
-            stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+            stmt_p = select(ProfessionalProfile).where(ProfessionalProfile.user_id == user_id)
             profile = (await session.execute(stmt_p)).scalar_one_or_none()
             if not profile:
-                await message.answer("❌ Профиль тренера не найден.")
+                await message.answer("❌ Профиль мастера не найден.")
                 return
 
-            stmt = select(TimeSlot).where(TimeSlot.trainer_profile_id == profile.id, TimeSlot.start_time == dt)
+            stmt = select(TimeSlot).where(TimeSlot.professional_profile_id == profile.id, TimeSlot.start_time == dt)
             res = await session.execute(stmt)
             slot = res.scalar_one_or_none()
 
             if not slot:
                 # Create a blocked slot if it doesn't exist
                 slot = TimeSlot(
-                    trainer_profile_id=profile.id,
+                    professional_profile_id=profile.id,
                     start_time=dt,
                     end_time=dt + timedelta(minutes=60),
                     status="blocked",
@@ -360,7 +360,7 @@ async def process_block_time(message: types.Message, state: FSMContext, effectiv
 async def template_menu(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
     user_id = effective_user_id or callback.from_user.id
     async with SessionLocal() as session:
-        stmt = select(ScheduleTemplate).where(ScheduleTemplate.trainer_id == user_id)
+        stmt = select(ProfessionalTemplate).where(ProfessionalTemplate.professional_id == user_id)
         res = await session.execute(stmt)
         templates = res.scalars().all()
 
@@ -389,7 +389,7 @@ async def template_menu(callback: types.CallbackQuery, is_admin: bool = False, e
 async def temp_clear(callback: types.CallbackQuery, effective_user_id: int = None):
     user_id = effective_user_id or callback.from_user.id
     async with SessionLocal() as session:
-        await session.execute(delete(ScheduleTemplate).where(ScheduleTemplate.trainer_id == user_id))
+        await session.execute(delete(ProfessionalTemplate).where(ProfessionalTemplate.professional_id == user_id))
         await session.commit()
     await callback.message.answer("Все шаблоны удалены.")
     await callback.answer()
@@ -431,8 +431,8 @@ async def temp_add_end_time(message: types.Message, state: FSMContext, effective
     data = await state.get_data()
     user_id = effective_user_id or message.from_user.id
     async with SessionLocal() as session:
-        new_temp = ScheduleTemplate(
-            trainer_id=user_id,
+        new_temp = ProfessionalTemplate(
+            professional_id=user_id,
             day_of_week=data['day'],
             start_time=data['start_time'],
             end_time=message.text
@@ -517,7 +517,7 @@ async def quick_gen_confirm(callback: types.CallbackQuery, state: FSMContext, ef
     try:
         # Save rolling window preference
         async with SessionLocal() as session:
-            stmt = select(TrainerSchedule).where(TrainerSchedule.trainer_id == user_id)
+            stmt = select(ProfessionalSchedule).where(ProfessionalSchedule.professional_id == user_id)
             res = await session.execute(stmt)
             config = res.scalar_one_or_none()
             if config:
@@ -552,7 +552,7 @@ async def generate_slots_from_quick_template(user_id: int, days: int, interval: 
 
     async with SessionLocal() as session:
         # Получаем профиль
-        profile_stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+        profile_stmt = select(ProfessionalProfile).where(ProfessionalProfile.user_id == user_id)
         profile = (await session.execute(profile_stmt)).scalar_one_or_none()
         if not profile:
             return 0
@@ -588,7 +588,7 @@ async def generate_slots_from_quick_template(user_id: int, days: int, interval: 
 
                     # Проверка пересечения
                     overlap_stmt = select(TimeSlot).where(
-                        TimeSlot.trainer_profile_id == profile.id,
+                        TimeSlot.professional_profile_id == profile.id,
                         TimeSlot.start_time < end_utc,
                         TimeSlot.end_time > start_utc
                     ).limit(1)
@@ -599,7 +599,7 @@ async def generate_slots_from_quick_template(user_id: int, days: int, interval: 
                         continue
 
                     slot = TimeSlot(
-                        trainer_profile_id=profile.id,
+                        professional_profile_id=profile.id,
                         start_time=start_utc,
                         end_time=end_utc,
                         format="hybrid",
@@ -616,20 +616,20 @@ async def generate_slots_from_quick_template(user_id: int, days: int, interval: 
 
 @router.callback_query(F.data == "sche_generate")
 async def generate_slots_handler(callback: types.CallbackQuery, effective_user_id: int = None):
-    trainer_id = effective_user_id or callback.from_user.id
+    professional_id = effective_user_id or callback.from_user.id
     moscow_tz = gettz('Europe/Moscow')
     utc_tz = UTC
 
     async with SessionLocal() as session:
         # Get profile
-        stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == trainer_id)
+        stmt_p = select(ProfessionalProfile).where(ProfessionalProfile.user_id == professional_id)
         profile = (await session.execute(stmt_p)).scalar_one_or_none()
         if not profile:
             await callback.answer("Профиль не найден!")
             return
 
-        # Get templates and trainer config
-        stmt = select(ScheduleTemplate).where(ScheduleTemplate.trainer_id == trainer_id, ScheduleTemplate.is_active == True)
+        # Get templates and professional config
+        stmt = select(ProfessionalTemplate).where(ProfessionalTemplate.professional_id == professional_id, ProfessionalTemplate.is_active == True)
         res = await session.execute(stmt)
         templates = res.scalars().all()
 
@@ -637,14 +637,14 @@ async def generate_slots_handler(callback: types.CallbackQuery, effective_user_i
             await callback.answer("Сначала создайте шаблоны!", show_alert=True)
             return
 
-        stmt_config = select(TrainerSchedule).where(TrainerSchedule.trainer_id == trainer_id)
+        stmt_config = select(ProfessionalSchedule).where(ProfessionalSchedule.professional_id == professional_id)
         res_config = await session.execute(stmt_config)
         config = res_config.scalar_one_or_none()
         slot_duration = config.slot_duration if config else 60
 
         # Get default price from profile
-        from src.models.models import TrainerProfile
-        stmt_profile = select(TrainerProfile).where(TrainerProfile.user_id == trainer_id)
+        from src.models.models import ProfessionalProfile
+        stmt_profile = select(ProfessionalProfile).where(ProfessionalProfile.user_id == professional_id)
         res_profile = await session.execute(stmt_profile)
         profile = res_profile.scalar_one_or_none()
         default_price = profile.price_single if profile else 2500.0
@@ -677,14 +677,14 @@ async def generate_slots_handler(callback: types.CallbackQuery, effective_user_i
                         if current_slot_start_moscow > now_moscow:
                             # Overlap check
                             overlap_stmt = select(TimeSlot).where(
-                                TimeSlot.trainer_profile_id == profile.id,
+                                TimeSlot.professional_profile_id == profile.id,
                                 TimeSlot.start_time < slot_end_utc,
                                 TimeSlot.end_time > slot_start_utc
                             )
                             overlap_res = await session.execute(overlap_stmt)
                             if not overlap_res.scalar_one_or_none():
                                 new_slot = TimeSlot(
-                                    trainer_profile_id=profile.id,
+                                    professional_profile_id=profile.id,
                                     start_time=slot_start_utc,
                                     end_time=slot_end_utc,
                                     status="free",
@@ -706,7 +706,7 @@ async def delete_slot_callback(callback: types.CallbackQuery, effective_user_id:
     user_id = effective_user_id or callback.from_user.id
     # For simplicity, we just list slots and allow deletion
     async with SessionLocal() as session:
-        stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+        stmt_p = select(ProfessionalProfile).where(ProfessionalProfile.user_id == user_id)
         profile = (await session.execute(stmt_p)).scalar_one_or_none()
         if not profile:
             await callback.answer("Профиль не найден!")
@@ -714,7 +714,7 @@ async def delete_slot_callback(callback: types.CallbackQuery, effective_user_id:
 
         now = datetime.now()
         stmt = select(TimeSlot).where(
-            TimeSlot.trainer_profile_id == profile.id,
+            TimeSlot.professional_profile_id == profile.id,
             TimeSlot.start_time >= now
         ).order_by(TimeSlot.start_time.asc())
         res = await session.execute(stmt)
@@ -741,13 +741,13 @@ async def process_slot_deletion(callback: types.CallbackQuery, effective_user_id
     user_id = effective_user_id or callback.from_user.id
     slot_id = int(callback.data.split("_")[3])
     async with SessionLocal() as session:
-        stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+        stmt_p = select(ProfessionalProfile).where(ProfessionalProfile.user_id == user_id)
         profile = (await session.execute(stmt_p)).scalar_one_or_none()
         if not profile:
             await callback.answer("Профиль не найден!")
             return
 
-        await session.execute(delete(TimeSlot).where(TimeSlot.id == slot_id, TimeSlot.trainer_profile_id == profile.id))
+        await session.execute(delete(TimeSlot).where(TimeSlot.id == slot_id, TimeSlot.professional_profile_id == profile.id))
         await session.commit()
     await callback.answer("Слот удалён.")
     # Refresh the deletion view
@@ -769,12 +769,12 @@ async def process_config_duration(message: types.Message, state: FSMContext, eff
         duration = int(message.text)
         user_id = effective_user_id or message.from_user.id
         async with SessionLocal() as session:
-            stmt = select(TrainerSchedule).where(TrainerSchedule.trainer_id == user_id)
+            stmt = select(ProfessionalSchedule).where(ProfessionalSchedule.professional_id == user_id)
             res = await session.execute(stmt)
             config = res.scalar_one_or_none()
 
             if not config:
-                config = TrainerSchedule(trainer_id=user_id, slot_duration=duration)
+                config = ProfessionalSchedule(professional_id=user_id, slot_duration=duration)
                 session.add(config)
             else:
                 config.slot_duration = duration
