@@ -91,6 +91,7 @@ async def init_db(engine):
                 # Исправляем trainer_profiles
                 await add_column_safe("trainer_profiles", "price_single", "FLOAT DEFAULT 0.0")
                 await add_column_safe("trainer_profiles", "price_package", "FLOAT DEFAULT 0.0")
+                await add_column_safe("trainer_profiles", "service_prices", "JSON")
                 await add_column_safe("trainer_profiles", "rating", "FLOAT DEFAULT 5.0")
                 await add_column_safe("trainer_profiles", "is_premium", "BOOLEAN DEFAULT FALSE")
                 await add_column_safe("trainer_profiles", "status", "VARCHAR(20) DEFAULT 'approved'")

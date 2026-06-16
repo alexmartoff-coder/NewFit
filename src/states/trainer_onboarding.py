@@ -7,6 +7,7 @@ class TrainerOnboarding(StatesGroup):
     experience = State()
     formats = State()
     price_single = State()
+    price_services = State()  # New state for Beauty role to enter prices for each service
     price_package = State()
     photo = State()
     video = State()

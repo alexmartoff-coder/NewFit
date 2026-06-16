@@ -83,13 +83,26 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
 
         elif current_state == TrainerOnboarding.experience:
             await state.update_data(experience=profile.experience)
-            await state.set_state(TrainerOnboarding.formats)
-            kb = get_format_kb()
-            skip_kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text=f"Не менять ({profile.experience} лет)", callback_data="skip_step")]
-            ])
-            await callback.message.answer("Шаг 5/9\n\nКакие форматы вы предлагаете?", reply_markup=add_admin_button(kb, is_admin=is_admin))
-            await callback.message.answer("Или нажмите, чтобы не менять:", reply_markup=skip_kb)
+            data = await state.get_data()
+            if data.get('role') == UserRole.BEAUTY:
+                await state.update_data(work_format=WorkFormat.OFFLINE)
+                await state.set_state(TrainerOnboarding.price_services)
+                specs = data.get('specializations', [])
+                if specs:
+                    await state.update_data(remaining_specs=specs.copy(), service_prices=profile.service_prices or {})
+                    first_spec = specs[0]
+                    await callback.message.answer(f"Шаг 6/9\n\nУкажите цену за услугу «{first_spec}» (в ₽):")
+                else:
+                    await state.set_state(TrainerOnboarding.price_package)
+                    await callback.message.answer("Шаг 7/9\n\nУкажите цену за пакет услуг (в ₽):")
+            else:
+                await state.set_state(TrainerOnboarding.formats)
+                kb = get_format_kb()
+                skip_kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                    [types.InlineKeyboardButton(text=f"Не менять ({profile.experience} лет)", callback_data="skip_step")]
+                ])
+                await callback.message.answer("Шаг 5/9\n\nКакие форматы вы предлагаете?", reply_markup=add_admin_button(kb, is_admin=is_admin))
+                await callback.message.answer("Или нажмите, чтобы не менять:", reply_markup=skip_kb)
 
         elif current_state == TrainerOnboarding.price_single:
             await state.update_data(price_single=profile.price_single)
@@ -228,22 +241,37 @@ async def process_experience(message: types.Message, state: FSMContext, is_admin
     try:
         exp = int(message.text)
         await state.update_data(experience=exp)
-        await state.set_state(TrainerOnboarding.formats)
+        data = await state.get_data()
+        role = data.get('role')
 
-        user_id = effective_user_id or message.from_user.id
-        async with SessionLocal() as session:
-            stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
-            res = await session.execute(stmt)
-            profile = res.scalar_one_or_none()
+        if role == UserRole.BEAUTY:
+            # Skip formats (Step 5) for Beauty role
+            await state.update_data(work_format=WorkFormat.OFFLINE) # Default to offline for beauty
+            await state.set_state(TrainerOnboarding.price_services)
+            specs = data.get('specializations', [])
+            if specs:
+                await state.update_data(remaining_specs=specs.copy(), service_prices={})
+                first_spec = specs[0]
+                await message.answer(f"Шаг 6/9\n\nУкажите цену за услугу «{first_spec}» (в ₽):")
+            else:
+                await state.set_state(TrainerOnboarding.price_package)
+                await message.answer("Шаг 7/9\n\nУкажите цену за пакет услуг (в ₽):")
+        else:
+            await state.set_state(TrainerOnboarding.formats)
+            user_id = effective_user_id or message.from_user.id
+            async with SessionLocal() as session:
+                stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+                res = await session.execute(stmt)
+                profile = res.scalar_one_or_none()
 
-            kb = get_format_kb()
-            await message.answer("Шаг 5/9\n\nКакие форматы вы предлагаете?", reply_markup=add_admin_button(kb, is_admin=is_admin))
+                kb = get_format_kb()
+                await message.answer("Шаг 5/9\n\nКакие форматы вы предлагаете?", reply_markup=add_admin_button(kb, is_admin=is_admin))
 
-            if profile and profile.work_format:
-                skip_kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                    [types.InlineKeyboardButton(text=f"Не менять ({profile.work_format})", callback_data="fmt_" + str(profile.work_format).lower())]
-                ])
-                await message.answer("Или не менять:", reply_markup=skip_kb)
+                if profile and profile.work_format:
+                    skip_kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                        [types.InlineKeyboardButton(text=f"Не менять ({profile.work_format})", callback_data="fmt_" + str(profile.work_format).lower())]
+                    ])
+                    await message.answer("Или не менять:", reply_markup=skip_kb)
 
     except ValueError:
         await message.answer("Пожалуйста, введите число (количество полных лет опыта).")
@@ -274,6 +302,31 @@ async def process_formats_callback(callback: types.CallbackQuery, state: FSMCont
 
         await callback.message.answer("Шаг 6/9\n\nУкажите вашу цену за разовое занятие (в ₽):", reply_markup=kb)
     await callback.answer()
+
+@router.message(TrainerOnboarding.price_services)
+async def process_price_services(message: types.Message, state: FSMContext, is_admin: bool = False):
+    try:
+        price = float(message.text)
+        data = await state.get_data()
+        remaining_specs = data.get('remaining_specs', [])
+        service_prices = data.get('service_prices', {})
+
+        current_spec = remaining_specs.pop(0)
+        service_prices[current_spec] = price
+
+        if remaining_specs:
+            await state.update_data(remaining_specs=remaining_specs, service_prices=service_prices)
+            next_spec = remaining_specs[0]
+            await message.answer(f"Укажите цену за услугу «{next_spec}» (в ₽):")
+        else:
+            # Use average or first price as price_single for basic compatibility
+            first_price = list(service_prices.values())[0] if service_prices else 0
+            await state.update_data(price_single=first_price, service_prices=service_prices)
+            await state.set_state(TrainerOnboarding.price_package)
+            await message.answer("Шаг 7/9\n\nУкажите цену за пакет услуг (в ₽):")
+
+    except ValueError:
+        await message.answer("Пожалуйста, введите число.")
 
 @router.message(TrainerOnboarding.price_single)
 async def process_price_single(message: types.Message, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
@@ -383,6 +436,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                     work_format=data.get('work_format', WorkFormat.ONLINE),
                     price_single=float(data.get('price_single', 0)),
                     price_package=float(data.get('price_package', 0)),
+                    service_prices=data.get('service_prices'),
                     photo_url=photo_url,
                     video_presentation_url=video_url,
                     status="approved",
@@ -399,6 +453,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 trainer_profile.work_format = data.get('work_format', trainer_profile.work_format)
                 trainer_profile.price_single = float(data.get('price_single', trainer_profile.price_single))
                 trainer_profile.price_package = float(data.get('price_package', trainer_profile.price_package))
+                trainer_profile.service_prices = data.get('service_prices', trainer_profile.service_prices)
                 if photo_url:
                     trainer_profile.photo_url = photo_url
                 if video_url:
