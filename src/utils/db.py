@@ -66,12 +66,35 @@ async def init_db(engine):
                                 # Both exist? We should probably drop the old one if it's causing NotNullViolation
                                 logger.info(f"Both {old_col} and {new_col} exist in {table}. Dropping old {old_col} to avoid conflicts.")
                                 await conn.execute(text(f"ALTER TABLE {table} ALTER COLUMN {old_col} DROP NOT NULL"))
-                                await conn.execute(text(f"UPDATE {table} SET {new_col} = {old_col} WHERE {new_col} IS NULL"))
+                                try:
+                                    await conn.execute(text(f"UPDATE {table} SET {new_col} = {old_col} WHERE {new_col} IS NULL"))
+                                except Exception: pass
                                 await conn.execute(text(f"ALTER TABLE {table} DROP COLUMN {old_col}"))
                                 await conn.commit()
                     except Exception as e:
                         logger.warning(f"Could not process column rename/merge for {table}.{old_col}: {e}")
                         await conn.rollback()
+
+        # Fix for SQLite rename issues
+        if "sqlite" in str(engine.url).lower():
+            async with engine.connect() as conn:
+                try:
+                    # Check if trainer_profile_id exists in time_slots
+                    res = await conn.execute(text("PRAGMA table_info('time_slots')"))
+                    cols = [c[1] for c in res.fetchall()]
+                    if "trainer_profile_id" in cols and "professional_profile_id" not in cols:
+                        logger.info("Renaming trainer_profile_id to professional_profile_id in SQLite")
+                        # SQLite 3.25+ supports RENAME COLUMN
+                        await conn.execute(text("ALTER TABLE time_slots RENAME COLUMN trainer_profile_id TO professional_profile_id"))
+                        await conn.commit()
+                    elif "trainer_profile_id" in cols and "professional_profile_id" in cols:
+                        # This shouldn't happen with clean RENAME but if it does, we need to handle it.
+                        # SQLite doesn't support DROP COLUMN before 3.35.0, but we are on 3.45.1
+                        await conn.execute(text("ALTER TABLE time_slots DROP COLUMN trainer_profile_id"))
+                        await conn.commit()
+                except Exception as e:
+                    logger.warning(f"SQLite migration error: {e}")
+                    await conn.rollback()
 
         # 2. Создаем/обновляем таблицы
         async with engine.begin() as conn:
