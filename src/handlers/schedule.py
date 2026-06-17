@@ -543,75 +543,81 @@ async def generate_slots_from_quick_template(user_id: int, days: int, interval: 
     from dateutil.tz import gettz, UTC
     from datetime import datetime, time, timedelta
     from dateutil.rrule import rrule, DAILY, MO, TU, WE, TH, FR, SA, SU
+    import logging
 
+    logger = logging.getLogger(__name__)
     moscow_tz = gettz('Europe/Moscow')
-    now_moscow = datetime.now(moscow_tz)
-
-    start_date = now_moscow.date()
-    end_date = start_date + timedelta(days=days)
 
     async with SessionLocal() as session:
-        # Получаем профиль
+        # Получаем профиль тренера ОДИН РАЗ
         profile_stmt = select(ProfessionalProfile).where(ProfessionalProfile.user_id == user_id)
         profile = (await session.execute(profile_stmt)).scalar_one_or_none()
+
         if not profile:
+            logger.error(f"ProfessionalProfile not found for user {user_id}")
             return 0
 
         default_price = float(profile.price_single or 2500.0)
         count = 0
 
-        # Правила для будней и выходных
-        rules = [
+        now_moscow = datetime.now(moscow_tz)
+        start_date = now_moscow.date()
+        end_date = start_date + timedelta(days=days)
+
+        for rule in [
             rrule(DAILY, dtstart=datetime.combine(start_date, time.min), until=datetime.combine(end_date, time.max), byweekday=(MO, TU, WE, TH, FR)),
             rrule(DAILY, dtstart=datetime.combine(start_date, time.min), until=datetime.combine(end_date, time.max), byweekday=(SA, SU))
-        ]
-
-        for rule in rules:
+        ]:
             for day_dt in rule:
                 day = day_dt.date()
                 is_weekend = day.weekday() >= 5
-                start_h, end_h = (9, 22) if is_weekend else (7, 23)
+                start_h = 9 if is_weekend else 7
+                end_h = 22 if is_weekend else 23
 
                 current = datetime.combine(day, time(start_h, 0)).replace(tzinfo=moscow_tz)
-                limit_time = datetime.combine(day, time(end_h, 0)).replace(tzinfo=moscow_tz)
 
-                while current + timedelta(minutes=interval) <= limit_time:
+                while current.hour < end_h:
                     end_slot = current + timedelta(minutes=interval)
+                    if end_slot.hour > end_h + 1:  # небольшой запас
+                        break
 
                     start_utc = current.astimezone(UTC).replace(tzinfo=None)
                     end_utc = end_slot.astimezone(UTC).replace(tzinfo=None)
 
                     # Пропускаем слоты в прошлом
                     if current < now_moscow:
-                        current = end_slot
+                        current += timedelta(minutes=interval)
                         continue
 
                     # Проверка пересечения
-                    overlap_stmt = select(TimeSlot).where(
-                        TimeSlot.professional_profile_id == profile.id,
-                        TimeSlot.start_time < end_utc,
-                        TimeSlot.end_time > start_utc
-                    ).limit(1)
-                    overlap = await session.execute(overlap_stmt)
-
-                    if overlap.scalar():
-                        current = end_slot
+                    overlap = await session.execute(
+                        select(TimeSlot).where(
+                            TimeSlot.professional_profile_id == profile.id,
+                            TimeSlot.start_time < end_utc,
+                            TimeSlot.end_time > start_utc
+                        )
+                    )
+                    if overlap.scalar_one_or_none():
+                        current += timedelta(minutes=interval)
                         continue
 
-                    slot = TimeSlot(
-                        professional_profile_id=profile.id,
+                    # Создаём слот
+                    new_slot = TimeSlot(
+                        professional_profile_id=profile.id,      # ← КРИТИЧНО!
                         start_time=start_utc,
                         end_time=end_utc,
                         format="hybrid",
                         price=default_price,
                         status="free"
                     )
-                    session.add(slot)
+                    session.add(new_slot)
                     await session.flush()
                     count += 1
-                    current = end_slot
+
+                    current += timedelta(minutes=interval)
 
         await session.commit()
+        logger.info(f"Generated {count} slots for professional {user_id}")
         return count
 
 @router.callback_query(F.data == "sche_generate")
