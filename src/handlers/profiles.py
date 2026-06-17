@@ -1,8 +1,8 @@
 from aiogram import Router, types, F
 from sqlalchemy import select
-from src.models.models import User, ProfessionalProfile, ClientProfile, UserRole
+from src.models.models import User, TrainerProfile, ClientProfile, UserRole
 from src.utils.db import SessionLocal
-from src.keyboards.common import get_professional_main_kb, get_client_main_kb
+from src.keyboards.common import get_trainer_main_kb, get_client_main_kb
 from src.keyboards.inline import add_admin_button
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
@@ -23,7 +23,7 @@ async def show_profile_cmd(message: types.Message, effective_user_id: int = None
             return
 
         if user.role == UserRole.TRAINER:
-            query = select(ProfessionalProfile).where(ProfessionalProfile.user_id == user.id)
+            query = select(TrainerProfile).where(TrainerProfile.user_id == user.id)
             result = await session.execute(query)
             profile = result.scalar_one_or_none()
             text = (
@@ -51,7 +51,7 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
             return
 
         if user.role == UserRole.TRAINER:
-            stmt = select(ProfessionalProfile).where(ProfessionalProfile.user_id == user.id).options(selectinload(ProfessionalProfile.specializations))
+            stmt = select(TrainerProfile).where(TrainerProfile.user_id == user.id).options(selectinload(TrainerProfile.specializations))
             res = await session.execute(stmt)
             profile = res.scalar_one_or_none()
 
@@ -74,7 +74,7 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
                 kb = add_admin_button(kb, is_admin=is_admin)
                 await message.answer(text, reply_markup=kb, parse_mode="Markdown")
 
-            kb_main = get_professional_main_kb(is_admin=is_admin)
+            kb_main = get_trainer_main_kb(is_admin=is_admin)
             await message.answer("Управление кабинетом:", reply_markup=kb_main)
 
         elif user.role == UserRole.CLIENT:
@@ -95,7 +95,7 @@ async def show_clients(message: types.Message, effective_user_id: int = None):
         moscow_tz = gettz('Europe/Moscow')
 
         # Get professional profile
-        stmt_p = select(ProfessionalProfile).where(ProfessionalProfile.user_id == user_id)
+        stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
         profile = (await session.execute(stmt_p)).scalar_one_or_none()
         if not profile:
             await message.answer("❌ Профиль профессионала не найден.")
@@ -104,7 +104,7 @@ async def show_clients(message: types.Message, effective_user_id: int = None):
         # Fetch bookings with client profiles
         stmt = (
             select(Booking)
-            .where(Booking.professional_profile_id == profile.id)
+            .where(Booking.trainer_profile_id == profile.id)
             .options(selectinload(Booking.client).selectinload(ClientProfile.user))
             .order_by(Booking.start_time.asc())
         )
@@ -188,7 +188,7 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
         stmt = (
             select(Booking)
             .where(Booking.client_id == client_profile.id)
-            .options(selectinload(Booking.slot).selectinload(TimeSlot.professional_profile).selectinload(ProfessionalProfile.user))
+            .options(selectinload(Booking.slot).selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user))
             .order_by(Booking.start_time.asc())
         )
         res = await session.execute(stmt)
@@ -201,7 +201,7 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
         text = "📅 **Ваши ближайшие занятия:**\n\n"
         for b in bookings:
             slot = b.slot
-            professional_name = slot.professional_profile.user.full_name
+            trainer_name = slot.trainer_profile.user.full_name
             status_map = {"confirmed": "✅ Подтверждено", "pending": "⏳ Ожидает", "canceled": "❌ Отменено"}
 
             # Конвертируем время в МСК
@@ -209,7 +209,7 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
             start_moscow = s_start.astimezone(moscow_tz)
 
             text += (
-                f"👤 Мастер: {professional_name}\n"
+                f"👤 Мастер: {trainer_name}\n"
                 f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
                 f"🏷 Формат: {slot.format}\n"
                 f"📊 Статус: {status_map.get(b.status, b.status)}\n"
@@ -232,23 +232,23 @@ async def show_chats(message: types.Message):
     await message.answer("У вас пока нет активных диалогов.")
 
 @router.message(F.text == "🔗 Подключить Google Календарь")
-@router.callback_query(F.data == "professional_connect_google")
+@router.callback_query(F.data == "trainer_connect_google")
 async def connect_google_calendar(event: types.Message | types.CallbackQuery, effective_user_id: int = None, is_admin: bool = False):
     message = event if isinstance(event, types.Message) else event.message
     user_id = effective_user_id or event.from_user.id
 
     async with SessionLocal() as session:
-        from src.models.models import ProfessionalSchedule
-        stmt = select(ProfessionalSchedule).where(ProfessionalSchedule.professional_id == user_id)
+        from src.models.models import TrainerSchedule
+        stmt = select(TrainerSchedule).where(TrainerSchedule.trainer_id == user_id)
         res = await session.execute(stmt)
         schedule = res.scalar_one_or_none()
 
         if schedule and schedule.google_refresh_token:
             keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="🔄 Переподключить", callback_data="professional_google_reconnect")],
-                [types.InlineKeyboardButton(text="🔌 Отключить", callback_data="professional_google_disconnect")],
-                [types.InlineKeyboardButton(text="⚙️ Настройки синхронизации", callback_data="professional_google_settings")],
-                [types.InlineKeyboardButton(text="🔙 Назад", callback_data="professional_menu")],
+                [types.InlineKeyboardButton(text="🔄 Переподключить", callback_data="trainer_google_reconnect")],
+                [types.InlineKeyboardButton(text="🔌 Отключить", callback_data="trainer_google_disconnect")],
+                [types.InlineKeyboardButton(text="⚙️ Настройки синхронизации", callback_data="trainer_google_settings")],
+                [types.InlineKeyboardButton(text="🔙 Назад", callback_data="trainer_menu")],
             ])
             keyboard = add_admin_button(keyboard, is_admin=is_admin)
             text = (
@@ -280,8 +280,8 @@ async def connect_google_calendar(event: types.Message | types.CallbackQuery, ef
         )
 
         keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="🔑 У меня есть Client ID и Secret", callback_data="professional_google_enter_keys")],
-            [types.InlineKeyboardButton(text="🔙 Назад", callback_data="professional_menu")],
+            [types.InlineKeyboardButton(text="🔑 У меня есть Client ID и Secret", callback_data="trainer_google_enter_keys")],
+            [types.InlineKeyboardButton(text="🔙 Назад", callback_data="trainer_menu")],
         ])
         keyboard = add_admin_button(keyboard, is_admin=is_admin)
 
@@ -293,7 +293,7 @@ async def connect_google_calendar(event: types.Message | types.CallbackQuery, ef
             else:
                 await event.message.edit_text(instruction_text, reply_markup=keyboard, parse_mode="Markdown", disable_web_page_preview=True)
 
-@router.callback_query(F.data == "professional_google_enter_keys")
+@router.callback_query(F.data == "trainer_google_enter_keys")
 async def start_enter_keys(callback: types.CallbackQuery, state: FSMContext):
     text = (
         "🔑 **Введите ваш Google Client ID**\n\n"
@@ -327,13 +327,13 @@ async def get_client_secret(message: types.Message, state: FSMContext, effective
     user_id = effective_user_id or message.from_user.id
 
     async with SessionLocal() as session:
-        from src.models.models import ProfessionalSchedule
-        stmt = select(ProfessionalSchedule).where(ProfessionalSchedule.professional_id == user_id)
+        from src.models.models import TrainerSchedule
+        stmt = select(TrainerSchedule).where(TrainerSchedule.trainer_id == user_id)
         res = await session.execute(stmt)
         sched = res.scalar_one_or_none()
 
         if not sched:
-            sched = ProfessionalSchedule(professional_id=user_id)
+            sched = TrainerSchedule(trainer_id=user_id)
             session.add(sched)
 
         # Here we mock the integration for now
@@ -345,16 +345,16 @@ async def get_client_secret(message: types.Message, state: FSMContext, effective
     await state.clear()
     await message.answer("✅ **Ключи сохранены!**\n\nВыполняется подключение к Google... (имитация)\n\nGoogle Календарь успешно подключен!")
 
-@router.callback_query(F.data == "professional_google_reconnect")
-async def professional_google_reconnect(callback: types.CallbackQuery, state: FSMContext):
+@router.callback_query(F.data == "trainer_google_reconnect")
+async def trainer_google_reconnect(callback: types.CallbackQuery, state: FSMContext):
     await start_enter_keys(callback, state)
 
-@router.callback_query(F.data == "professional_google_disconnect")
-async def professional_google_disconnect(callback: types.CallbackQuery, effective_user_id: int = None):
+@router.callback_query(F.data == "trainer_google_disconnect")
+async def trainer_google_disconnect(callback: types.CallbackQuery, effective_user_id: int = None):
     user_id = effective_user_id or callback.from_user.id
     async with SessionLocal() as session:
-        from src.models.models import ProfessionalSchedule
-        stmt = select(ProfessionalSchedule).where(ProfessionalSchedule.professional_id == user_id)
+        from src.models.models import TrainerSchedule
+        stmt = select(TrainerSchedule).where(TrainerSchedule.trainer_id == user_id)
         res = await session.execute(stmt)
         sched = res.scalar_one_or_none()
         if sched:
@@ -369,13 +369,13 @@ async def professional_google_disconnect(callback: types.CallbackQuery, effectiv
         await callback.message.edit_text(text)
     await callback.answer()
 
-@router.callback_query(F.data == "professional_google_settings")
-async def professional_google_settings(callback: types.CallbackQuery):
+@router.callback_query(F.data == "trainer_google_settings")
+async def trainer_google_settings(callback: types.CallbackQuery):
     await callback.message.answer("Здесь вы сможете настроить часовой пояс и длительность слотов (в разработке).")
     await callback.answer()
 
-@router.callback_query(F.data == "professional_menu")
-async def professional_menu_redirect(callback: types.CallbackQuery):
+@router.callback_query(F.data == "trainer_menu")
+async def trainer_menu_redirect(callback: types.CallbackQuery):
     await show_profile(callback.message, is_admin=False) # Simplified, middleware would handle is_admin
     await callback.answer()
 

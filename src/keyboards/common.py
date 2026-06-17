@@ -12,7 +12,7 @@ def get_role_kb(is_admin: bool = False):
         kb.append([KeyboardButton(text="🛠 Админ")])
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, one_time_keyboard=True)
 
-def get_professional_main_kb(is_admin: bool = False):
+def get_trainer_main_kb(is_admin: bool = False):
     kb = [
         [KeyboardButton(text="Мой профиль"), KeyboardButton(text="Моё расписание")],
         [KeyboardButton(text="Мои клиенты"), KeyboardButton(text="Статистика")],

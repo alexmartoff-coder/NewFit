@@ -3,7 +3,7 @@ from aiogram.fsm.context import FSMContext
 from src.states.booking import BookingSession
 from src.services.calendar import CalendarService
 from src.services.payments import PaymentService
-from src.models.models import ProfessionalProfile, User, ClientProfile, TimeSlot, Booking
+from src.models.models import TrainerProfile, User, ClientProfile, TimeSlot, Booking
 from src.utils.db import SessionLocal
 from src.keyboards.inline import add_admin_button
 from sqlalchemy import select, update
@@ -15,23 +15,23 @@ logger = logging.getLogger(__name__)
 
 @router.callback_query(F.data.startswith("book_"))
 async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
-    professional_user_id = int(callback.data.split("_")[1])
+    trainer_user_id = int(callback.data.split("_")[1])
 
     # Resolve professional profile
     async with SessionLocal() as session:
-        stmt_p = select(ProfessionalProfile).where(ProfessionalProfile.user_id == professional_user_id)
+        stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == trainer_user_id)
         profile = (await session.execute(stmt_p)).scalar_one_or_none()
         if not profile:
             await callback.answer("Профиль профессионала не найден!")
             return
 
-        professional_profile_id = profile.id
-        await state.update_data(professional_profile_id=professional_profile_id, professional_user_id=professional_user_id)
+        trainer_profile_id = profile.id
+        await state.update_data(trainer_profile_id=trainer_profile_id, trainer_user_id=trainer_user_id)
 
         now = datetime.now()
         end_view = now + timedelta(days=14)
         stmt = select(TimeSlot.start_time).where(
-            TimeSlot.professional_profile_id == professional_profile_id,
+            TimeSlot.trainer_profile_id == trainer_profile_id,
             TimeSlot.status == "free",
             TimeSlot.start_time >= now,
             TimeSlot.start_time <= end_view
@@ -65,15 +65,15 @@ async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_adm
 async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     selected_date = datetime.fromisoformat(callback.data.split("_")[1]).date()
     data = await state.get_data()
-    professional_profile_id = data['professional_profile_id']
-    professional_user_id = data['professional_user_id']
+    trainer_profile_id = data['trainer_profile_id']
+    trainer_user_id = data['trainer_user_id']
 
     async with SessionLocal() as session:
         start_dt = datetime.combine(selected_date, datetime.min.time())
         end_dt = datetime.combine(selected_date, datetime.max.time())
 
         stmt = select(TimeSlot).where(
-            TimeSlot.professional_profile_id == professional_profile_id,
+            TimeSlot.trainer_profile_id == trainer_profile_id,
             TimeSlot.status == "free",
             TimeSlot.start_time >= start_dt,
             TimeSlot.start_time <= end_dt
@@ -105,7 +105,7 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
             btn_text = f"{start_str} - {end_str} — {int(s.price)}₽ ({fmt_ru})"
             kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"slot_{s.id}")])
 
-        kb.append([types.InlineKeyboardButton(text="🔙 К выбору даты", callback_data=f"book_{professional_user_id}")])
+        kb.append([types.InlineKeyboardButton(text="🔙 К выбору даты", callback_data=f"book_{trainer_user_id}")])
         kb.append([types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="client_menu")])
         kb_markup = types.InlineKeyboardMarkup(inline_keyboard=kb)
         kb_markup = add_admin_button(kb_markup, is_admin=is_admin)
@@ -191,7 +191,7 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             session.add(client_profile)
             await session.flush() # Получаем ID
 
-        stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(selectinload(TimeSlot.professional_profile))
+        stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(selectinload(TimeSlot.trainer_profile))
         res = await session.execute(stmt)
         slot = res.scalar_one_or_none()
 
@@ -201,7 +201,7 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
 
             new_booking = Booking(
                 slot_id=slot_id,
-                professional_profile_id=slot.professional_profile_id,
+                trainer_profile_id=slot.trainer_profile_id,
                 client_id=client_profile.id,
                 start_time=slot.start_time,
                 end_time=slot.end_time,
@@ -244,16 +244,16 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
                 s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
                 start_moscow = s_start.astimezone(moscow_tz)
 
-                professional_text = (
+                trainer_text = (
                     f"🆕 **Новая запись!**\n\n"
                     f"👤 Клиент: {client_name}\n"
                     f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
                     f"🏷 Формат: {slot.format}\n"
                     f"💰 Цена: {slot.price}₽"
                 )
-                await callback.bot.send_message(slot.professional_profile.user_id, professional_text, parse_mode="Markdown")
+                await callback.bot.send_message(slot.trainer_profile.user_id, trainer_text, parse_mode="Markdown")
             except Exception as e:
-                logger.error(f"Failed to notify professional {slot.professional_profile.user_id}: {e}")
+                logger.error(f"Failed to notify professional {slot.trainer_profile.user_id}: {e}")
         else:
             text = "К сожалению, этот слот уже занят или недоступен."
             if callback.message.photo:

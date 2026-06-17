@@ -60,7 +60,7 @@ async def verify_sub_mock(callback: types.CallbackQuery):
         # For now, let's assume it's for a "platform" trainer or just a general sub.
         sub = Subscription(
             client_id=client_id,
-            professional_id=1, # Mock trainer ID
+            trainer_id=1, # Mock trainer ID
             total_sessions=count,
             remaining_sessions=count
         )

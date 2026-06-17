@@ -3,8 +3,13 @@ from aiogram.types import Message, CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from src.models.models import Admin
+from src.utils.config import settings
 
-OWNER_ID = 228592391
+# Parse admin IDs from config
+OWNER_IDS = [int(id_.strip()) for id_ in settings.ADMIN_IDS.split(",") if id_.strip()]
+# Fallback for owner if no IDs provided (maintain original ID as fallback)
+if not OWNER_IDS:
+    OWNER_IDS = [228592391]
 
 class AdminMiddleware(BaseMiddleware):
     async def __call__(self, handler, event, data):
@@ -14,7 +19,7 @@ class AdminMiddleware(BaseMiddleware):
 
         data["is_owner"] = False
         data["is_admin"] = False
-        data["can_test_professional"] = False
+        data["can_test_trainer"] = False
         data["can_test_client"] = False
         data["effective_user_id"] = user_id
 
@@ -22,17 +27,17 @@ class AdminMiddleware(BaseMiddleware):
         state = data.get("state")
         if state:
             fsm_data = await state.get_data()
-            imp_professional_id = fsm_data.get("impersonate_professional_id")
+            imp_trainer_id = fsm_data.get("impersonate_trainer_id")
             imp_client_id = fsm_data.get("impersonate_client_id")
-            if imp_professional_id:
-                data["effective_user_id"] = imp_professional_id
+            if imp_trainer_id:
+                data["effective_user_id"] = imp_trainer_id
             elif imp_client_id:
                 data["effective_user_id"] = imp_client_id
 
-        if user_id == OWNER_ID:
+        if user_id in OWNER_IDS:
             data["is_owner"] = True
             data["is_admin"] = True
-            data["can_test_professional"] = True
+            data["can_test_trainer"] = True
             data["can_test_client"] = True
         else:
             # Get SessionLocal from data or use it directly if it was injected by another middleware
@@ -46,7 +51,7 @@ class AdminMiddleware(BaseMiddleware):
                 admin = admin.scalar_one_or_none()
                 if admin:
                     data["is_admin"] = True
-                    data["can_test_professional"] = admin.can_test_professional
+                    data["can_test_trainer"] = admin.can_test_trainer
                     data["can_test_client"] = admin.can_test_client
 
         return await handler(event, data)
