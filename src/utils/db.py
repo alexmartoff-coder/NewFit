@@ -25,12 +25,12 @@ async def init_db(engine):
         # 1. Применяем переименования таблиц и колонок ДО создания через Base.metadata.create_all
         if "postgresql" in str(engine.url).lower():
             async with engine.connect() as conn:
-                # Таблицы
+                # Переименовываем professional_ обратно в trainer_, если они вдруг есть
                 tables_to_rename = [
-                    ("trainer_profiles", "professional_profiles"),
-                    ("trainer_schedules", "professional_schedules"),
-                    ("schedule_templates", "professional_templates"),
-                    ("trainer_specializations", "professional_specializations")
+                    ("professional_profiles", "trainer_profiles"),
+                    ("professional_schedules", "trainer_schedules"),
+                    ("professional_templates", "schedule_templates"),
+                    ("professional_specializations", "trainer_specializations")
                 ]
                 for old_name, new_name in tables_to_rename:
                     try:
@@ -38,7 +38,7 @@ async def init_db(engine):
                         if res.scalar():
                             res_new = await conn.execute(text(f"SELECT 1 FROM pg_tables WHERE tablename = '{new_name}'"))
                             if not res_new.scalar():
-                                logger.info(f"Renaming table {old_name} to {new_name}")
+                                logger.info(f"Renaming table {old_name} back to {new_name}")
                                 await conn.execute(text(f"ALTER TABLE {old_name} RENAME TO {new_name}"))
                                 await conn.commit()
                     except Exception as e:
@@ -47,11 +47,10 @@ async def init_db(engine):
 
                 # Колонки
                 columns_to_rename = [
-                    ("time_slots", "trainer_profile_id", "professional_profile_id"),
-                    ("bookings", "trainer_id", "professional_profile_id"),
-                    ("bookings", "professional_id", "professional_profile_id"),
-                    ("professional_schedules", "trainer_id", "professional_id"),
-                    ("professional_templates", "trainer_id", "professional_id")
+                    ("time_slots", "professional_profile_id", "trainer_profile_id"),
+                    ("bookings", "professional_profile_id", "trainer_profile_id"),
+                    ("trainer_schedules", "professional_id", "trainer_id"),
+                    ("schedule_templates", "professional_id", "trainer_id")
                 ]
                 for table, old_col, new_col in columns_to_rename:
                     try:
@@ -63,7 +62,7 @@ async def init_db(engine):
                                 await conn.execute(text(f"ALTER TABLE {table} RENAME COLUMN {old_col} TO {new_col}"))
                                 await conn.commit()
                             else:
-                                # Both exist? We should probably drop the old one if it's causing NotNullViolation
+                                # Both exist? Merge and drop old
                                 logger.info(f"Both {old_col} and {new_col} exist in {table}. Dropping old {old_col} to avoid conflicts.")
                                 await conn.execute(text(f"ALTER TABLE {table} ALTER COLUMN {old_col} DROP NOT NULL"))
                                 try:
@@ -75,22 +74,18 @@ async def init_db(engine):
                         logger.warning(f"Could not process column rename/merge for {table}.{old_col}: {e}")
                         await conn.rollback()
 
-        # Fix for SQLite rename issues
+        # Fix for SQLite
         if "sqlite" in str(engine.url).lower():
             async with engine.connect() as conn:
                 try:
-                    # Check if trainer_profile_id exists in time_slots
                     res = await conn.execute(text("PRAGMA table_info('time_slots')"))
                     cols = [c[1] for c in res.fetchall()]
-                    if "trainer_profile_id" in cols and "professional_profile_id" not in cols:
-                        logger.info("Renaming trainer_profile_id to professional_profile_id in SQLite")
-                        # SQLite 3.25+ supports RENAME COLUMN
-                        await conn.execute(text("ALTER TABLE time_slots RENAME COLUMN trainer_profile_id TO professional_profile_id"))
+                    if "professional_profile_id" in cols and "trainer_profile_id" not in cols:
+                        logger.info("Renaming professional_profile_id to trainer_profile_id in SQLite")
+                        await conn.execute(text("ALTER TABLE time_slots RENAME COLUMN professional_profile_id TO trainer_profile_id"))
                         await conn.commit()
-                    elif "trainer_profile_id" in cols and "professional_profile_id" in cols:
-                        # This shouldn't happen with clean RENAME but if it does, we need to handle it.
-                        # SQLite doesn't support DROP COLUMN before 3.35.0, but we are on 3.45.1
-                        await conn.execute(text("ALTER TABLE time_slots DROP COLUMN trainer_profile_id"))
+                    elif "professional_profile_id" in cols and "trainer_profile_id" in cols:
+                        await conn.execute(text("ALTER TABLE time_slots DROP COLUMN professional_profile_id"))
                         await conn.commit()
                 except Exception as e:
                     logger.warning(f"SQLite migration error: {e}")
@@ -124,10 +119,10 @@ async def init_db(engine):
                         await conn.rollback()
 
                 # Обеспечиваем наличие критических колонок
-                await add_column_safe("time_slots", "professional_profile_id", "INTEGER")
-                await add_column_safe("bookings", "professional_profile_id", "INTEGER")
-                await add_column_safe("professional_schedules", "professional_id", "BIGINT")
-                await add_column_safe("professional_templates", "professional_id", "BIGINT")
+                await add_column_safe("time_slots", "trainer_profile_id", "INTEGER")
+                await add_column_safe("bookings", "trainer_profile_id", "INTEGER")
+                await add_column_safe("trainer_schedules", "trainer_id", "BIGINT")
+                await add_column_safe("schedule_templates", "trainer_id", "BIGINT")
 
                 # Исправляем внешние ключи
                 fk_script = """
@@ -138,16 +133,17 @@ async def init_db(engine):
                     BEGIN ALTER TABLE time_slots DROP CONSTRAINT IF EXISTS time_slots_trainer_profile_id_fkey; EXCEPTION WHEN others THEN NULL; END;
                     BEGIN ALTER TABLE time_slots DROP CONSTRAINT IF EXISTS time_slots_professional_profile_id_fkey; EXCEPTION WHEN others THEN NULL; END;
 
-                    ALTER TABLE time_slots ADD CONSTRAINT time_slots_professional_profile_id_fkey
-                    FOREIGN KEY (professional_profile_id) REFERENCES professional_profiles(id) ON DELETE CASCADE;
+                    ALTER TABLE time_slots ADD CONSTRAINT time_slots_trainer_profile_id_fkey
+                    FOREIGN KEY (trainer_profile_id) REFERENCES trainer_profiles(id) ON DELETE CASCADE;
 
                     -- bookings
                     BEGIN ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_trainer_id_fkey; EXCEPTION WHEN others THEN NULL; END;
                     BEGIN ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_professional_id_fkey; EXCEPTION WHEN others THEN NULL; END;
                     BEGIN ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_professional_profile_id_fkey; EXCEPTION WHEN others THEN NULL; END;
+                    BEGIN ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_trainer_profile_id_fkey; EXCEPTION WHEN others THEN NULL; END;
 
-                    ALTER TABLE bookings ADD CONSTRAINT bookings_professional_profile_id_fkey
-                    FOREIGN KEY (professional_profile_id) REFERENCES professional_profiles(id) ON DELETE CASCADE;
+                    ALTER TABLE bookings ADD CONSTRAINT bookings_trainer_profile_id_fkey
+                    FOREIGN KEY (trainer_profile_id) REFERENCES trainer_profiles(id) ON DELETE CASCADE;
                 EXCEPTION WHEN others THEN
                     RAISE NOTICE 'FK update error: %', SQLERRM;
                 END $$;
@@ -168,32 +164,32 @@ async def init_db(engine):
                 await add_column_safe("bookings", "price", "FLOAT")
                 await add_column_safe("bookings", "paid", "BOOLEAN DEFAULT FALSE")
                 await add_column_safe("bookings", "client_notes", "TEXT")
-                await add_column_safe("bookings", "professional_notes", "TEXT")
+                await add_column_safe("bookings", "trainer_notes", "TEXT")
                 await add_column_safe("bookings", "booked_at", "TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()")
 
                 await add_column_safe("client_profiles", "full_name", "VARCHAR(128)")
                 await add_column_safe("client_profiles", "status", "VARCHAR(20) DEFAULT 'active'")
 
-                # professional_schedules columns
+                # trainer_schedules columns
                 for col in ["google_client_id", "google_client_secret", "google_calendar_id"]:
-                    await add_column_safe("professional_schedules", col, "VARCHAR(200)")
+                    await add_column_safe("trainer_schedules", col, "VARCHAR(200)")
                 for col in ["google_refresh_token", "google_access_token"]:
-                    await add_column_safe("professional_schedules", col, "TEXT")
-                await add_column_safe("professional_schedules", "token_expires_at", "TIMESTAMP WITHOUT TIME ZONE")
-                await add_column_safe("professional_schedules", "sync_enabled", "BOOLEAN DEFAULT TRUE")
-                await add_column_safe("professional_schedules", "timezone", "VARCHAR(50) DEFAULT 'Europe/Moscow'")
-                await add_column_safe("professional_schedules", "slot_duration", "INTEGER DEFAULT 60")
-                await add_column_safe("professional_schedules", "rolling_window", "INTEGER")
-                await add_column_safe("professional_schedules", "last_replenished", "TIMESTAMP WITHOUT TIME ZONE")
-                await add_column_safe("professional_schedules", "updated_at", "TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()")
+                    await add_column_safe("trainer_schedules", col, "TEXT")
+                await add_column_safe("trainer_schedules", "token_expires_at", "TIMESTAMP WITHOUT TIME ZONE")
+                await add_column_safe("trainer_schedules", "sync_enabled", "BOOLEAN DEFAULT TRUE")
+                await add_column_safe("trainer_schedules", "timezone", "VARCHAR(50) DEFAULT 'Europe/Moscow'")
+                await add_column_safe("trainer_schedules", "slot_duration", "INTEGER DEFAULT 60")
+                await add_column_safe("trainer_schedules", "rolling_window", "INTEGER")
+                await add_column_safe("trainer_schedules", "last_replenished", "TIMESTAMP WITHOUT TIME ZONE")
+                await add_column_safe("trainer_schedules", "updated_at", "TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()")
 
-                # professional_profiles columns
-                await add_column_safe("professional_profiles", "price_single", "FLOAT DEFAULT 0.0")
-                await add_column_safe("professional_profiles", "price_package", "FLOAT DEFAULT 0.0")
-                await add_column_safe("professional_profiles", "service_prices", "JSON")
-                await add_column_safe("professional_profiles", "rating", "FLOAT DEFAULT 5.0")
-                await add_column_safe("professional_profiles", "is_premium", "BOOLEAN DEFAULT FALSE")
-                await add_column_safe("professional_profiles", "status", "VARCHAR(20) DEFAULT 'approved'")
+                # trainer_profiles columns
+                await add_column_safe("trainer_profiles", "price_single", "FLOAT DEFAULT 0.0")
+                await add_column_safe("trainer_profiles", "price_package", "FLOAT DEFAULT 0.0")
+                await add_column_safe("trainer_profiles", "service_prices", "JSON")
+                await add_column_safe("trainer_profiles", "rating", "FLOAT DEFAULT 5.0")
+                await add_column_safe("trainer_profiles", "is_premium", "BOOLEAN DEFAULT FALSE")
+                await add_column_safe("trainer_profiles", "status", "VARCHAR(20) DEFAULT 'approved'")
 
                 # time_slots extra
                 await add_column_safe("time_slots", "format", "VARCHAR(20) DEFAULT 'hybrid'")
@@ -225,11 +221,10 @@ async def init_db(engine):
                         FROM client_profiles cp WHERE b.client_id = cp.user_id AND b.client_id > 1000000;
                     """))
                     await conn.execute(text("UPDATE bookings SET client_id = NULL WHERE client_id > 1000000"))
-                    await conn.execute(text("ALTER TABLE bookings ALTER COLUMN professional_profile_id TYPE INTEGER USING professional_profile_id::integer"))
+                    await conn.execute(text("ALTER TABLE bookings ALTER COLUMN trainer_profile_id TYPE INTEGER USING trainer_profile_id::integer"))
                     await conn.execute(text("ALTER TABLE bookings ALTER COLUMN client_id TYPE INTEGER USING client_id::integer"))
                     await conn.execute(text("ALTER TABLE bookings ALTER COLUMN slot_id TYPE INTEGER USING slot_id::integer"))
 
-                    # Drop is_online and trainer_notes if they still exist under old names
                     try:
                         await conn.execute(text("ALTER TABLE bookings ALTER COLUMN is_online DROP NOT NULL"))
                     except Exception: pass

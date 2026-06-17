@@ -16,8 +16,8 @@ async def cmd_start(message: types.Message, is_admin: bool = False, effective_us
         # If user exists and has a role, redirect to their menu
         if user and user.role:
             if user.role in [UserRole.TRAINER, UserRole.BEAUTY]:
-                from src.keyboards.common import get_professional_main_kb
-                kb = get_professional_main_kb(is_admin=is_admin)
+                from src.keyboards.common import get_trainer_main_kb
+                kb = get_trainer_main_kb(is_admin=is_admin)
                 role_text = "мастера" if user.role == UserRole.TRAINER else "бьюти-мастера"
                 await message.answer(f"С возвращением! Личный кабинет {role_text}:", reply_markup=kb)
                 return

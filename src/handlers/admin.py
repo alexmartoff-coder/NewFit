@@ -5,11 +5,11 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from src.models.models import Admin, User, ProfessionalProfile, ClientProfile
+from src.models.models import Admin, User, TrainerProfile, ClientProfile
 from src.utils.db import SessionLocal
 
 import random
-from src.states.professional_onboarding import ProfessionalOnboarding
+from src.states.trainer_onboarding import TrainerOnboarding
 
 router = Router()
 
@@ -17,7 +17,7 @@ router = Router()
 from aiogram.fsm.state import State, StatesGroup
 class AdminStates(StatesGroup):
     waiting_for_admin_id = State()
-    waiting_for_impersonate_professional_id = State()
+    waiting_for_impersonate_trainer_id = State()
     waiting_for_impersonate_client_id = State()
     waiting_for_remove_admin_id = State()
     confirm_remove_admin = State()
@@ -39,7 +39,7 @@ async def admin_panel(message: Message, is_admin: bool = False):
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👥 Добавить соадмина", callback_data="admin_add_user")],
-        [InlineKeyboardButton(text="🎭 Войти как профи", callback_data="admin_impersonate_professional")],
+        [InlineKeyboardButton(text="🎭 Войти как профи", callback_data="admin_impersonate_trainer")],
         [InlineKeyboardButton(text="👤 Войти как клиент", callback_data="admin_impersonate_client")],
         [InlineKeyboardButton(text="🔓 Выйти из режима входа", callback_data="admin_stop_impersonate")],
         [InlineKeyboardButton(text="📋 Список админов", callback_data="admin_list")],
@@ -59,7 +59,7 @@ async def add_admin_prompt(callback: CallbackQuery, state: FSMContext):
         "`ID роль`\n\n"
         "**Роли:**\n"
         "• `co_admin` — полный доступ\n"
-        "• `tester_professional` — тестирование за мастера\n"
+        "• `tester_trainer` — тестирование за мастера\n"
         "• `tester_client` — тестирование за клиента\n"
         "• `tester_both` — тестирование за обе роли\n\n"
         "Пример: `123456789 co_admin`"
@@ -77,7 +77,7 @@ async def _legacy_add_admin_prompt(callback: CallbackQuery, state: FSMContext):
         "`ID роль`\n\n"
         "**Роли:**\n"
         "• `co_admin` — полный доступ\n"
-        "• `tester_professional` — тестирование за мастера\n"
+        "• `tester_trainer` — тестирование за мастера\n"
         "• `tester_client` — тестирование за клиента\n"
         "• `tester_both` — тестирование за обе роли\n\n"
         "Пример: `123456789 co_admin`",
@@ -107,12 +107,12 @@ async def process_add_admin(message: Message, state: FSMContext):
                 return
 
             # Определяем права
-            can_test_professional = role in ["tester_professional", "tester_both"]
+            can_test_trainer = role in ["tester_trainer", "tester_both"]
             can_test_client = role in ["tester_client", "tester_both"]
             is_co_admin = role == "co_admin"
 
             if is_co_admin:
-                can_test_professional = True
+                can_test_trainer = True
                 can_test_client = True
 
             # Создаём запись админа
@@ -120,7 +120,7 @@ async def process_add_admin(message: Message, state: FSMContext):
                 user_id=user_id,
                 role=role,
                 added_by=message.from_user.id,
-                can_test_professional=can_test_professional,
+                can_test_trainer=can_test_trainer,
                 can_test_client=can_test_client
             )
             session.add(admin)
@@ -213,30 +213,30 @@ async def confirm_remove_admin(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await admin_panel(callback.message, is_admin=True)
 
-@router.callback_query(F.data == "admin_impersonate_professional")
-async def impersonate_professional_prompt(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(F.data == "admin_impersonate_trainer")
+async def impersonate_trainer_prompt(callback: CallbackQuery, state: FSMContext):
     text = "🎭 **Войти как профи**\n\nВведите Telegram ID мастера:"
     if callback.message.photo:
         await callback.message.edit_caption(caption=text)
     else:
         await callback.message.edit_text(text)
-    await state.set_state(AdminStates.waiting_for_impersonate_professional_id)
+    await state.set_state(AdminStates.waiting_for_impersonate_trainer_id)
 
-@router.message(AdminStates.waiting_for_impersonate_professional_id)
-async def process_imp_professional(message: Message, state: FSMContext):
+@router.message(AdminStates.waiting_for_impersonate_trainer_id)
+async def process_imp_trainer(message: Message, state: FSMContext):
     try:
-        professional_id = int(message.text.strip())
-        await state.update_data(impersonate_professional_id=professional_id, impersonate_client_id=None)
+        trainer_id = int(message.text.strip())
+        await state.update_data(impersonate_trainer_id=trainer_id, impersonate_client_id=None)
         await message.answer(
-            f"✅ Вы вошли как профи ID: `{professional_id}`\n\n"
+            f"✅ Вы вошли как профи ID: `{trainer_id}`\n\n"
             f"🔓 Используйте админ-панель, чтобы выйти.",
             parse_mode="Markdown"
         )
         await state.set_state(None) # Clear specific state but keep data
 
         # Immediate redirection to the menu
-        from src.keyboards.common import get_professional_main_kb
-        await message.answer("Переход в кабинет мастера...", reply_markup=get_professional_main_kb(is_admin=True))
+        from src.keyboards.common import get_trainer_main_kb
+        await message.answer("Переход в кабинет мастера...", reply_markup=get_trainer_main_kb(is_admin=True))
         await admin_panel(message, is_admin=True)
     except ValueError:
         await message.answer("❌ ID должен быть числом")
@@ -254,7 +254,7 @@ async def impersonate_client_prompt(callback: CallbackQuery, state: FSMContext):
 async def process_imp_client(message: Message, state: FSMContext):
     try:
         client_id = int(message.text.strip())
-        await state.update_data(impersonate_client_id=client_id, impersonate_professional_id=None)
+        await state.update_data(impersonate_client_id=client_id, impersonate_trainer_id=None)
         await message.answer(
             f"✅ Вы вошли как клиент ID: `{client_id}`\n\n"
             f"🔓 Используйте админ-панель, чтобы выйти.",
@@ -271,7 +271,7 @@ async def process_imp_client(message: Message, state: FSMContext):
 
 @router.callback_query(F.data == "admin_stop_impersonate")
 async def stop_impersonate(callback: CallbackQuery, state: FSMContext):
-    await state.update_data(impersonate_professional_id=None, impersonate_client_id=None)
+    await state.update_data(impersonate_trainer_id=None, impersonate_client_id=None)
     text = "✅ Режим входа отключён. Вы снова в админ-панели."
     if callback.message.photo:
         await callback.message.edit_caption(caption=text)
@@ -326,10 +326,10 @@ async def confirm_delete_all(callback: CallbackQuery):
 
         # SQLAlchemy delete users not in admin list
         # To avoid FK issues, we should probably delete profiles first, but cascade should handle it.
-        # Actually, let's delete ProfessionalProfile, ClientProfile, etc. first if cascade is not set properly.
+        # Actually, let's delete TrainerProfile, ClientProfile, etc. first if cascade is not set properly.
 
         # For safety and completeness:
-        from src.models.models import ProfessionalProfile, ClientProfile, TimeSlot, Booking, Subscription, Review, Reminder, ProfessionalSchedule, ProfessionalTemplate
+        from src.models.models import TrainerProfile, ClientProfile, TimeSlot, Booking, Subscription, Review, Reminder, TrainerSchedule, ScheduleTemplate
 
         # Order matters if no cascade: Reviews -> Bookings -> TimeSlots -> Profiles -> Users
         await session.execute(delete(Review))
@@ -337,9 +337,9 @@ async def confirm_delete_all(callback: CallbackQuery):
         await session.execute(delete(Subscription))
         await session.execute(delete(Booking))
         await session.execute(delete(TimeSlot))
-        await session.execute(delete(ProfessionalSchedule))
-        await session.execute(delete(ProfessionalTemplate))
-        await session.execute(delete(ProfessionalProfile))
+        await session.execute(delete(TrainerSchedule))
+        await session.execute(delete(ScheduleTemplate))
+        await session.execute(delete(TrainerProfile))
         await session.execute(delete(ClientProfile))
 
         # Now delete users except admins
