@@ -13,11 +13,24 @@ router = Router()
 @router.message(F.text == "/search")
 async def start_catalog(message: types.Message, state: FSMContext):
     await state.clear()
+    from src.keyboards.catalog import get_catalog_city_kb
+    await message.answer("В каком городе вы ищете специалиста?", reply_markup=get_catalog_city_kb())
+
+@router.callback_query(F.data.startswith("cat_city_"))
+async def process_catalog_city(callback: types.CallbackQuery, state: FSMContext):
+    city = callback.data.split("_")[2]
+    await state.update_data(city=city)
+
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="Фитнес", callback_data="cat_type_fitness")],
         [types.InlineKeyboardButton(text="Бьюти", callback_data="cat_type_beauty")]
     ])
-    await message.answer("Какая сфера услуг вас интересует?", reply_markup=kb)
+    text = f"Город: {city}\n\nКакая сфера услуг вас интересует?"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb)
+    else:
+        await callback.message.edit_text(text, reply_markup=kb)
+    await callback.answer()
 
 @router.callback_query(F.data.startswith("cat_type_"))
 async def process_catalog_type(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
@@ -26,11 +39,12 @@ async def process_catalog_type(callback: types.CallbackQuery, state: FSMContext,
 
     # Directly show specializations (services) buttons
     from src.keyboards.common import get_spec_kb
+    data = await state.get_data()
     role = "TRAINER" if cat_type == "fitness" else "BEAUTY"
     kb = get_spec_kb(role=role)
     kb = add_admin_button(kb, is_admin=is_admin)
 
-    text = "Выберите услугу:"
+    text = f"Город: {data.get('city')}\nСфера: {'Фитнес' if cat_type == 'fitness' else 'Бьюти'}\n\nВыберите услугу:"
     if callback.message.photo:
         await callback.message.edit_caption(caption=text, reply_markup=kb)
     else:
