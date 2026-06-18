@@ -19,3 +19,13 @@ def get_price_filter_kb():
             [InlineKeyboardButton(text="🔙 Назад", callback_data="filter_back")]
         ]
     )
+
+def get_catalog_city_kb():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Москва", callback_data="cat_city_Москва")],
+            [InlineKeyboardButton(text="Санкт-Петербург", callback_data="cat_city_Санкт-Петербург")],
+            [InlineKeyboardButton(text="Онлайн", callback_data="cat_city_Онлайн")],
+            [InlineKeyboardButton(text="Другой город", callback_data="filter_city")]
+        ]
+    )
