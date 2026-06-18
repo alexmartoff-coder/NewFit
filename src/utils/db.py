@@ -119,6 +119,12 @@ async def init_db(engine):
                         await conn.rollback()
 
                 # Обеспечиваем наличие критических колонок
+                try:
+                    await conn.execute(text("ALTER TABLE specializations ALTER COLUMN name TYPE VARCHAR(100)"))
+                    await conn.commit()
+                except Exception:
+                    await conn.rollback()
+
                 await add_column_safe("time_slots", "trainer_profile_id", "INTEGER")
                 await add_column_safe("bookings", "trainer_profile_id", "INTEGER")
                 await add_column_safe("trainer_schedules", "trainer_id", "BIGINT")
