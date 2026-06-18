@@ -234,8 +234,12 @@ async def apply_filters(callback: types.CallbackQuery, state: FSMContext):
 
         if 'specializations' in data and data['specializations']:
             # Filtering by multiple specializations
-            spec_names = [s for s in data['specializations']]
-            spec_query = select(Specialization.id).where(Specialization.name.in_(spec_names))
+            spec_names = [s.strip() for s in data['specializations']]
+
+            # Robust matching using lower() and trim() on DB side
+            spec_query = select(Specialization.id).where(
+                func.lower(func.trim(Specialization.name)).in_([s.lower() for s in spec_names])
+            )
             spec_res = await session.execute(spec_query)
             spec_ids = list(spec_res.scalars().all())
 

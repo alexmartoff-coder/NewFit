@@ -467,7 +467,11 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
 
             # === 3. Specializations ===
             if data.get('specializations'):
-                spec_stmt = select(Specialization).where(Specialization.name.in_(data['specializations']))
+                # Robust matching for specializations during onboarding
+                spec_names = [s.strip() for s in data['specializations']]
+                spec_stmt = select(Specialization).where(
+                    func.lower(func.trim(Specialization.name)).in_([s.lower() for s in spec_names])
+                )
                 spec_res = await session.execute(spec_stmt)
                 trainer_profile.specializations = list(spec_res.scalars().all())
                 logger.info(f"Linked {len(trainer_profile.specializations)} specializations for professional {user_id}")
