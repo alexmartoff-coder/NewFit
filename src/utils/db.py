@@ -241,6 +241,13 @@ async def init_db(engine):
                     await conn.rollback()
 
         async with engine.connect() as conn:
+            # Fix column length for specializations.name
+            try:
+                await conn.execute(text("ALTER TABLE specializations ALTER COLUMN name TYPE VARCHAR(100)"))
+                await conn.commit()
+            except Exception:
+                await conn.rollback()
+
             # Добавляем список специализаций
             specs = [
                 'Силовые тренировки', 'Похудение и жиросжигание', 'Функциональный тренинг',
@@ -248,6 +255,14 @@ async def init_db(engine):
                 'Работа с подростками', 'Маникюр', 'Педикюр', 'Массаж', 'Косметология',
                 'Парикмахерские услуги', 'Брови и ресницы', 'Макияж', 'Другое'
             ]
+
+            # Clear potentially truncated entries if they exist (names with length 1)
+            try:
+                await conn.execute(text("DELETE FROM specializations WHERE LENGTH(name) <= 1"))
+                await conn.commit()
+            except Exception:
+                await conn.rollback()
+
             count = 0
             for spec in specs:
                 res = await conn.execute(
