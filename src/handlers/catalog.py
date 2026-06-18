@@ -90,14 +90,8 @@ async def filter_spec(callback: types.CallbackQuery, state: FSMContext, is_admin
 @router.callback_query(F.data.startswith("spec_"), CatalogFilter.entering_specialization)
 async def process_filter_spec_callback(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
     if callback.data == "spec_done":
-        kb = get_filter_kb()
-        kb = add_admin_button(kb, is_admin=is_admin)
-        text = "Фильтры настроены:"
-        if callback.message.photo:
-            await callback.message.edit_caption(caption=text, reply_markup=kb)
-        else:
-            await callback.message.edit_text(text, reply_markup=kb)
-        await callback.answer()
+        # Skip the "Filters configured" menu and show results immediately
+        await apply_filters(callback, state)
         return
 
     spec_map = {
@@ -204,6 +198,9 @@ async def filter_reset(callback: types.CallbackQuery, state: FSMContext, is_admi
 @router.callback_query(F.data.startswith("cat_page_"))
 async def apply_filters(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Applying filters: {data}")
 
     page = 0
     if callback.data.startswith("cat_page_"):
@@ -265,7 +262,12 @@ async def apply_filters(callback: types.CallbackQuery, state: FSMContext):
         professionals = result.all()
 
         if not professionals:
-            await callback.message.answer("К сожалению, профессионалов по вашему запросу не найдено.")
+            kb = get_filter_kb()
+            text = "❌ К сожалению, профессионалов по вашему запросу не найдено.\n\nПопробуйте изменить город или сбросить фильтры."
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=text, reply_markup=kb)
+            else:
+                await callback.message.edit_text(text, reply_markup=kb)
         else:
             for trainer_profile, user in professionals:
                 text = (
