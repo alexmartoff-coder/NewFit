@@ -248,8 +248,14 @@ async def apply_filters(callback: types.CallbackQuery, state: FSMContext):
             logger.info(f"Filtering by specializations: {spec_names}, IDs found: {spec_ids}")
 
             if spec_ids:
-                # Trainer must have AT LEAST ONE of the selected specializations
-                query = query.where(TrainerProfile.specializations.any(Specialization.id.in_(spec_ids)))
+                from src.models.models import trainer_specializations
+                # Perform join for reliable many-to-many filtering
+                query = query.join(
+                    trainer_specializations,
+                    TrainerProfile.id == trainer_specializations.c.trainer_id
+                ).where(
+                    trainer_specializations.c.specialization_id.in_(spec_ids)
+                )
             else:
                 await callback.message.answer("Мастера с выбранными специализациями не найдены.")
                 await callback.answer()
