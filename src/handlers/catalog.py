@@ -1,7 +1,7 @@
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import select, and_, func
-from src.models.models import TrainerProfile, User, Specialization
+from src.models.models import TrainerProfile, User, Specialization, UserRole
 from src.utils.db import SessionLocal
 from src.keyboards.catalog import get_filter_kb, get_price_filter_kb
 from src.keyboards.inline import add_admin_button
@@ -41,12 +41,14 @@ async def process_catalog_type(callback: types.CallbackQuery, state: FSMContext,
 @router.callback_query(F.data == "filter_city")
 async def filter_city(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(CatalogFilter.entering_city)
-    await callback.message.answer("Введите название города:")
+    from src.keyboards.common import get_city_kb
+    await callback.message.answer("Выберите или введите название города:", reply_markup=get_city_kb())
     await callback.answer()
 
 @router.message(CatalogFilter.entering_city)
 async def process_filter_city(message: types.Message, state: FSMContext, is_admin: bool = False):
-    await state.update_data(city=message.text)
+    city = message.text.strip()
+    await state.update_data(city=city)
     kb = get_filter_kb()
     kb = add_admin_button(kb, is_admin=is_admin)
     await message.answer(
@@ -201,8 +203,16 @@ async def apply_filters(callback: types.CallbackQuery, state: FSMContext):
         query = select(TrainerProfile, User).join(User, TrainerProfile.user_id == User.id).options(selectinload(TrainerProfile.specializations))
 
         filters = [TrainerProfile.status == "approved"]
+
+        # Filter by role based on catalog type
+        cat_type = data.get('catalog_type')
+        if cat_type == "fitness":
+            filters.append(User.role == UserRole.TRAINER)
+        elif cat_type == "beauty":
+            filters.append(User.role == UserRole.BEAUTY)
+
         if 'city' in data:
-            filters.append(func.lower(TrainerProfile.city) == func.lower(data['city']))
+            filters.append(func.lower(TrainerProfile.city) == func.lower(data['city'].strip()))
         if 'price_min' in data:
             filters.append(TrainerProfile.price_single >= data['price_min'])
         if 'price_max' in data:

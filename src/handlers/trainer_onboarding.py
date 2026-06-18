@@ -154,7 +154,8 @@ async def process_name(message: types.Message, state: FSMContext, effective_user
 
 @router.message(TrainerOnboarding.city)
 async def process_city(message: types.Message, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
-    await state.update_data(city=message.text)
+    city = message.text.strip()
+    await state.update_data(city=city)
     await state.set_state(TrainerOnboarding.specialization)
 
     user_id = effective_user_id or message.from_user.id
