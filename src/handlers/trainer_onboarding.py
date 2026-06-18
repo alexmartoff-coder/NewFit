@@ -6,7 +6,7 @@ from src.keyboards.common import get_format_kb, get_trainer_main_kb, get_start_r
 from src.keyboards.inline import add_admin_button
 from src.models.models import User, TrainerProfile, UserRole, WorkFormat, Specialization, Booking
 from src.utils.db import SessionLocal
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func
 from sqlalchemy.orm import selectinload
 
 router = Router()
