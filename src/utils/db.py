@@ -242,12 +242,16 @@ async def init_db(engine):
                 'Работа с подростками', 'Маникюр', 'Педикюр', 'Массаж', 'Косметология',
                 'Парикмахерские услуги', 'Брови и ресницы', 'Макияж', 'Другое'
             ]
+            count = 0
             for spec in specs:
-                await conn.execute(
+                res = await conn.execute(
                     text("INSERT INTO specializations (name) VALUES (:name) ON CONFLICT (name) DO NOTHING"),
                     {"name": spec}
                 )
+                if res.rowcount > 0:
+                    count += 1
             await conn.commit()
+            logger.info(f"Specializations sync complete. Added {count} new entries.")
         print("✅ Все таблицы базы данных проверены/созданы и исправлены.")
     except Exception as e:
         print(f"⚠️ Ошибка при инициализации БД: {e}")
