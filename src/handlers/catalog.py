@@ -255,8 +255,12 @@ async def apply_filters(callback: types.CallbackQuery, state: FSMContext):
                     TrainerProfile.id == trainer_specializations.c.trainer_id
                 ).where(
                     trainer_specializations.c.specialization_id.in_(spec_ids)
-                )
+                ).distinct()
             else:
+                # Log available specializations if filtering failed
+                all_specs_res = await session.execute(select(Specialization.name))
+                all_specs = all_specs_res.scalars().all()
+                logger.warning(f"Filter ID mismatch. Available specializations in DB: {all_specs}")
                 await callback.message.answer("Мастера с выбранными специализациями не найдены.")
                 await callback.answer()
                 return

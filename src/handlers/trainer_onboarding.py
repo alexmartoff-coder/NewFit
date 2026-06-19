@@ -473,8 +473,11 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                     func.lower(func.trim(Specialization.name)).in_([s.lower() for s in spec_names])
                 )
                 spec_res = await session.execute(spec_stmt)
-                trainer_profile.specializations = list(spec_res.scalars().all())
-                logger.info(f"Linked {len(trainer_profile.specializations)} specializations for professional {user_id}")
+                found_specs = list(spec_res.scalars().all())
+                trainer_profile.specializations = found_specs
+                logger.info(f"Linked {len(found_specs)} specializations for professional {user_id}: {[s.name for s in found_specs]}")
+                if len(found_specs) < len(spec_names):
+                    logger.warning(f"Could not find all specializations. Requested: {spec_names}, Found: {[s.name for s in found_specs]}")
 
             await session.commit()
             logger.info(f"✅ finish_onboarding успешно завершён для {user_id}")
