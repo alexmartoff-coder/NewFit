@@ -57,6 +57,10 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
 
             if profile:
                 specs = ", ".join([s.name for s in profile.specializations]) or "не указаны"
+                fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
+                work_fmt = profile.work_format.value if hasattr(profile.work_format, 'value') else str(profile.work_format)
+                work_fmt_ru = fmt_map.get(work_fmt, work_fmt.lower())
+
                 text = (
                     f"👨‍🏫 **Ваш профиль профессионала**\n\n"
                     f"👤 Имя: {user.full_name}\n"
@@ -66,7 +70,7 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
                     f"💰 Цена (разовое): {profile.price_single}₽\n"
                     f"💳 Цена (пакет 12): {profile.price_package}₽\n"
                     f"⭐ Рейтинг: {profile.rating}\n"
-                    f"🏷 Формат: {profile.work_format}\n"
+                    f"🏷 Формат: {work_fmt_ru}\n"
                 )
                 kb = types.InlineKeyboardMarkup(inline_keyboard=[
                     [types.InlineKeyboardButton(text="📝 Редактировать профиль", callback_data="start_registration")]
@@ -185,9 +189,13 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
             await message.answer("У вас пока нет запланированных занятий.")
             return
 
+        now_utc = datetime.now(UTC).replace(tzinfo=None)
         stmt = (
             select(Booking)
-            .where(Booking.client_id == client_profile.id)
+            .where(
+                Booking.client_id == client_profile.id,
+                Booking.start_time >= now_utc
+            )
             .options(selectinload(Booking.slot).selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user))
             .order_by(Booking.start_time.asc())
         )

@@ -474,10 +474,19 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 )
                 spec_res = await session.execute(spec_stmt)
                 found_specs = list(spec_res.scalars().all())
+
+                # If some are missing from DB, we create them on the fly to ensure linkage
+                found_names = {s.name.lower().strip() for s in found_specs}
+                for name in spec_names:
+                    if name.lower() not in found_names:
+                        new_spec = Specialization(name=name)
+                        session.add(new_spec)
+                        await session.flush()
+                        found_specs.append(new_spec)
+                        logger.info(f"Created missing specialization: {name}")
+
                 trainer_profile.specializations = found_specs
                 logger.info(f"Linked {len(found_specs)} specializations for professional {user_id}: {[s.name for s in found_specs]}")
-                if len(found_specs) < len(spec_names):
-                    logger.warning(f"Could not find all specializations. Requested: {spec_names}, Found: {[s.name for s in found_specs]}")
 
             await session.commit()
             logger.info(f"✅ finish_onboarding успешно завершён для {user_id}")
