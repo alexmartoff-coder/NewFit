@@ -324,7 +324,12 @@ async def block_slot_start(callback: types.CallbackQuery, state: FSMContext):
 @router.message(F.text, F.state == "waiting_for_block_time")
 async def process_block_time(message: types.Message, state: FSMContext, effective_user_id: int = None):
     try:
-        dt = datetime.strptime(message.text, "%d.%m.%Y %H:%M")
+        moscow_tz = gettz('Europe/Moscow')
+        # User entered time in Moscow
+        dt_moscow = datetime.strptime(message.text, "%d.%m.%Y %H:%M").replace(tzinfo=moscow_tz)
+        # Convert to naive UTC for DB operations
+        dt_utc = dt_moscow.astimezone(UTC).replace(tzinfo=None)
+
         user_id = effective_user_id or message.from_user.id
         async with SessionLocal() as session:
             stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
@@ -333,7 +338,7 @@ async def process_block_time(message: types.Message, state: FSMContext, effectiv
                 await message.answer("❌ Профиль мастера не найден.")
                 return
 
-            stmt = select(TimeSlot).where(TimeSlot.trainer_profile_id == profile.id, TimeSlot.start_time == dt)
+            stmt = select(TimeSlot).where(TimeSlot.trainer_profile_id == profile.id, TimeSlot.start_time == dt_utc)
             res = await session.execute(stmt)
             slot = res.scalar_one_or_none()
 
@@ -341,8 +346,8 @@ async def process_block_time(message: types.Message, state: FSMContext, effectiv
                 # Create a blocked slot if it doesn't exist
                 slot = TimeSlot(
                     trainer_profile_id=profile.id,
-                    start_time=dt,
-                    end_time=dt + timedelta(minutes=60),
+                    start_time=dt_utc,
+                    end_time=dt_utc + timedelta(minutes=60),
                     status="blocked",
                     format="hybrid"
                 )

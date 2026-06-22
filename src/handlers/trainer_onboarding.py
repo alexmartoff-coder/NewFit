@@ -485,7 +485,11 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                         found_specs.append(new_spec)
                         logger.info(f"Created missing specialization: {name}")
 
-                trainer_profile.specializations = found_specs
+                # Directly clear and re-add for reliability
+                trainer_profile.specializations.clear()
+                for s in found_specs:
+                    trainer_profile.specializations.append(s)
+
                 logger.info(f"Linked {len(found_specs)} specializations for professional {user_id}: {[s.name for s in found_specs]}")
 
             await session.commit()

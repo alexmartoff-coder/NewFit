@@ -1,6 +1,6 @@
 from aiogram import Router, types, F
 from sqlalchemy import select
-from src.models.models import User, TrainerProfile, ClientProfile, UserRole
+from src.models.models import User, TrainerProfile, ClientProfile, UserRole, Booking, TimeSlot
 from src.utils.db import SessionLocal
 from src.keyboards.common import get_trainer_main_kb, get_client_main_kb
 from src.keyboards.inline import add_admin_button
@@ -26,6 +26,11 @@ async def show_profile_cmd(message: types.Message, effective_user_id: int = None
             query = select(TrainerProfile).where(TrainerProfile.user_id == user.id)
             result = await session.execute(query)
             profile = result.scalar_one_or_none()
+
+            fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
+            work_fmt = profile.work_format.value if hasattr(profile.work_format, 'value') else str(profile.work_format)
+            work_fmt_ru = fmt_map.get(work_fmt, work_fmt.lower())
+
             text = (
                 f"👤 Профиль профессионала: {user.full_name}\n"
                 f"📍 Город: {profile.city}\n"
@@ -33,7 +38,7 @@ async def show_profile_cmd(message: types.Message, effective_user_id: int = None
                 f"💰 Разовое: {profile.price_single}₽\n"
                 f"💳 12 занятий: {profile.price_package}₽\n"
                 f"⭐ Рейтинг: {profile.rating}\n"
-                f"📝 Формат: {profile.work_format.value}"
+                f"📝 Формат: {work_fmt_ru}"
             )
             await message.answer(text)
         else:
@@ -175,7 +180,6 @@ async def show_support(message: types.Message):
 async def show_my_bookings(message: types.Message, effective_user_id: int = None):
     user_id = effective_user_id or message.from_user.id
     async with SessionLocal() as session:
-        from src.models.models import Booking, TimeSlot, User, ClientProfile
         from sqlalchemy.orm import selectinload
         from dateutil.tz import gettz, UTC
         moscow_tz = gettz('Europe/Moscow')
