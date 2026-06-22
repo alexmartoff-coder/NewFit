@@ -22,6 +22,16 @@ engine = create_async_engine(db_url)
 async def init_db(engine):
     """Создаёт все таблицы, если они не существуют, и применяет необходимые исправления схемы."""
     try:
+        # 0. PostgreSQL absolute first fixes
+        if "postgresql" in str(engine.url).lower():
+            async with engine.connect() as conn:
+                try:
+                    # Fix column length for specializations.name before anything else
+                    await conn.execute(text("ALTER TABLE specializations ALTER COLUMN name TYPE VARCHAR(100)"))
+                    await conn.commit()
+                except Exception:
+                    await conn.rollback()
+
         # 1. Применяем переименования таблиц и колонок ДО создания через Base.metadata.create_all
         if "postgresql" in str(engine.url).lower():
             async with engine.connect() as conn:
