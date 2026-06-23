@@ -249,13 +249,11 @@ async def apply_filters(callback: types.CallbackQuery, state: FSMContext):
 
             if spec_ids:
                 from src.models.models import trainer_specializations
-                # Perform join for reliable many-to-many filtering
-                query = query.join(
-                    trainer_specializations,
-                    TrainerProfile.id == trainer_specializations.c.trainer_id
-                ).where(
+                # Use subquery to avoid DISTINCT on JSON columns which causes errors in Postgres
+                spec_subquery = select(trainer_specializations.c.trainer_id).where(
                     trainer_specializations.c.specialization_id.in_(spec_ids)
-                ).distinct()
+                )
+                query = query.where(TrainerProfile.id.in_(spec_subquery))
             else:
                 # Log available specializations if filtering failed
                 all_specs_res = await session.execute(select(Specialization.name))
@@ -283,15 +281,21 @@ async def apply_filters(callback: types.CallbackQuery, state: FSMContext):
             else:
                 await callback.message.edit_text(text, reply_markup=kb)
         else:
+            fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
             for trainer_profile, user in professionals:
+                specs_str = ", ".join([s.name for s in trainer_profile.specializations]) or "не указаны"
+                work_fmt = trainer_profile.work_format.value if hasattr(trainer_profile.work_format, 'value') else str(trainer_profile.work_format)
+                work_fmt_ru = fmt_map.get(work_fmt, work_fmt.lower())
+
                 text = (
-                    f"👤 {user.full_name}\n"
+                    f"👤 **{user.full_name}**\n"
                     f"📍 Город: {trainer_profile.city}\n"
-                    f"💪 Опыт: {trainer_profile.experience}\n"
+                    f"💪 Опыт: {trainer_profile.experience} лет\n"
+                    f"🎯 Специализации: {specs_str}\n"
                     f"💰 Разовое: {trainer_profile.price_single}₽\n"
                     f"💳 12 занятий: {trainer_profile.price_package}₽\n"
                     f"⭐ Рейтинг: {trainer_profile.rating}\n"
-                    f"📝 Формат: {trainer_profile.work_format.value}"
+                    f"📝 Формат: {work_fmt_ru}"
                 )
                 kb = types.InlineKeyboardMarkup(
                     inline_keyboard=[

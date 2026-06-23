@@ -220,6 +220,7 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
             return
 
         text = "📅 **Ваши ближайшие занятия:**\n\n"
+        fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
         for b in bookings:
             slot = b.slot
             if not slot or not slot.trainer_profile or not slot.trainer_profile.user:
@@ -232,10 +233,13 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
             s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
             start_moscow = s_start.astimezone(moscow_tz)
 
+            work_fmt = slot.format.lower() if slot.format else "hybrid"
+            work_fmt_ru = fmt_map.get(work_fmt, work_fmt)
+
             text += (
                 f"👤 Мастер: {trainer_name}\n"
                 f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
-                f"🏷 Формат: {slot.format}\n"
+                f"🏷 Формат: {work_fmt_ru}\n"
                 f"📊 Статус: {status_map.get(b.status, b.status)}\n"
                 f"-------------------\n"
             )
