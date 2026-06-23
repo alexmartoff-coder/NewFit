@@ -266,8 +266,9 @@ async def init_db(engine):
                 'Парикмахерские услуги', 'Брови и ресницы', 'Макияж', 'Другое'
             ]
 
-            # Clear potentially truncated entries if they exist (names with length 1)
+            # Clear potentially truncated entries if they exist (names with length 1 or non-cyrillic artifacts)
             try:
+                # Character length of 1 or very short names are likely corrupted
                 await conn.execute(text("DELETE FROM specializations WHERE LENGTH(name) <= 1"))
                 await conn.commit()
             except Exception:

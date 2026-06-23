@@ -193,14 +193,21 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
             await message.answer("У вас пока нет запланированных занятий.")
             return
 
-        now_utc = datetime.now(UTC).replace(tzinfo=None)
+        # Show bookings starting from 2 hours ago (to include currently happening ones)
+        now_utc = datetime.utcnow() - timedelta(hours=2)
+
+        # We check both client_id (internal profile) and potentially user_id if migration was messy
         stmt = (
             select(Booking)
             .where(
                 Booking.client_id == client_profile.id,
                 Booking.start_time >= now_utc
             )
-            .options(selectinload(Booking.slot).selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user))
+            .options(
+                selectinload(Booking.slot)
+                .selectinload(TimeSlot.trainer_profile)
+                .selectinload(TrainerProfile.user)
+            )
             .order_by(Booking.start_time.asc())
         )
         res = await session.execute(stmt)
@@ -213,6 +220,9 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
         text = "📅 **Ваши ближайшие занятия:**\n\n"
         for b in bookings:
             slot = b.slot
+            if not slot or not slot.trainer_profile or not slot.trainer_profile.user:
+                continue
+
             trainer_name = slot.trainer_profile.user.full_name
             status_map = {"confirmed": "✅ Подтверждено", "pending": "⏳ Ожидает", "canceled": "❌ Отменено"}
 
