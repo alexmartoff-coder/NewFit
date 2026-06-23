@@ -1,7 +1,6 @@
 from aiogram import Router, types, F
 from sqlalchemy import select
 from src.models.models import User, TrainerProfile, ClientProfile, UserRole, Booking, TimeSlot
-from datetime import datetime, timedelta
 from src.utils.db import SessionLocal
 from src.keyboards.common import get_trainer_main_kb, get_client_main_kb
 from src.keyboards.inline import add_admin_button
