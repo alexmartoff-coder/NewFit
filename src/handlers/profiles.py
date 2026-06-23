@@ -1,13 +1,20 @@
+import logging
+from datetime import datetime, timedelta, timezone
+from dateutil.tz import gettz, UTC
+
 from aiogram import Router, types, F
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
 from src.models.models import User, TrainerProfile, ClientProfile, UserRole, Booking, TimeSlot
 from src.utils.db import SessionLocal
 from src.keyboards.common import get_trainer_main_kb, get_client_main_kb
 from src.keyboards.inline import add_admin_button
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.fsm.context import FSMContext
 
 router = Router()
+logger = logging.getLogger(__name__)
 
 class GoogleKeysState(StatesGroup):
     waiting_for_client_id = State()
@@ -43,8 +50,6 @@ async def show_profile_cmd(message: types.Message, effective_user_id: int = None
             await message.answer(text)
         else:
             await message.answer(f"👤 Профиль клиента: {user.full_name}")
-
-from sqlalchemy.orm import selectinload
 
 @router.message(F.text == "Мой профиль")
 async def show_profile(message: types.Message, is_admin: bool = False, effective_user_id: int = None):
@@ -100,7 +105,6 @@ async def show_schedule(message: types.Message, effective_user_id: int = None):
 async def show_clients(message: types.Message, effective_user_id: int = None):
     user_id = effective_user_id or message.from_user.id
     async with SessionLocal() as session:
-        from dateutil.tz import gettz, UTC
         moscow_tz = gettz('Europe/Moscow')
 
         # Get professional profile
@@ -125,7 +129,7 @@ async def show_clients(message: types.Message, effective_user_id: int = None):
             return
 
         text = "👥 **Список записей клиентов:**\n\n"
-        now_utc = datetime.now(UTC).replace(tzinfo=None)
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
 
         for b in bookings:
             status_icon = "✅" if b.start_time > now_utc else "📜"
@@ -180,8 +184,6 @@ async def show_support(message: types.Message):
 async def show_my_bookings(message: types.Message, effective_user_id: int = None):
     user_id = effective_user_id or message.from_user.id
     async with SessionLocal() as session:
-        from sqlalchemy.orm import selectinload
-        from dateutil.tz import gettz, UTC
         moscow_tz = gettz('Europe/Moscow')
 
         # Получаем профиль клиента
@@ -194,7 +196,7 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
             return
 
         # Show bookings starting from 2 hours ago (to include currently happening ones)
-        now_utc = datetime.utcnow() - timedelta(hours=2)
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=2)
 
         # We check both client_id (internal profile) and potentially user_id if migration was messy
         stmt = (
