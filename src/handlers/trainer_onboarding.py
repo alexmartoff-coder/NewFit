@@ -98,8 +98,13 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
             else:
                 await state.set_state(TrainerOnboarding.formats)
                 kb = get_format_kb()
+
+                fmt_map_ru = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
+                work_fmt_val = profile.work_format.value if hasattr(profile.work_format, 'value') else str(profile.work_format)
+                work_fmt_ru = fmt_map_ru.get(work_fmt_val, work_fmt_val.lower())
+
                 skip_kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                    [types.InlineKeyboardButton(text=f"Не менять ({profile.experience} лет)", callback_data="skip_step")]
+                    [types.InlineKeyboardButton(text=f"Не менять ({work_fmt_ru})", callback_data="fmt_" + work_fmt_val.lower())]
                 ])
                 await callback.message.answer("Шаг 5/9\n\nКакие форматы вы предлагаете?", reply_markup=add_admin_button(kb, is_admin=is_admin))
                 await callback.message.answer("Или нажмите, чтобы не менять:", reply_markup=skip_kb)
@@ -269,8 +274,12 @@ async def process_experience(message: types.Message, state: FSMContext, is_admin
                 await message.answer("Шаг 5/9\n\nКакие форматы вы предлагаете?", reply_markup=add_admin_button(kb, is_admin=is_admin))
 
                 if profile and profile.work_format:
+                    fmt_map_ru = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
+                    work_fmt_val = profile.work_format.value if hasattr(profile.work_format, 'value') else str(profile.work_format)
+                    work_fmt_ru = fmt_map_ru.get(work_fmt_val, work_fmt_val.lower())
+
                     skip_kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                        [types.InlineKeyboardButton(text=f"Не менять ({profile.work_format})", callback_data="fmt_" + str(profile.work_format).lower())]
+                        [types.InlineKeyboardButton(text=f"Не менять ({work_fmt_ru})", callback_data="fmt_" + work_fmt_val.lower())]
                     ])
                     await message.answer("Или не менять:", reply_markup=skip_kb)
 
