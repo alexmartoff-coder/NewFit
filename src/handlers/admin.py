@@ -321,6 +321,10 @@ async def confirm_delete_all(callback: CallbackQuery):
         admin_res = await session.execute(admin_stmt)
         admin_ids = list(admin_res.scalars().all())
 
+        # Always preserve the current admin performing the action
+        if callback.from_user.id not in admin_ids:
+            admin_ids.append(callback.from_user.id)
+
         # We also want to keep the current user if they are owner but not in Admin table yet
         # But usually they should be. Let's just use NOT IN admin_ids.
 
