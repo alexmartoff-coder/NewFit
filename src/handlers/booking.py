@@ -3,7 +3,7 @@ from aiogram.fsm.context import FSMContext
 from src.states.booking import BookingSession
 from src.services.calendar import CalendarService
 from src.services.payments import PaymentService
-from src.models.models import TrainerProfile, User, ClientProfile, TimeSlot, Booking
+from src.models.models import TrainerProfile, User, ClientProfile, TimeSlot, Booking, UserRole
 from src.utils.db import SessionLocal
 from src.keyboards.inline import add_admin_button
 from sqlalchemy import select, update
@@ -174,8 +174,15 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
         # Safety check: ensure client user exists in 'users' table
         client_user = await session.get(User, user_id)
         if not client_user:
-            await callback.answer("Ошибка: пользователь не найден в базе данных.", show_alert=True)
-            return
+            # Fallback for impersonation or accidental deletion: recreate the user
+            client_user = User(
+                id=user_id,
+                username=callback.from_user.username,
+                full_name=callback.from_user.full_name or f"User {user_id}",
+                role=UserRole.CLIENT
+            )
+            session.add(client_user)
+            await session.flush()
 
         # 1. Автосоздание профиля клиента
         stmt_cp = select(ClientProfile).where(ClientProfile.user_id == user_id)

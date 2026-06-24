@@ -186,6 +186,17 @@ async def init_db(engine):
                 await add_column_safe("client_profiles", "full_name", "VARCHAR(128)")
                 await add_column_safe("client_profiles", "status", "VARCHAR(20) DEFAULT 'active'")
 
+                # Ensure unique constraints for ON CONFLICT
+                try:
+                    await conn.execute(text("ALTER TABLE specializations ADD CONSTRAINT specializations_name_key UNIQUE (name)"))
+                    await conn.commit()
+                except Exception: await conn.rollback()
+
+                try:
+                    await conn.execute(text("ALTER TABLE client_profiles ADD CONSTRAINT client_profiles_user_id_key UNIQUE (user_id)"))
+                    await conn.commit()
+                except Exception: await conn.rollback()
+
                 # trainer_schedules columns
                 for col in ["google_client_id", "google_client_secret", "google_calendar_id"]:
                     await add_column_safe("trainer_schedules", col, "VARCHAR(200)")

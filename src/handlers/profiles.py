@@ -96,8 +96,7 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
             await message.answer(f"🏋️‍♀️ **Личный кабинет клиента**\n\n👤 Имя: {user.full_name}", reply_markup=kb, parse_mode="Markdown")
 
 @router.message(F.text == "📆 Расписание и запись")
-@router.message(F.text == "/schedule")
-async def show_schedule(message: types.Message, effective_user_id: int = None):
+async def show_schedule_placeholder(message: types.Message, effective_user_id: int = None):
     await message.answer("Ваше расписание на сегодня пусто. Интеграция с Google Calendar будет доступна в следующем обновлении.")
 
 @router.message(F.text == "Мои клиенты")
