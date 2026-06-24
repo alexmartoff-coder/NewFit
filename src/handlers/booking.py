@@ -236,9 +236,8 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             try:
                 from dateutil.tz import gettz, UTC
                 moscow_tz = gettz('Europe/Moscow')
-                # Fetch client user info to get the correct name (could be impersonated)
-                client_user = await session.get(User, user_id)
-                client_name = client_user.full_name if client_user else callback.from_user.full_name
+                # Use name from client_profile which is now mandatory and validated
+                client_name = client_profile.full_name
 
                 # Convert time to Moscow for notification
                 s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
