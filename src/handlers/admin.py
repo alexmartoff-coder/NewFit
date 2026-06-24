@@ -9,9 +9,11 @@ from src.models.models import Admin, User, TrainerProfile, ClientProfile
 from src.utils.db import SessionLocal
 
 import random
+import logging
 from src.states.trainer_onboarding import TrainerOnboarding
 
 router = Router()
+logger = logging.getLogger(__name__)
 
 # Состояния для FSM
 from aiogram.fsm.state import State, StatesGroup
@@ -313,48 +315,66 @@ async def delete_users_prompt(callback: CallbackQuery):
         parse_mode="Markdown"
     )
 
+from sqlalchemy import text
+
 @router.callback_query(F.data == "admin_confirm_delete_all")
 async def confirm_delete_all(callback: CallbackQuery):
     async with SessionLocal() as session:
-        # Get admin IDs to preserve them
+        # 1. Identify admins to preserve (as tuple for the query)
         admin_stmt = select(Admin.user_id)
         admin_res = await session.execute(admin_stmt)
         admin_ids = list(admin_res.scalars().all())
-
-        # Always preserve the current admin performing the action
         if callback.from_user.id not in admin_ids:
             admin_ids.append(callback.from_user.id)
+        admin_ids_tuple = tuple(admin_ids)
 
-        # We also want to keep the current user if they are owner but not in Admin table yet
-        # But usually they should be. Let's just use NOT IN admin_ids.
+        try:
+            # 2. Powerful cleanup using TRUNCATE CASCADE
+            # This handles all FK dependencies automatically and resets sequences.
+            tables = [
+                "reminders", "bookings", "reviews", "subscriptions", "time_slots",
+                "trainer_specializations", "trainer_schedules", "schedule_templates",
+                "trainer_profiles", "client_profiles"
+            ]
 
-        # SQLAlchemy delete users not in admin list
-        # To avoid FK issues, we should probably delete profiles first, but cascade should handle it.
-        # Actually, let's delete TrainerProfile, ClientProfile, etc. first if cascade is not set properly.
+            logger.info(f"Admin {callback.from_user.id}: Starting TRUNCATE CASCADE. Preserving: {admin_ids_tuple}")
 
-        # For safety and completeness:
-        from src.models.models import TrainerProfile, ClientProfile, TimeSlot, Booking, Subscription, Review, Reminder, TrainerSchedule, ScheduleTemplate, trainer_specializations
+            # Reset identity resets SERIAL/IDENTITY columns
+            tables_str = ", ".join(tables)
+            await session.execute(text(f"TRUNCATE TABLE {tables_str} RESTART IDENTITY CASCADE"))
 
-        # Order matters if no cascade: Reviews -> Bookings -> TimeSlots -> Profiles -> Users
-        await session.execute(delete(Review))
-        await session.execute(delete(Reminder))
-        await session.execute(delete(Subscription))
-        await session.execute(delete(Booking))
-        await session.execute(delete(TimeSlot))
-        await session.execute(delete(TrainerSchedule))
-        await session.execute(delete(ScheduleTemplate))
-        # Clear many-to-many before profiles
-        await session.execute(delete(trainer_specializations))
-        await session.execute(delete(TrainerProfile))
-        await session.execute(delete(ClientProfile))
+            # 3. Delete non-admin users from 'users' table
+            logger.info("Admin: Deleting non-admin users from 'users' table")
+            await session.execute(
+                text("DELETE FROM users WHERE id NOT IN :admin_ids"),
+                {"admin_ids": admin_ids_tuple}
+            )
 
-        # Now delete users except admins
-        from sqlalchemy import not_
-        await session.execute(delete(User).where(not_(User.id.in_(admin_ids))))
+            await session.commit()
+            logger.info("Admin: Bulk delete successful.")
+            await callback.message.edit_text("✅ Все не-админ пользователи и их данные удалены. База очищена.")
 
-        await session.commit()
+        except Exception as e:
+            await session.rollback()
+            logger.warning(f"Admin: TRUNCATE CASCADE failed, falling back to manual DELETE: {e}")
 
-    await callback.message.edit_text("✅ Все не-админ пользователи и их данные удалены. Теперь вы можете тестировать на чистых аккаунтах.")
+            # 4. Fallback to ordered DELETE if TRUNCATE is not supported (e.g. SQLite)
+            try:
+                for table in reversed(tables): # Start with leaf tables
+                    await session.execute(text(f"DELETE FROM {table}"))
+
+                await session.execute(
+                    text("DELETE FROM users WHERE id NOT IN :admin_ids"),
+                    {"admin_ids": admin_ids_tuple}
+                )
+                await session.commit()
+                await callback.message.edit_text("✅ Все данные удалены (через ручной режим).")
+            except Exception as e2:
+                await session.rollback()
+                logger.exception("Admin: Critical error during fallback delete")
+                await callback.message.answer(f"❌ Ошибка при очистке базы: {e2}")
+                return
+
     await admin_panel(callback.message, is_admin=True)
 
 @router.callback_query(F.data == "admin_back")

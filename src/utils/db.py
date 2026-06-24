@@ -140,28 +140,78 @@ async def init_db(engine):
                 await add_column_safe("trainer_schedules", "trainer_id", "BIGINT")
                 await add_column_safe("schedule_templates", "trainer_id", "BIGINT")
 
-                # Исправляем внешние ключи
+                # Comprehensive Foreign Key Repair with CASCADE
                 fk_script = """
                 DO $$
+                DECLARE
+                    r RECORD;
                 BEGIN
-                    -- time_slots
-                    BEGIN ALTER TABLE time_slots DROP CONSTRAINT IF EXISTS time_slots_trainer_id_fkey; EXCEPTION WHEN others THEN NULL; END;
-                    BEGIN ALTER TABLE time_slots DROP CONSTRAINT IF EXISTS time_slots_trainer_profile_id_fkey; EXCEPTION WHEN others THEN NULL; END;
-                    BEGIN ALTER TABLE time_slots DROP CONSTRAINT IF EXISTS time_slots_professional_profile_id_fkey; EXCEPTION WHEN others THEN NULL; END;
+                    -- 1. Drop ALL existing foreign keys to avoid conflicts and outdated constraints
+                    FOR r IN (SELECT constraint_name, table_name
+                              FROM information_schema.table_constraints
+                              WHERE constraint_type = 'FOREIGN KEY'
+                              AND table_schema = 'public')
+                    LOOP
+                        EXECUTE 'ALTER TABLE public.' || quote_ident(r.table_name) || ' DROP CONSTRAINT ' || quote_ident(r.constraint_name);
+                    END LOOP;
 
+                    -- 2. Recreate constraints with ON DELETE CASCADE for all relationships
+
+                    -- User Profiles
+                    ALTER TABLE trainer_profiles ADD CONSTRAINT trainer_profiles_user_id_fkey
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+                    ALTER TABLE client_profiles ADD CONSTRAINT client_profiles_user_id_fkey
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+                    -- Schedule & Templates
+                    ALTER TABLE trainer_schedules ADD CONSTRAINT trainer_schedules_trainer_id_fkey
+                    FOREIGN KEY (trainer_id) REFERENCES users(id) ON DELETE CASCADE;
+
+                    ALTER TABLE schedule_templates ADD CONSTRAINT schedule_templates_trainer_id_fkey
+                    FOREIGN KEY (trainer_id) REFERENCES users(id) ON DELETE CASCADE;
+
+                    -- Specializations (Many-to-Many)
+                    ALTER TABLE trainer_specializations ADD CONSTRAINT trainer_specializations_trainer_id_fkey
+                    FOREIGN KEY (trainer_id) REFERENCES trainer_profiles(id) ON DELETE CASCADE;
+
+                    ALTER TABLE trainer_specializations ADD CONSTRAINT trainer_specializations_spec_id_fkey
+                    FOREIGN KEY (specialization_id) REFERENCES specializations(id) ON DELETE CASCADE;
+
+                    -- Time Slots
                     ALTER TABLE time_slots ADD CONSTRAINT time_slots_trainer_profile_id_fkey
                     FOREIGN KEY (trainer_profile_id) REFERENCES trainer_profiles(id) ON DELETE CASCADE;
 
-                    -- bookings
-                    BEGIN ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_trainer_id_fkey; EXCEPTION WHEN others THEN NULL; END;
-                    BEGIN ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_professional_id_fkey; EXCEPTION WHEN others THEN NULL; END;
-                    BEGIN ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_professional_profile_id_fkey; EXCEPTION WHEN others THEN NULL; END;
-                    BEGIN ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_trainer_profile_id_fkey; EXCEPTION WHEN others THEN NULL; END;
-
+                    -- Bookings
                     ALTER TABLE bookings ADD CONSTRAINT bookings_trainer_profile_id_fkey
                     FOREIGN KEY (trainer_profile_id) REFERENCES trainer_profiles(id) ON DELETE CASCADE;
+
+                    ALTER TABLE bookings ADD CONSTRAINT bookings_client_id_fkey
+                    FOREIGN KEY (client_id) REFERENCES client_profiles(id) ON DELETE CASCADE;
+
+                    ALTER TABLE bookings ADD CONSTRAINT bookings_slot_id_fkey
+                    FOREIGN KEY (slot_id) REFERENCES time_slots(id) ON DELETE CASCADE;
+
+                    -- Reminders
+                    ALTER TABLE reminders ADD CONSTRAINT reminders_booking_id_fkey
+                    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE;
+
+                    -- Subscriptions
+                    ALTER TABLE subscriptions ADD CONSTRAINT subscriptions_trainer_id_fkey
+                    FOREIGN KEY (trainer_id) REFERENCES trainer_profiles(id) ON DELETE CASCADE;
+
+                    ALTER TABLE subscriptions ADD CONSTRAINT subscriptions_client_id_fkey
+                    FOREIGN KEY (client_id) REFERENCES client_profiles(id) ON DELETE CASCADE;
+
+                    -- Reviews
+                    ALTER TABLE reviews ADD CONSTRAINT reviews_trainer_id_fkey
+                    FOREIGN KEY (trainer_id) REFERENCES trainer_profiles(id) ON DELETE CASCADE;
+
+                    ALTER TABLE reviews ADD CONSTRAINT reviews_client_id_fkey
+                    FOREIGN KEY (client_id) REFERENCES client_profiles(id) ON DELETE CASCADE;
+
                 EXCEPTION WHEN others THEN
-                    RAISE NOTICE 'FK update error: %', SQLERRM;
+                    RAISE NOTICE 'FK comprehensive repair error: %', SQLERRM;
                 END $$;
                 """
                 try:
@@ -188,14 +238,32 @@ async def init_db(engine):
 
                 # Ensure unique constraints for ON CONFLICT
                 try:
+                    # Clear duplicates and recreate constraint for specializations
+                    await conn.execute(text("""
+                        DELETE FROM specializations WHERE id NOT IN (
+                            SELECT MIN(id) FROM specializations GROUP BY name
+                        )
+                    """))
+                    await conn.execute(text("ALTER TABLE specializations DROP CONSTRAINT IF EXISTS specializations_name_key"))
                     await conn.execute(text("ALTER TABLE specializations ADD CONSTRAINT specializations_name_key UNIQUE (name)"))
                     await conn.commit()
-                except Exception: await conn.rollback()
+                except Exception as e:
+                    logger.warning(f"Could not fix specialization unique constraint: {e}")
+                    await conn.rollback()
 
                 try:
+                    # Clear duplicates and recreate constraint for client_profiles
+                    await conn.execute(text("""
+                        DELETE FROM client_profiles WHERE id NOT IN (
+                            SELECT MIN(id) FROM client_profiles GROUP BY user_id
+                        )
+                    """))
+                    await conn.execute(text("ALTER TABLE client_profiles DROP CONSTRAINT IF EXISTS client_profiles_user_id_key"))
                     await conn.execute(text("ALTER TABLE client_profiles ADD CONSTRAINT client_profiles_user_id_key UNIQUE (user_id)"))
                     await conn.commit()
-                except Exception: await conn.rollback()
+                except Exception as e:
+                    logger.warning(f"Could not fix client_profile unique constraint: {e}")
+                    await conn.rollback()
 
                 # trainer_schedules columns
                 for col in ["google_client_id", "google_client_secret", "google_calendar_id"]:
