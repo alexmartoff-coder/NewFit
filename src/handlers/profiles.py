@@ -114,10 +114,14 @@ async def show_clients(message: types.Message, effective_user_id: int = None):
             await message.answer("❌ Профиль профессионала не найден.")
             return
 
-        # Fetch bookings with client profiles
+        # Fetch upcoming bookings with client profiles
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
         stmt = (
             select(Booking)
-            .where(Booking.trainer_profile_id == profile.id)
+            .where(
+                Booking.trainer_profile_id == profile.id,
+                Booking.start_time >= now_utc
+            )
             .options(selectinload(Booking.client).selectinload(ClientProfile.user))
             .order_by(Booking.start_time.asc())
         )
