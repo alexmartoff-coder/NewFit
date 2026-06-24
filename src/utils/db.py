@@ -140,6 +140,35 @@ async def init_db(engine):
                 await add_column_safe("trainer_schedules", "trainer_id", "BIGINT")
                 await add_column_safe("schedule_templates", "trainer_id", "BIGINT")
 
+                # Ensure unique constraints for ON CONFLICT before migration
+                try:
+                    # Clear duplicates and recreate constraint for specializations
+                    await conn.execute(text("""
+                        DELETE FROM specializations WHERE id NOT IN (
+                            SELECT MIN(id) FROM specializations GROUP BY name
+                        )
+                    """))
+                    await conn.execute(text("ALTER TABLE specializations DROP CONSTRAINT IF EXISTS specializations_name_key"))
+                    await conn.execute(text("ALTER TABLE specializations ADD CONSTRAINT specializations_name_key UNIQUE (name)"))
+                    await conn.commit()
+                except Exception as e:
+                    logger.warning(f"Could not fix specialization unique constraint: {e}")
+                    await conn.rollback()
+
+                try:
+                    # Clear duplicates and recreate constraint for client_profiles
+                    await conn.execute(text("""
+                        DELETE FROM client_profiles WHERE id NOT IN (
+                            SELECT MIN(id) FROM client_profiles GROUP BY user_id
+                        )
+                    """))
+                    await conn.execute(text("ALTER TABLE client_profiles DROP CONSTRAINT IF EXISTS client_profiles_user_id_key"))
+                    await conn.execute(text("ALTER TABLE client_profiles ADD CONSTRAINT client_profiles_user_id_key UNIQUE (user_id)"))
+                    await conn.commit()
+                except Exception as e:
+                    logger.warning(f"Could not fix client_profile unique constraint: {e}")
+                    await conn.rollback()
+
                 # Comprehensive Foreign Key Repair with CASCADE
                 fk_script = """
                 DO $$
@@ -236,34 +265,6 @@ async def init_db(engine):
                 await add_column_safe("client_profiles", "full_name", "VARCHAR(128)")
                 await add_column_safe("client_profiles", "status", "VARCHAR(20) DEFAULT 'active'")
 
-                # Ensure unique constraints for ON CONFLICT
-                try:
-                    # Clear duplicates and recreate constraint for specializations
-                    await conn.execute(text("""
-                        DELETE FROM specializations WHERE id NOT IN (
-                            SELECT MIN(id) FROM specializations GROUP BY name
-                        )
-                    """))
-                    await conn.execute(text("ALTER TABLE specializations DROP CONSTRAINT IF EXISTS specializations_name_key"))
-                    await conn.execute(text("ALTER TABLE specializations ADD CONSTRAINT specializations_name_key UNIQUE (name)"))
-                    await conn.commit()
-                except Exception as e:
-                    logger.warning(f"Could not fix specialization unique constraint: {e}")
-                    await conn.rollback()
-
-                try:
-                    # Clear duplicates and recreate constraint for client_profiles
-                    await conn.execute(text("""
-                        DELETE FROM client_profiles WHERE id NOT IN (
-                            SELECT MIN(id) FROM client_profiles GROUP BY user_id
-                        )
-                    """))
-                    await conn.execute(text("ALTER TABLE client_profiles DROP CONSTRAINT IF EXISTS client_profiles_user_id_key"))
-                    await conn.execute(text("ALTER TABLE client_profiles ADD CONSTRAINT client_profiles_user_id_key UNIQUE (user_id)"))
-                    await conn.commit()
-                except Exception as e:
-                    logger.warning(f"Could not fix client_profile unique constraint: {e}")
-                    await conn.rollback()
 
                 # trainer_schedules columns
                 for col in ["google_client_id", "google_client_secret", "google_calendar_id"]:

@@ -320,59 +320,53 @@ from sqlalchemy import text
 @router.callback_query(F.data == "admin_confirm_delete_all")
 async def confirm_delete_all(callback: CallbackQuery):
     async with SessionLocal() as session:
-        # 1. Identify admins to preserve (as tuple for the query)
+        # 1. Identify admins to preserve
         admin_stmt = select(Admin.user_id)
         admin_res = await session.execute(admin_stmt)
         admin_ids = list(admin_res.scalars().all())
         if callback.from_user.id not in admin_ids:
             admin_ids.append(callback.from_user.id)
-        admin_ids_tuple = tuple(admin_ids)
 
         try:
-            # 2. Powerful cleanup using TRUNCATE CASCADE
-            # This handles all FK dependencies automatically and resets sequences.
+            logger.info(f"Admin {callback.from_user.id}: Starting bulk delete. Preserving: {admin_ids}")
+
+            # 1. Clear data tables manually first to be absolutely sure, even if CASCADE has issues
             tables = [
                 "reminders", "bookings", "reviews", "subscriptions", "time_slots",
                 "trainer_specializations", "trainer_schedules", "schedule_templates",
                 "trainer_profiles", "client_profiles"
             ]
+            for table in tables:
+                logger.info(f"Admin: Clearing table {table}")
+                await session.execute(text(f"DELETE FROM {table}"))
 
-            logger.info(f"Admin {callback.from_user.id}: Starting TRUNCATE CASCADE. Preserving: {admin_ids_tuple}")
-
-            # Reset identity resets SERIAL/IDENTITY columns
-            tables_str = ", ".join(tables)
-            await session.execute(text(f"TRUNCATE TABLE {tables_str} RESTART IDENTITY CASCADE"))
-
-            # 3. Delete non-admin users from 'users' table
-            logger.info("Admin: Deleting non-admin users from 'users' table")
+            # 2. Delete non-admin users from 'users' table.
+            # We use ANY() syntax which is highly robust in PostgreSQL for array parameters
             await session.execute(
-                text("DELETE FROM users WHERE id NOT IN :admin_ids"),
-                {"admin_ids": admin_ids_tuple}
+                text("DELETE FROM users WHERE NOT (id = ANY(:admin_ids))"),
+                {"admin_ids": admin_ids}
             )
 
             await session.commit()
             logger.info("Admin: Bulk delete successful.")
-            await callback.message.edit_text("✅ Все не-админ пользователи и их данные удалены. База очищена.")
+            await callback.message.edit_text("✅ Все пользователи и их данные успешно удалены. База очищена.")
 
         except Exception as e:
             await session.rollback()
-            logger.warning(f"Admin: TRUNCATE CASCADE failed, falling back to manual DELETE: {e}")
+            logger.exception("Admin: Critical error during bulk delete")
 
-            # 4. Fallback to ordered DELETE if TRUNCATE is not supported (e.g. SQLite)
+            # Last resort fallback with safe ANY syntax
             try:
-                for table in reversed(tables): # Start with leaf tables
-                    await session.execute(text(f"DELETE FROM {table}"))
-
                 await session.execute(
-                    text("DELETE FROM users WHERE id NOT IN :admin_ids"),
-                    {"admin_ids": admin_ids_tuple}
+                    text("DELETE FROM users WHERE NOT (id = ANY(:admin_ids))"),
+                    {"admin_ids": admin_ids}
                 )
                 await session.commit()
-                await callback.message.edit_text("✅ Все данные удалены (через ручной режим).")
+                await callback.message.edit_text("✅ Данные удалены (Safe fallback).")
             except Exception as e2:
                 await session.rollback()
-                logger.exception("Admin: Critical error during fallback delete")
-                await callback.message.answer(f"❌ Ошибка при очистке базы: {e2}")
+                logger.error(f"Admin: Fallback delete also failed: {e2}")
+                await callback.message.answer(f"❌ Ошибка при очистке базы: {e}")
                 return
 
     await admin_panel(callback.message, is_admin=True)
