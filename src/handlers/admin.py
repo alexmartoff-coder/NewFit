@@ -329,7 +329,7 @@ async def confirm_delete_all(callback: CallbackQuery):
         # Actually, let's delete TrainerProfile, ClientProfile, etc. first if cascade is not set properly.
 
         # For safety and completeness:
-        from src.models.models import TrainerProfile, ClientProfile, TimeSlot, Booking, Subscription, Review, Reminder, TrainerSchedule, ScheduleTemplate
+        from src.models.models import TrainerProfile, ClientProfile, TimeSlot, Booking, Subscription, Review, Reminder, TrainerSchedule, ScheduleTemplate, trainer_specializations
 
         # Order matters if no cascade: Reviews -> Bookings -> TimeSlots -> Profiles -> Users
         await session.execute(delete(Review))
@@ -339,6 +339,8 @@ async def confirm_delete_all(callback: CallbackQuery):
         await session.execute(delete(TimeSlot))
         await session.execute(delete(TrainerSchedule))
         await session.execute(delete(ScheduleTemplate))
+        # Clear many-to-many before profiles
+        await session.execute(delete(trainer_specializations))
         await session.execute(delete(TrainerProfile))
         await session.execute(delete(ClientProfile))
 
