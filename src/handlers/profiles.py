@@ -107,7 +107,7 @@ async def show_clients(message: types.Message, effective_user_id: int = None):
         moscow_tz = gettz('Europe/Moscow')
 
         # Get professional profile
-        stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+        stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user_id).options(selectinload(TrainerProfile.user))
         profile = (await session.execute(stmt_p)).scalar_one_or_none()
         if not profile:
             await message.answer("❌ Профиль профессионала не найден.")
@@ -121,7 +121,10 @@ async def show_clients(message: types.Message, effective_user_id: int = None):
                 Booking.trainer_profile_id == profile.id,
                 Booking.start_time >= now_utc
             )
-            .options(selectinload(Booking.client).selectinload(ClientProfile.user))
+            .options(
+                selectinload(Booking.client).selectinload(ClientProfile.user),
+                selectinload(Booking.slot)
+            )
             .order_by(Booking.start_time.asc())
         )
         res = await session.execute(stmt)
@@ -144,9 +147,13 @@ async def show_clients(message: types.Message, effective_user_id: int = None):
             if username:
                 contact_btn = f" | [Написать](https://t.me/{username})"
 
+            # Label based on role
+            term_format = "Услуга" if profile.user.role == UserRole.BEAUTY else "Формат"
+
             text += (
                 f"{status_icon} {start_moscow.strftime('%d.%m %H:%M')}\n"
                 f"👤 Клиент: {client_name}{contact_btn}\n"
+                f"🏷 {term_format}: {b.slot.format if b.slot else 'не указан'}\n"
                 f"💰 Цена: {int(b.price)}₽\n"
                 f"-------------------\n"
             )
@@ -219,10 +226,10 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
         bookings = res.scalars().all()
 
         if not bookings:
-            await message.answer("У вас пока нет запланированных занятий.")
+            await message.answer("У вас пока нет запланированных записей.")
             return
 
-        text = "📅 **Ваши ближайшие занятия:**\n\n"
+        text = "📅 **Ваши ближайшие записи:**\n\n"
         fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
         for b in bookings:
             slot = b.slot
@@ -231,6 +238,10 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
 
             trainer_name = slot.trainer_profile.user.full_name
             status_map = {"confirmed": "✅ Подтверждено", "pending": "⏳ Ожидает", "canceled": "❌ Отменено"}
+
+            # Dynamic labels
+            is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY
+            term_format = "Услуга" if is_beauty else "Формат"
 
             # Конвертируем время в МСК
             s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
@@ -242,7 +253,7 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
             text += (
                 f"👤 Мастер: {trainer_name}\n"
                 f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
-                f"🏷 Формат: {work_fmt_ru}\n"
+                f"🏷 {term_format}: {work_fmt_ru}\n"
                 f"📊 Статус: {status_map.get(b.status, b.status)}\n"
                 f"-------------------\n"
             )
