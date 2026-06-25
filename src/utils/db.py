@@ -288,7 +288,12 @@ async def init_db(engine):
                 await add_column_safe("trainer_profiles", "status", "VARCHAR(20) DEFAULT 'approved'")
 
                 # time_slots extra
-                await add_column_safe("time_slots", "format", "VARCHAR(20) DEFAULT 'hybrid'")
+                await add_column_safe("time_slots", "format", "VARCHAR(100) DEFAULT 'hybrid'")
+                try:
+                    await conn.execute(text("ALTER TABLE time_slots ALTER COLUMN format TYPE VARCHAR(100)"))
+                    await conn.commit()
+                except Exception: await conn.rollback()
+
                 await add_column_safe("time_slots", "google_event_id", "VARCHAR(200)")
                 await add_column_safe("time_slots", "notes", "TEXT")
 

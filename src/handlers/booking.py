@@ -122,7 +122,11 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
     slot_id = int(callback.data.split("_")[1])
 
     async with SessionLocal() as session:
-        slot = await session.get(TimeSlot, slot_id)
+        # Load slot and trainer role
+        stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user))
+        res = await session.execute(stmt)
+        slot = res.scalar_one_or_none()
+
         if not slot or slot.status != "free":
             text = "Этот слот уже занят или недоступен. Выберите другой."
             if callback.message.photo:
@@ -139,6 +143,20 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
         s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
         start_moscow = s_start.astimezone(moscow_tz)
 
+        # Dynamic terminology based on specialist role
+        data = await state.get_data()
+        is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY
+        term_format = "Услуга" if is_beauty else "Формат"
+
+        # If it's a beauty master, try to use the selected service from state if it's broad 'hybrid'
+        display_format = slot.format
+        if is_beauty and slot.format.lower() == "hybrid":
+            specs = data.get('specializations', [])
+            if specs:
+                display_format = ", ".join(specs)
+                # Update slot format in state to carry over to booking
+                await state.update_data(override_format=display_format)
+
         selected_date = s_start.date().isoformat()
         kb = types.InlineKeyboardMarkup(
             inline_keyboard=[
@@ -152,7 +170,7 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
         text = (
             f"📍 **Подтверждение записи**\n\n"
             f"Время: `{start_moscow.strftime('%d.%m.%Y %H:%M')}` (МСК)\n"
-            f"Формат: `{slot.format}`\n"
+            f"{term_format}: `{display_format}`\n"
             f"Цена: `{slot.price}₽`\n\n"
             f"Нажмите подтвердить для завершения записи."
         )
@@ -198,33 +216,53 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             session.add(client_profile)
             await session.flush() # Получаем ID
 
-        stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(selectinload(TimeSlot.trainer_profile))
+        stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(
+            selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
+        )
         res = await session.execute(stmt)
         slot = res.scalar_one_or_none()
 
         if slot and slot.status == "free":
+            # Pre-fetch all necessary attributes before commit to avoid MissingGreenlet
+            client_name = client_profile.full_name
+            trainer_user_id = slot.trainer_profile.user_id
+            slot_start = slot.start_time
+            slot_end = slot.end_time
+            slot_price = slot.price
+
+            # Override format if specialized service was selected
+            slot_format = data.get('override_format', slot.format)
+
+            # Determine role-specific terminology
+            from src.models.models import UserRole
+            is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY
+            term_lesson = "на услугу" if is_beauty else "на тренировку"
+            term_format = "Услуга" if is_beauty else "Формат"
+
             slot.status = "booked"
             slot.client_id = user_id
+            slot.format = slot_format # Store the specific service name
 
             new_booking = Booking(
                 slot_id=slot_id,
                 trainer_profile_id=slot.trainer_profile_id,
                 client_id=client_profile.id,
-                start_time=slot.start_time,
-                end_time=slot.end_time,
+                start_time=slot_start,
+                end_time=slot_end,
                 status="confirmed",
-                price=slot.price,
-                paid=False # Payment skipped for now
+                price=slot_price,
+                paid=False
             )
             session.add(new_booking)
             await session.flush()
 
             # Setup reminders
             from src.services.reminders import ReminderService
-            await ReminderService.schedule_reminders(session, new_booking.id, user_id, slot.start_time)
+            await ReminderService.schedule_reminders(session, new_booking.id, user_id, slot_start)
 
             await session.commit()
-            text = "✅ **Запись успешно подтверждена!**\n\nВы успешно записаны на тренировку.\n📅 Мы пришлем вам напоминание за 24 и 2 часа до начала."
+
+            text = f"✅ **Запись успешно подтверждена!**\n\nВы успешно записаны {term_lesson}.\n📅 Мы пришлем вам напоминание за 24 и 2 часа до начала."
 
             # Show main menu keyboard to client
             from src.keyboards.common import get_client_main_kb
@@ -243,21 +281,19 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             try:
                 from dateutil.tz import gettz, UTC
                 moscow_tz = gettz('Europe/Moscow')
-                # Use name from client_profile which is now mandatory and validated
-                client_name = client_profile.full_name
 
                 # Convert time to Moscow for notification
-                s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
+                s_start = slot_start.replace(tzinfo=UTC) if slot_start.tzinfo is None else slot_start.astimezone(UTC)
                 start_moscow = s_start.astimezone(moscow_tz)
 
                 trainer_text = (
                     f"🆕 **Новая запись!**\n\n"
                     f"👤 Клиент: {client_name}\n"
                     f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
-                    f"🏷 Формат: {slot.format}\n"
-                    f"💰 Цена: {slot.price}₽"
+                    f"🏷 {term_format}: {slot_format}\n"
+                    f"💰 Цена: {slot_price}₽"
                 )
-                await callback.bot.send_message(slot.trainer_profile.user_id, trainer_text, parse_mode="Markdown")
+                await callback.bot.send_message(trainer_user_id, trainer_text, parse_mode="Markdown")
             except Exception as e:
                 logger.error(f"Failed to notify professional {slot.trainer_profile.user_id}: {e}")
         else:
