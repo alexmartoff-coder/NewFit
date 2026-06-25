@@ -5,7 +5,8 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 def get_role_kb(is_admin: bool = False):
     kb = [
         [KeyboardButton(text="Тренер"), KeyboardButton(text="Клиент")],
-        [KeyboardButton(text="Бьюти")],
+        [KeyboardButton(text="Бьюти"), KeyboardButton(text="Большой теннис")],
+        [KeyboardButton(text="Падл")],
         [KeyboardButton(text="❓ Узнать больше о NewFit")]
     ]
     if is_admin:
@@ -55,6 +56,24 @@ def get_spec_kb(selected_specs: list = None, role: str = "TRAINER"):
             ("Макияж", "spec_makeup"),
             ("Другое", "spec_other"),
         ]
+    elif role == "TENNIS":
+        specs = [
+            ("Индивидуальные тренировки", "spec_indiv"),
+            ("Групповые занятия", "spec_group"),
+            ("Тренировки для детей", "spec_kids"),
+            ("Подготовка к турнирам", "spec_tourn"),
+            ("Спарринг", "spec_sparr"),
+            ("Другое", "spec_other"),
+        ]
+    elif role == "PADEL":
+        specs = [
+            ("Индивидуальные тренировки", "spec_indiv"),
+            ("Групповые занятия", "spec_group"),
+            ("Тренировки для детей", "spec_kids"),
+            ("Подготовка к турнирам", "spec_tourn"),
+            ("Спарринг", "spec_sparr"),
+            ("Другое", "spec_other"),
+        ]
     else:
         specs = [
             ("Силовые тренировки", "spec_strength"),
@@ -64,8 +83,6 @@ def get_spec_kb(selected_specs: list = None, role: str = "TRAINER"):
             ("Кроссфит / HIIT", "spec_crossfit"),
             ("Тренировки для женщин/мужчин", "spec_gender"),
             ("Работа с подростками", "spec_teens"),
-            ("Большой теннис", "spec_tennis"),
-            ("Падл", "spec_padl"),
             ("Другое (свой вариант)", "spec_other"),
         ]
 
