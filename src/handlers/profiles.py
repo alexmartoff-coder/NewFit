@@ -147,13 +147,15 @@ async def show_clients(message: types.Message, effective_user_id: int = None):
             if username:
                 contact_btn = f" | [Написать](https://t.me/{username})"
 
-            # Label based on role
-            term_format = "Услуга" if profile.user.role == UserRole.BEAUTY else "Формат"
+            # Label based on role or service type
+            slot_format = b.slot.format if b.slot else ""
+            is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in slot_format.split(", "))
+            term_format = "Услуга" if (profile.user.role == UserRole.BEAUTY or is_specific_sport) else "Формат"
 
             text += (
                 f"{status_icon} {start_moscow.strftime('%d.%m %H:%M')}\n"
                 f"👤 Клиент: {client_name}{contact_btn}\n"
-                f"🏷 {term_format}: {b.slot.format if b.slot else 'не указан'}\n"
+                f"🏷 {term_format}: {slot_format or 'не указан'}\n"
                 f"💰 Цена: {int(b.price)}₽\n"
                 f"-------------------\n"
             )
@@ -240,15 +242,16 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
             status_map = {"confirmed": "✅ Подтверждено", "pending": "⏳ Ожидает", "canceled": "❌ Отменено"}
 
             # Dynamic labels
+            slot_format = slot.format or ""
             is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY
-            term_format = "Услуга" if is_beauty else "Формат"
+            is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in slot_format.split(", "))
+            term_format = "Услуга" if (is_beauty or is_specific_sport) else "Формат"
 
             # Конвертируем время в МСК
             s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
             start_moscow = s_start.astimezone(moscow_tz)
 
-            work_fmt = slot.format.lower() if slot.format else "hybrid"
-            work_fmt_ru = fmt_map.get(work_fmt, work_fmt)
+            work_fmt_ru = fmt_map.get(slot_format.lower(), slot_format)
 
             text += (
                 f"👤 Мастер: {trainer_name}\n"

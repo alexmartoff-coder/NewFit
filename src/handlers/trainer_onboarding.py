@@ -210,6 +210,8 @@ async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext
         "spec_crossfit": "Кроссфит / HIIT",
         "spec_gender": "Тренировки для женщин/мужчин",
         "spec_teens": "Работа с подростками",
+        "spec_tennis": "Большой теннис",
+        "spec_padl": "Падл",
         "spec_other": "Другое"
     }
 

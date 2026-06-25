@@ -64,6 +64,8 @@ def get_spec_kb(selected_specs: list = None, role: str = "TRAINER"):
             ("Кроссфит / HIIT", "spec_crossfit"),
             ("Тренировки для женщин/мужчин", "spec_gender"),
             ("Работа с подростками", "spec_teens"),
+            ("Большой теннис", "spec_tennis"),
+            ("Падл", "spec_padl"),
             ("Другое (свой вариант)", "spec_other"),
         ]
 

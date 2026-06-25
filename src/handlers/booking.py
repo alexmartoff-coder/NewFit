@@ -145,17 +145,20 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
 
         # Dynamic terminology based on specialist role
         data = await state.get_data()
-        is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY
-        term_format = "Услуга" if is_beauty else "Формат"
+        specs = data.get('specializations', [])
 
-        # If it's a beauty master, try to use the selected service from state if it's broad 'hybrid'
+        # Determine if we should use 'Услуга' label
+        is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY
+        is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in specs)
+
+        term_format = "Услуга" if (is_beauty or is_specific_sport) else "Формат"
+
+        # Try to use the selected service from state if it's broad 'hybrid'
         display_format = slot.format
-        if is_beauty and slot.format.lower() == "hybrid":
-            specs = data.get('specializations', [])
-            if specs:
-                display_format = ", ".join(specs)
-                # Update slot format in state to carry over to booking
-                await state.update_data(override_format=display_format)
+        if slot.format.lower() == "hybrid" and specs:
+            display_format = ", ".join(specs)
+            # Update slot format in state to carry over to booking
+            await state.update_data(override_format=display_format)
 
         selected_date = s_start.date().isoformat()
         kb = types.InlineKeyboardMarkup(
@@ -236,8 +239,10 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             # Determine role-specific terminology
             from src.models.models import UserRole
             is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY
-            term_lesson = "на услугу" if is_beauty else "на тренировку"
-            term_format = "Услуга" if is_beauty else "Формат"
+            is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in slot_format.split(", "))
+
+            term_lesson = "на услугу" if (is_beauty or is_specific_sport) else "на тренировку"
+            term_format = "Услуга" if (is_beauty or is_specific_sport) else "Формат"
 
             slot.status = "booked"
             slot.client_id = user_id
