@@ -14,13 +14,27 @@ logger = logging.getLogger(__name__)
 
 @router.message(F.text == "Тренер")
 @router.message(F.text == "Бьюти")
+@router.message(F.text == "Большой теннис")
+@router.message(F.text == "Падл")
 async def provider_start(message: types.Message, state: FSMContext, is_admin: bool = False):
-    role = UserRole.TRAINER if "тренер" in message.text.lower() else UserRole.BEAUTY
+    role_map = {
+        "тренер": UserRole.TRAINER,
+        "бьюти": UserRole.BEAUTY,
+        "большой теннис": UserRole.TENNIS,
+        "падл": UserRole.PADEL
+    }
+    role = role_map.get(message.text.lower(), UserRole.TRAINER)
     await state.update_data(role=role)
     kb = get_start_reg_kb()
     kb = add_admin_button(kb, is_admin=is_admin)
 
-    role_text = "профессиональный профиль" if role == UserRole.TRAINER else "профиль бьюти-мастера"
+    role_texts = {
+        UserRole.TRAINER: "профессиональный профиль",
+        UserRole.BEAUTY: "профиль бьюти-мастера",
+        UserRole.TENNIS: "профиль тренера по теннису",
+        UserRole.PADEL: "профиль тренера по падлу"
+    }
+    role_text = role_texts.get(role, "профессиональный профиль")
 
     await message.answer(
         f"Отлично! Давайте создадим ваш {role_text} в NewFit.\n\n"
@@ -78,13 +92,23 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
             await state.set_state(TrainerOnboarding.specialization)
             await state.update_data(specializations=[s.name for s in profile.specializations])
             data = await state.get_data()
-            kb = get_spec_kb(selected_specs=[s.name for s in profile.specializations], role=data.get('role', 'TRAINER'))
-            await callback.message.answer("Шаг 3/9\n\nВыберите ваши основные направления:", reply_markup=add_admin_button(kb, is_admin=is_admin))
+
+            role = data.get('role', UserRole.TRAINER)
+            kb = get_spec_kb(selected_specs=[s.name for s in profile.specializations], role=role)
+
+            step_texts = {
+                UserRole.BEAUTY: "Выберите услуги, которые вы предоставляете:",
+                UserRole.TENNIS: "Выберите ваши специализации в теннисе:",
+                UserRole.PADEL: "Выберите ваши специализации в падле:",
+                UserRole.TRAINER: "Выберите ваши основные направления в фитнесе:"
+            }
+            text = f"Шаг 3/9\n\n{step_texts.get(role, step_texts[UserRole.TRAINER])}"
+            await callback.message.answer(text, reply_markup=add_admin_button(kb, is_admin=is_admin))
 
         elif current_state == TrainerOnboarding.experience:
             await state.update_data(experience=profile.experience)
             data = await state.get_data()
-            if data.get('role') == UserRole.BEAUTY:
+            if data.get('role') in [UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL]:
                 await state.update_data(work_format=WorkFormat.OFFLINE)
                 await state.set_state(TrainerOnboarding.price_services)
                 specs = data.get('specializations', [])
@@ -172,8 +196,17 @@ async def process_city(message: types.Message, state: FSMContext, is_admin: bool
         specs = [s.name for s in profile.specializations] if profile else []
         await state.update_data(specializations=specs)
         data = await state.get_data()
-        kb = get_spec_kb(selected_specs=specs, role=data.get('role', 'TRAINER'))
-        await message.answer("Шаг 3/9\n\nВыберите ваши основные направления:", reply_markup=add_admin_button(kb, is_admin=is_admin))
+        role = data.get('role', UserRole.TRAINER)
+        kb = get_spec_kb(selected_specs=specs, role=role)
+
+        step_texts = {
+            UserRole.BEAUTY: "Выберите услуги, которые вы предоставляете:",
+            UserRole.TENNIS: "Выберите ваши специализации в теннисе:",
+            UserRole.PADEL: "Выберите ваши специализации в падле:",
+            UserRole.TRAINER: "Выберите ваши основные направления в фитнесе:"
+        }
+        text = f"Шаг 3/9\n\n{step_texts.get(role, step_texts[UserRole.TRAINER])}"
+        await message.answer(text, reply_markup=add_admin_button(kb, is_admin=is_admin))
 
 @router.callback_query(F.data.startswith("spec_"), TrainerOnboarding.specialization)
 async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
@@ -226,7 +259,16 @@ async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext
         "spec_other": "Другое"
     }
 
-    spec = spec_map.get(callback.data) or beauty_map.get(callback.data)
+    tennis_map = {
+        "spec_indiv": "Индивидуальные тренировки",
+        "spec_group": "Групповые занятия",
+        "spec_kids": "Тренировки для детей",
+        "spec_tourn": "Подготовка к турнирам",
+        "spec_sparr": "Спарринг",
+        "spec_other": "Другое"
+    }
+
+    spec = spec_map.get(callback.data) or beauty_map.get(callback.data) or tennis_map.get(callback.data)
     if spec:
         data = await state.get_data()
         specs = data.get('specializations', [])
@@ -252,15 +294,16 @@ async def process_experience(message: types.Message, state: FSMContext, is_admin
         data = await state.get_data()
         role = data.get('role')
 
-        if role == UserRole.BEAUTY:
-            # Skip formats (Step 5) for Beauty role
-            await state.update_data(work_format=WorkFormat.OFFLINE) # Default to offline for beauty
+        if role in [UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL]:
+            # Skip formats (Step 5) for non-fitness roles
+            await state.update_data(work_format=WorkFormat.OFFLINE) # Default to offline
             await state.set_state(TrainerOnboarding.price_services)
             specs = data.get('specializations', [])
             if specs:
                 await state.update_data(remaining_specs=specs.copy(), service_prices={})
                 first_spec = specs[0]
-                await message.answer(f"Шаг 6/9\n\nУкажите цену за услугу «{first_spec}» (в ₽):")
+                term_price = "услугу" if role == UserRole.BEAUTY else "направление"
+                await message.answer(f"Шаг 6/9\n\nУкажите цену за {term_price} «{first_spec}» (в ₽):")
             else:
                 await state.set_state(TrainerOnboarding.price_package)
                 await message.answer("Шаг 7/9\n\nУкажите цену за пакет услуг (в ₽):")
@@ -509,8 +552,13 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
         await state.clear()
 
         role_success_text = "Ваш профиль успешно создан / обновлён."
-        if data.get('role') == UserRole.BEAUTY:
+        role = data.get('role')
+        if role == UserRole.BEAUTY:
             role_success_text = "Ваш профиль бьюти-мастера успешно создан / обновлён."
+        elif role == UserRole.TENNIS:
+            role_success_text = "Ваш профиль тренера по теннису успешно создан / обновлён."
+        elif role == UserRole.PADEL:
+            role_success_text = "Ваш профиль тренера по падлу успешно создан / обновлён."
 
         await message.answer(
             f"Поздравляем! 🎉\n\n{role_success_text}",

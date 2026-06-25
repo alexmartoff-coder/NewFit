@@ -23,7 +23,9 @@ async def process_catalog_city(callback: types.CallbackQuery, state: FSMContext)
 
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="Фитнес", callback_data="cat_type_fitness")],
-        [types.InlineKeyboardButton(text="Бьюти", callback_data="cat_type_beauty")]
+        [types.InlineKeyboardButton(text="Бьюти", callback_data="cat_type_beauty")],
+        [types.InlineKeyboardButton(text="Большой теннис", callback_data="cat_type_tennis")],
+        [types.InlineKeyboardButton(text="Падл", callback_data="cat_type_padel")]
     ])
     text = f"Город: {city}\n\nКакая сфера услуг вас интересует?"
     if callback.message.photo:
@@ -40,11 +42,18 @@ async def process_catalog_type(callback: types.CallbackQuery, state: FSMContext,
     # Directly show specializations (services) buttons
     from src.keyboards.common import get_spec_kb
     data = await state.get_data()
-    role = "TRAINER" if cat_type == "fitness" else "BEAUTY"
+    role_map = {
+        "fitness": "TRAINER",
+        "beauty": "BEAUTY",
+        "tennis": "TENNIS",
+        "padel": "PADEL"
+    }
+    role = role_map.get(cat_type, "TRAINER")
     kb = get_spec_kb(role=role)
     kb = add_admin_button(kb, is_admin=is_admin)
 
-    text = f"Город: {data.get('city')}\nСфера: {'Фитнес' if cat_type == 'fitness' else 'Бьюти'}\n\nВыберите услугу:"
+    type_names = {"fitness": "Фитнес", "beauty": "Бьюти", "tennis": "Большой теннис", "padel": "Падл"}
+    text = f"Город: {data.get('city')}\nСфера: {type_names.get(cat_type, cat_type)}\n\nВыберите услугу:"
     if callback.message.photo:
         await callback.message.edit_caption(caption=text, reply_markup=kb)
     else:
@@ -116,7 +125,16 @@ async def process_filter_spec_callback(callback: types.CallbackQuery, state: FSM
         "spec_other": "Другое"
     }
 
-    spec = spec_map.get(callback.data) or beauty_map.get(callback.data)
+    tennis_map = {
+        "spec_indiv": "Индивидуальные тренировки",
+        "spec_group": "Групповые занятия",
+        "spec_kids": "Тренировки для детей",
+        "spec_tourn": "Подготовка к турнирам",
+        "spec_sparr": "Спарринг",
+        "spec_other": "Другое"
+    }
+
+    spec = spec_map.get(callback.data) or beauty_map.get(callback.data) or tennis_map.get(callback.data)
     if spec:
         data = await state.get_data()
         specs = data.get('specializations', [])
@@ -127,7 +145,14 @@ async def process_filter_spec_callback(callback: types.CallbackQuery, state: FSM
         await state.update_data(specializations=specs)
 
         from src.keyboards.common import get_spec_kb
-        role = "TRAINER" if data.get('catalog_type') == "fitness" else "BEAUTY"
+        cat_type = data.get('catalog_type')
+        role_map = {
+            "fitness": "TRAINER",
+            "beauty": "BEAUTY",
+            "tennis": "TENNIS",
+            "padel": "PADEL"
+        }
+        role = role_map.get(cat_type, "TRAINER")
         kb = get_spec_kb(selected_specs=specs, role=role)
         kb = add_admin_button(kb, is_admin=is_admin)
         await callback.message.edit_reply_markup(reply_markup=kb)
@@ -217,10 +242,14 @@ async def apply_filters(callback: types.CallbackQuery, state: FSMContext):
 
         # Filter by role based on catalog type
         cat_type = data.get('catalog_type')
-        if cat_type == "fitness":
-            filters.append(User.role == UserRole.TRAINER)
-        elif cat_type == "beauty":
-            filters.append(User.role == UserRole.BEAUTY)
+        role_filter_map = {
+            "fitness": UserRole.TRAINER,
+            "beauty": UserRole.BEAUTY,
+            "tennis": UserRole.TENNIS,
+            "padel": UserRole.PADEL
+        }
+        if cat_type in role_filter_map:
+            filters.append(User.role == role_filter_map[cat_type])
 
         if 'city' in data:
             filters.append(func.lower(TrainerProfile.city) == func.lower(data['city'].strip()))

@@ -114,10 +114,12 @@ async def init_db(engine):
                 # Исправляем Enum UserRole
                 try:
                     await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'BEAUTY'"))
+                    await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'TENNIS'"))
+                    await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'PADEL'"))
                     await conn.commit()
                 except Exception as e:
                     await conn.rollback()
-                    logger.warning(f"Could not add BEAUTY to userrole enum: {e}")
+                    logger.warning(f"Could not add roles to userrole enum: {e}")
 
                 # Вспомогательная функция для добавления колонки
                 async def add_column_safe(table, col_name, col_type):
@@ -349,7 +351,10 @@ async def init_db(engine):
                 'Реабилитация и ОФП', 'Кроссфит / HIIT', 'Тренировки для женщин/мужчин',
                 'Работа с подростками', 'Большой теннис', 'Падл', 'Маникюр', 'Педикюр',
                 'Массаж', 'Косметология', 'Парикмахерские услуги', 'Брови и ресницы',
-                'Макияж', 'Другое'
+                'Макияж',
+                'Индивидуальные тренировки', 'Групповые занятия', 'Тренировки для детей',
+                'Подготовка к турнирам', 'Спарринг',
+                'Другое'
             ]
 
             # Clear potentially truncated entries if they exist (names with length 1 or non-cyrillic artifacts)
