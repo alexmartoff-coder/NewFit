@@ -3,6 +3,7 @@ from aiogram.fsm.state import State, StatesGroup
 class TrainerOnboarding(StatesGroup):
     full_name = State()
     city = State()
+    sphere = State()
     specialization = State()
     experience = State()
     formats = State()
