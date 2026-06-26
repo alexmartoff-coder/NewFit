@@ -1,16 +1,19 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 def get_role_kb(is_admin: bool = False):
     kb = [
-        [KeyboardButton(text="Тренер"), KeyboardButton(text="Клиент")],
-        [KeyboardButton(text="Бьюти"), KeyboardButton(text="Большой теннис")],
-        [KeyboardButton(text="Падл")],
+        [KeyboardButton(text="Профи"), KeyboardButton(text="Клиент")],
         [KeyboardButton(text="❓ Узнать больше о NewFit")]
     ]
     if is_admin:
         kb.append([KeyboardButton(text="🛠 Админ")])
+    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, one_time_keyboard=True)
+
+def get_sphere_kb():
+    kb = [
+        [KeyboardButton(text="Фитнес"), KeyboardButton(text="Бьюти")],
+        [KeyboardButton(text="Большой теннис"), KeyboardButton(text="Падл")]
+    ]
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, one_time_keyboard=True)
 
 def get_trainer_main_kb(is_admin: bool = False):
