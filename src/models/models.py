@@ -33,6 +33,10 @@ class Specialization(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True)
 
+    trainer_profiles: Mapped[List["TrainerProfile"]] = relationship(
+        secondary=trainer_specializations, back_populates="specializations"
+    )
+
 class User(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True) # Telegram ID
@@ -68,10 +72,11 @@ class TrainerProfile(Base):
 
     user: Mapped["User"] = relationship(back_populates="trainer_profile")
     specializations: Mapped[List[Specialization]] = relationship(
-        secondary=trainer_specializations, backref="trainers"
+        secondary=trainer_specializations, back_populates="trainer_profiles"
     )
     subscriptions: Mapped[List["Subscription"]] = relationship(back_populates="trainer")
     bookings: Mapped[List["Booking"]] = relationship(back_populates="trainer_profile")
+    time_slots: Mapped[List["TimeSlot"]] = relationship(back_populates="trainer_profile")
 
 class ClientProfile(Base):
     __tablename__ = "client_profiles"
@@ -173,7 +178,7 @@ class TimeSlot(Base):
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
 
-    trainer_profile = relationship("TrainerProfile", backref="time_slots")
+    trainer_profile: Mapped["TrainerProfile"] = relationship(back_populates="time_slots")
 
 
 class Booking(Base):

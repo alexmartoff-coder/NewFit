@@ -4,9 +4,9 @@ from aiogram.fsm.context import FSMContext
 from src.states.trainer_onboarding import TrainerOnboarding
 from src.keyboards.common import get_format_kb, get_trainer_main_kb, get_start_reg_kb, get_spec_kb, get_city_kb, get_sphere_kb
 from src.keyboards.inline import add_admin_button
-from src.models.models import User, TrainerProfile, UserRole, WorkFormat, Specialization
+from src.models.models import User, TrainerProfile, UserRole, WorkFormat, Specialization, trainer_specializations
 from src.utils.db import SessionLocal
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete, insert
 from sqlalchemy.orm import selectinload
 
 router = Router()
@@ -150,6 +150,7 @@ async def process_experience(message: types.Message, state: FSMContext, is_admin
         await state.update_data(experience=exp)
         data = await state.get_data()
         role = data.get('role')
+        if isinstance(role, str): role = UserRole(role)
 
         if role in [UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL]:
             await state.update_data(work_format=WorkFormat.OFFLINE)
@@ -203,7 +204,8 @@ async def process_price_services(message: types.Message, state: FSMContext):
         if remaining_specs:
             await state.update_data(remaining_specs=remaining_specs, service_prices=service_prices)
             next_spec = remaining_specs[0]
-            term_price = "услугу" if data.get('role') == UserRole.BEAUTY else "направление"
+            role = data.get('role')
+            term_price = "услугу" if role == UserRole.BEAUTY or role == "BEAUTY" else "направление"
             await message.answer(f"Укажите цену за {term_price} «{next_spec}» (в ₽):")
         else:
             first_price = list(service_prices.values())[0] if service_prices else 0
@@ -263,10 +265,10 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
     user_id = effective_user_id or callback.from_user.id
     async with SessionLocal() as session:
         user = await session.get(User, user_id)
-        profile = (await session.execute(select(TrainerProfile).where(TrainerProfile.user_id == user_id).options(selectinload(TrainerProfile.specializations)))).scalar_one_or_none()
+        profile = (await session.execute(select(TrainerProfile).where(TrainerProfile.user_id == user_id))).scalar_one_or_none()
 
         if current_state == TrainerOnboarding.full_name:
-            await state.update_data(full_name=user.full_name)
+            await state.update_data(full_name=user.full_name if user else "Не указано")
             await state.set_state(TrainerOnboarding.experience)
             kb = None
             if profile and profile.experience:
@@ -274,10 +276,31 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
             await callback.message.answer("Шаг 6: Сколько лет вашего профессионального опыта?", reply_markup=add_admin_button(kb, is_admin=is_admin))
 
         elif current_state == TrainerOnboarding.experience:
-            await process_experience(types.Message(text=str(profile.experience), from_user=callback.from_user, chat=callback.message.chat, date=callback.message.date), state, is_admin, user_id)
+            if not profile:
+                await callback.message.answer("Введите ваш опыт работы числом:")
+                return
+            await state.update_data(experience=profile.experience)
+            data = await state.get_data()
+            role = data.get('role')
+            if isinstance(role, str): role = UserRole(role)
+
+            if role in [UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL]:
+                await state.update_data(work_format=WorkFormat.OFFLINE)
+                await state.set_state(TrainerOnboarding.price_services)
+                specs = data.get('specializations', [])
+                if specs:
+                    await state.update_data(remaining_specs=specs.copy(), service_prices={})
+                    term_price = "услугу" if role == UserRole.BEAUTY else "направление"
+                    await callback.message.answer(f"Шаг 8: Укажите цену за {term_price} «{specs[0]}» (в ₽):")
+                else:
+                    await state.set_state(TrainerOnboarding.price_package)
+                    await callback.message.answer("Шаг 9: Укажите цену за пакет услуг (в ₽):")
+            else:
+                await state.set_state(TrainerOnboarding.formats)
+                await callback.message.answer("Шаг 7: Какие форматы вы предлагаете?", reply_markup=get_format_kb())
 
         elif current_state == TrainerOnboarding.price_single:
-            await state.update_data(price_single=profile.price_single)
+            await state.update_data(price_single=profile.price_single if profile else 0.0)
             await state.set_state(TrainerOnboarding.price_package)
             kb = None
             if profile and profile.price_package:
@@ -285,12 +308,12 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
             await callback.message.answer("Шаг 9: Укажите цену за пакет услуг (в ₽):", reply_markup=add_admin_button(kb, is_admin=is_admin))
 
         elif current_state == TrainerOnboarding.price_package:
-            await state.update_data(price_package=profile.price_package)
+            await state.update_data(price_package=profile.price_package if profile else 0.0)
             await state.set_state(TrainerOnboarding.photo)
             await callback.message.answer("Загрузите ваше фото или оставьте прежнее:", reply_markup=types.ReplyKeyboardRemove())
 
         elif current_state == TrainerOnboarding.photo:
-            await state.update_data(photo_url=profile.photo_url)
+            await state.update_data(photo_url=profile.photo_url if profile else None)
             await state.set_state(TrainerOnboarding.video)
             kb = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text="Пропустить", callback_data="skip_video")], [types.InlineKeyboardButton(text="Не менять видео", callback_data="skip_step")]])
             await callback.message.answer("Загрузите видео-презентацию:", reply_markup=add_admin_button(kb, is_admin=is_admin))
@@ -302,39 +325,70 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
         data = await state.get_data()
         user_id = data.get('telegram_id', user_id)
         async with SessionLocal() as session:
-            user = await session.get(User, user_id)
+            # 1. Load User and Profile with explicit relationship loading
+            stmt = select(User).where(User.id == user_id).options(
+                selectinload(User.trainer_profile).selectinload(TrainerProfile.specializations)
+            )
+            res = await session.execute(stmt)
+            user = res.scalar_one_or_none()
+
             role = data.get('role', UserRole.TRAINER)
+            if isinstance(role, str): role = UserRole(role)
+
             if not user:
                 user = User(id=user_id, username=username, full_name=data.get('full_name', 'Не указано'), role=role)
                 session.add(user)
+                profile = None
             else:
                 user.role = role
                 user.full_name = data.get('full_name', user.full_name)
-            await session.flush()
+                profile = user.trainer_profile
 
-            profile = (await session.execute(select(TrainerProfile).where(TrainerProfile.user_id == user_id).options(selectinload(TrainerProfile.specializations)))).scalar_one_or_none()
+            work_fmt = data.get('work_format', WorkFormat.ONLINE)
+            if isinstance(work_fmt, str):
+                try: work_fmt = WorkFormat(work_fmt)
+                except ValueError: work_fmt = WorkFormat.ONLINE
+
             if not profile:
-                profile = TrainerProfile(user_id=user_id, city=data.get('city', 'Не указан'), experience=int(data.get('experience', 0)), work_format=data.get('work_format', WorkFormat.ONLINE), price_single=float(data.get('price_single', 0)), price_package=float(data.get('price_package', 0)), service_prices=data.get('service_prices'), photo_url=data.get('photo_url'), video_presentation_url=data.get('video_url'), status="approved")
+                profile = TrainerProfile(
+                    user_id=user_id, city=data.get('city', 'Не указан'),
+                    experience=int(data.get('experience', 0)),
+                    work_format=work_fmt,
+                    price_single=float(data.get('price_single', 0)),
+                    price_package=float(data.get('price_package', 0)),
+                    service_prices=data.get('service_prices'),
+                    photo_url=data.get('photo_url'),
+                    video_presentation_url=data.get('video_url'),
+                    status="approved"
+                )
                 session.add(profile)
             else:
                 profile.city = data.get('city', profile.city)
                 profile.experience = int(data.get('experience', profile.experience))
-                profile.work_format = data.get('work_format', profile.work_format)
+                profile.work_format = work_fmt
                 profile.price_single = float(data.get('price_single', profile.price_single))
                 profile.price_package = float(data.get('price_package', profile.price_package))
                 profile.service_prices = data.get('service_prices', profile.service_prices)
                 if data.get('photo_url'): profile.photo_url = data.get('photo_url')
                 if data.get('video_url'): profile.video_presentation_url = data.get('video_url')
 
-            await session.flush()
+            await session.flush() # Ensure profile.id is available
+
+            # 3. Update Specializations using association table directly
             if data.get('specializations'):
                 spec_names = [s.strip() for s in data['specializations']]
-                found_specs = list((await session.execute(select(Specialization).where(func.lower(func.trim(Specialization.name)).in_([s.lower() for s in spec_names])))).scalars().all())
-                profile.specializations.clear()
-                for s in found_specs: profile.specializations.append(s)
+                spec_ids_stmt = select(Specialization.id).where(
+                    func.lower(func.trim(Specialization.name)).in_([s.lower() for s in spec_names])
+                )
+                spec_ids = (await session.execute(spec_ids_stmt)).scalars().all()
+
+                await session.execute(delete(trainer_specializations).where(trainer_specializations.c.trainer_id == profile.id))
+                for sid in spec_ids:
+                    await session.execute(insert(trainer_specializations).values(trainer_id=profile.id, specialization_id=sid))
+
             await session.commit()
         await state.clear()
-        await message.answer(f"Поздравляем! 🎉 Профиль успешно {'обновлён' if profile else 'создан'}.", reply_markup=get_trainer_main_kb(is_admin=is_admin))
+        await message.answer("Поздравляем! 🎉 Профиль успешно сохранён.", reply_markup=get_trainer_main_kb(is_admin=is_admin))
     except Exception as e:
         logger.exception("Error in finish_onboarding")
         await message.answer("❌ Ошибка при сохранении профиля.")
