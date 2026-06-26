@@ -237,7 +237,6 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             slot_format = data.get('override_format', slot.format)
 
             # Determine role-specific terminology
-            from src.models.models import UserRole
             is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY
             is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in slot_format.split(", "))
 
