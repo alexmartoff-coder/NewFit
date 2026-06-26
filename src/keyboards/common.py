@@ -115,3 +115,31 @@ def get_city_kb():
         resize_keyboard=True,
         one_time_keyboard=True
     )
+
+def get_district_kb(city: str):
+    if city == "Москва":
+        districts = [
+            "ЦАО", "САО", "СВАО", "ВАО", "ЮВАО",
+            "ЮАО", "ЮЗАО", "ЗАО", "СЗАО", "Зеленоград", "Новая Москва"
+        ]
+    elif city == "Санкт-Петербург":
+        districts = [
+            "Центральный", "Адмиралтейский", "Василеостровский", "Петроградский",
+            "Выборгский", "Калининский", "Приморский", "Московский", "Фрунзенский",
+            "Невский", "Кировский", "Красносельский", "Красногвардейский",
+            "Пушкинский", "Петродворцовый", "Колпинский", "Курортный", "Кронштадтский"
+        ]
+    else:
+        return None
+
+    kb = []
+    row = []
+    for d in districts:
+        row.append(KeyboardButton(text=d))
+        if len(row) == 2:
+            kb.append(row)
+            row = []
+    if row:
+        kb.append(row)
+
+    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, one_time_keyboard=True)

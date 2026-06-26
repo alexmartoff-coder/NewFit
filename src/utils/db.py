@@ -288,6 +288,8 @@ async def init_db(engine):
                 await add_column_safe("trainer_profiles", "rating", "FLOAT DEFAULT 5.0")
                 await add_column_safe("trainer_profiles", "is_premium", "BOOLEAN DEFAULT FALSE")
                 await add_column_safe("trainer_profiles", "status", "VARCHAR(20) DEFAULT 'approved'")
+                await add_column_safe("trainer_profiles", "district", "VARCHAR(100)")
+                await add_column_safe("trainer_profiles", "phone", "VARCHAR(20)")
 
                 # time_slots extra
                 await add_column_safe("time_slots", "format", "VARCHAR(100) DEFAULT 'hybrid'")

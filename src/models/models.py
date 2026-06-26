@@ -58,6 +58,8 @@ class TrainerProfile(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), unique=True)
     city: Mapped[str] = mapped_column(String(100))
+    district: Mapped[Optional[str]] = mapped_column(String(100))
+    phone: Mapped[Optional[str]] = mapped_column(String(20))
     experience: Mapped[int] = mapped_column(Integer, default=0)
     certificates: Mapped[Optional[str]] = mapped_column(String(1000))
     work_format: Mapped[WorkFormat] = mapped_column(SQLEnum(WorkFormat))
