@@ -36,6 +36,10 @@ async def main():
     dp.include_router(admin.router)
     dp.include_router(schedule.router)
 
+    logger.info("Starting reminder worker...")
+    from src.services.reminders import ReminderService
+    asyncio.create_task(ReminderService.process_reminders(bot))
+
     logger.info("Starting bot...")
     await dp.start_polling(bot)
 

@@ -723,10 +723,10 @@ async def delete_slot_callback(callback: types.CallbackQuery, effective_user_id:
             await callback.answer("Профиль не найден!")
             return
 
-        now = datetime.now()
+        now_utc = datetime.now(UTC).replace(tzinfo=None)
         stmt = select(TimeSlot).where(
             TimeSlot.trainer_profile_id == profile.id,
-            TimeSlot.start_time >= now
+            TimeSlot.start_time >= now_utc
         ).order_by(TimeSlot.start_time.asc())
         res = await session.execute(stmt)
         slots = res.scalars().all()
@@ -736,8 +736,13 @@ async def delete_slot_callback(callback: types.CallbackQuery, effective_user_id:
             return
 
         kb = []
+        moscow_tz = gettz('Europe/Moscow')
         for s in slots:
-            btn_text = f"❌ {s.start_time.strftime('%d.%m %H:%M')} ({int(s.price)}₽)"
+            # Convert UTC from DB to Moscow for display
+            s_start = s.start_time.replace(tzinfo=UTC) if s.start_time.tzinfo is None else s.start_time.astimezone(UTC)
+            start_moscow = s_start.astimezone(moscow_tz)
+
+            btn_text = f"❌ {start_moscow.strftime('%d.%m %H:%M')} ({int(s.price)}₽)"
             kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"slot_del_conf_{s.id}")])
 
         kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")])

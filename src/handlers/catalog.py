@@ -408,7 +408,9 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
         else:
             fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
             for trainer_profile, user in professionals:
-                specs_str = ", ".join([s.name for s in trainer_profile.specializations]) or "не указаны"
+                # Capture current specializations for this profile to pass to booking state
+                current_profile_specs = [s.name for s in trainer_profile.specializations]
+                specs_str = ", ".join(current_profile_specs) or "не указаны"
                 work_fmt = trainer_profile.work_format.value if hasattr(trainer_profile.work_format, 'value') else str(trainer_profile.work_format)
                 work_fmt_ru = fmt_map.get(work_fmt, work_fmt.lower())
 
@@ -431,6 +433,11 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
                         [types.InlineKeyboardButton(text="🔙 Назад к фильтрам", callback_data="filter_back")]
                     ]
                 )
+
+                # If we have filtered by specific specializations, we want the booking flow to know about them
+                # for the terminology fix.
+                # Note: We'll actually handle this in start_booking by checking the specialist's profile directly
+                # but we can also store the 'intended' specialization here.
                 if trainer_profile.photo_url:
                     await callback.message.answer_photo(trainer_profile.photo_url, caption=text, reply_markup=kb)
                 else:
