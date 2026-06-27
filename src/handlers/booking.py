@@ -19,14 +19,16 @@ async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_adm
 
     # Resolve professional profile
     async with SessionLocal() as session:
-        stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == trainer_user_id)
+        stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == trainer_user_id).options(selectinload(TrainerProfile.specializations))
         profile = (await session.execute(stmt_p)).scalar_one_or_none()
         if not profile:
             await callback.answer("Профиль профессионала не найден!")
             return
 
         trainer_profile_id = profile.id
-        await state.update_data(trainer_profile_id=trainer_profile_id, trainer_user_id=trainer_user_id)
+        # Store specialist's services in state for terminology/format fix later
+        specs = [s.name for s in profile.specializations]
+        await state.update_data(trainer_profile_id=trainer_profile_id, trainer_user_id=trainer_user_id, specializations=specs)
 
         now = datetime.now()
         end_view = now + timedelta(days=14)
@@ -150,12 +152,13 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
         # Determine if we should use 'Услуга' label
         is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY
         is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in specs)
+        is_service_based = is_beauty or is_specific_sport
 
-        term_format = "Услуга" if (is_beauty or is_specific_sport) else "Формат"
+        term_format = "Услуга" if is_service_based else "Формат"
 
-        # Try to use the selected service from state if it's broad 'hybrid'
+        # Try to use the selected service from state if it's broad 'hybrid' or we want specific niche labels
         display_format = slot.format
-        if slot.format.lower() == "hybrid" and specs:
+        if (slot.format.lower() == "hybrid" or is_service_based) and specs:
             display_format = ", ".join(specs)
             # Update slot format in state to carry over to booking
             await state.update_data(override_format=display_format)
