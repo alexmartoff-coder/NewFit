@@ -1,7 +1,7 @@
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
-from sqlalchemy import select
-from src.models.models import User, ClientProfile, UserRole
+from sqlalchemy import select, func
+from src.models.models import User, ClientProfile, UserRole, Booking
 from src.utils.db import SessionLocal
 from src.keyboards.common import get_client_main_kb
 from src.states.client_onboarding import ClientOnboarding
@@ -21,8 +21,12 @@ async def client_start(event: types.Message | types.CallbackQuery, state: FSMCon
 
         # If user has a role and profile with a name, skip onboarding
         if user and user.role == UserRole.CLIENT and client_profile and client_profile.full_name:
+            count_stmt = select(func.count(Booking.id)).where(Booking.client_id == client_profile.id)
+            booking_count = (await session.execute(count_stmt)).scalar_one()
+            has_specialists = booking_count > 0
+
             text = "🏋️‍♀️ NewFit — найди своего мастера\n\nЧто хотите сделать?"
-            await message.answer(text, reply_markup=get_client_main_kb(is_admin=is_admin))
+            await message.answer(text, reply_markup=get_client_main_kb(is_admin=is_admin, has_specialists=has_specialists))
             if isinstance(event, types.CallbackQuery):
                 await event.answer()
             return
@@ -71,7 +75,8 @@ async def process_client_name(message: types.Message, state: FSMContext, is_admi
         await session.commit()
 
     await state.clear()
+    # New clients definitely don't have specialists yet
     await message.answer(
         f"Приятно познакомиться, {full_name}! 👋\n\nТеперь вы можете выбирать услуги и записываться к мастерам.",
-        reply_markup=get_client_main_kb(is_admin=is_admin)
+        reply_markup=get_client_main_kb(is_admin=is_admin, has_specialists=False)
     )

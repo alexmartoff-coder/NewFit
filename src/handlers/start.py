@@ -4,6 +4,7 @@ from src.keyboards.common import get_role_kb
 from src.keyboards.inline import add_admin_button
 from src.models.models import User, UserRole
 from src.utils.db import SessionLocal
+from sqlalchemy import select, func
 
 router = Router()
 
@@ -26,7 +27,19 @@ async def cmd_start(message: types.Message, is_admin: bool = False, effective_us
                 return
             elif user.role == UserRole.CLIENT:
                 from src.keyboards.common import get_client_main_kb
-                kb = get_client_main_kb(is_admin=is_admin)
+                from src.models.models import ClientProfile, Booking
+
+                async with SessionLocal() as session:
+                    cp_stmt = select(ClientProfile).where(ClientProfile.user_id == user.id)
+                    cp = (await session.execute(cp_stmt)).scalar_one_or_none()
+
+                    has_specialists = False
+                    if cp:
+                        count_stmt = select(func.count(Booking.id)).where(Booking.client_id == cp.id)
+                        booking_count = (await session.execute(count_stmt)).scalar_one()
+                        has_specialists = booking_count > 0
+
+                kb = get_client_main_kb(is_admin=is_admin, has_specialists=has_specialists)
                 await message.answer(f"С возвращением! Личный кабинет клиента:", reply_markup=kb)
                 return
 

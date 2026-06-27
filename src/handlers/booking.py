@@ -273,7 +273,8 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
 
             # Show main menu keyboard to client
             from src.keyboards.common import get_client_main_kb
-            kb = get_client_main_kb()
+            # After a successful booking, the user definitely has at least one specialist now
+            kb = get_client_main_kb(has_specialists=True)
 
             if callback.message.photo:
                 await callback.message.answer(text, reply_markup=kb, parse_mode="Markdown")

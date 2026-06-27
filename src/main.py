@@ -2,7 +2,7 @@ import asyncio
 import logging
 from aiogram import Bot, Dispatcher
 from src.utils.config import settings
-from src.handlers import start, trainer_onboarding, client_onboarding, catalog, profiles, booking, subscriptions, admin, schedule
+from src.handlers import start, trainer_onboarding, client_onboarding, catalog, profiles, booking, subscriptions, admin, schedule, favorites
 from src.utils.db import init_db, engine
 from src.middlewares.admin_middleware import AdminMiddleware
 
@@ -33,6 +33,7 @@ async def main():
     dp.include_router(profiles.router)
     dp.include_router(booking.router)
     dp.include_router(subscriptions.router)
+    dp.include_router(favorites.router)
     dp.include_router(admin.router)
     dp.include_router(schedule.router)
 

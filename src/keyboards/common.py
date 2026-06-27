@@ -26,11 +26,18 @@ def get_trainer_main_kb(is_admin: bool = False):
         kb.append([KeyboardButton(text="🛠 Админ")])
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
-def get_client_main_kb(is_admin: bool = False):
+def get_client_main_kb(is_admin: bool = False, has_specialists: bool = False):
     kb = [
         [KeyboardButton(text="Выбрать услугу")],
-        [KeyboardButton(text="Мои записи"), KeyboardButton(text="💬 Мои диалоги")]
     ]
+
+    records_row = [KeyboardButton(text="Мои записи")]
+    if has_specialists:
+        records_row.append(KeyboardButton(text="Специалисты"))
+    kb.append(records_row)
+
+    kb.append([KeyboardButton(text="💬 Мои диалоги")])
+
     if is_admin:
         kb.append([KeyboardButton(text="🛠 Админ")])
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
