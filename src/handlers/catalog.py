@@ -30,11 +30,16 @@ async def search_by_phone_prompt(callback: types.CallbackQuery, state: FSMContex
 @router.message(F.text, F.state == "waiting_for_phone_search")
 async def process_phone_search(message: types.Message, state: FSMContext):
     phone = "".join(filter(str.isdigit, message.text))
+    if not phone or len(phone) < 3:
+        await message.answer("Пожалуйста, введите корректный номер телефона (минимум 3 цифры).")
+        return
+
     # Basic phone normalization or search
     async with SessionLocal() as session:
         from sqlalchemy.orm import selectinload
+        # Use regexp_replace on DB side for even more robust search if it wasn't normalized
         stmt = select(TrainerProfile, User).join(User).where(
-            TrainerProfile.phone.like(f"%{phone}%")
+            func.regexp_replace(TrainerProfile.phone, '\D', '', 'g').like(f"%{phone}%")
         ).options(selectinload(TrainerProfile.specializations))
         res = await session.execute(stmt)
         professionals = res.all()
@@ -333,7 +338,7 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
             filters.append(User.role == role_filter_map[cat_type])
 
         if 'phone_search' in data:
-            filters.append(TrainerProfile.phone.like(f"%{data['phone_search']}%"))
+            filters.append(func.regexp_replace(TrainerProfile.phone, '\D', '', 'g').like(f"%{data['phone_search']}%"))
         if 'city' in data:
             filters.append(func.lower(TrainerProfile.city) == func.lower(data['city'].strip()))
         if 'district' in data and data['district']:

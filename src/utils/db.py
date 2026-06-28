@@ -296,6 +296,18 @@ async def init_db(engine):
                 await add_column_safe("trainer_profiles", "district", "VARCHAR(100)")
                 await add_column_safe("trainer_profiles", "phone", "VARCHAR(20)")
 
+                # Normalize existing phone numbers in trainer_profiles
+                try:
+                    await conn.execute(text("""
+                        UPDATE trainer_profiles
+                        SET phone = regexp_replace(phone, '\D', '', 'g')
+                        WHERE phone IS NOT NULL AND phone != '';
+                    """))
+                    await conn.commit()
+                except Exception as e:
+                    logger.warning(f"Could not normalize phone numbers: {e}")
+                    await conn.rollback()
+
                 # time_slots extra
                 await add_column_safe("time_slots", "format", "VARCHAR(100) DEFAULT 'hybrid'")
                 try:
