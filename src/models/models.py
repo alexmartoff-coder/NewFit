@@ -109,6 +109,7 @@ class Subscription(Base):
 class Review(Base):
     __tablename__ = "reviews"
     id: Mapped[int] = mapped_column(primary_key=True)
+    booking_id: Mapped[Optional[int]] = mapped_column(ForeignKey("bookings.id"))
     trainer_id: Mapped[int] = mapped_column(ForeignKey("trainer_profiles.id"))
     client_id: Mapped[int] = mapped_column(ForeignKey("client_profiles.id"))
     rating: Mapped[int] = mapped_column(Integer)

@@ -174,7 +174,8 @@ async def process_name(message: types.Message, state: FSMContext, effective_user
 # --- STEP 7: Phone ---
 @router.message(TrainerOnboarding.phone)
 async def process_phone(message: types.Message, state: FSMContext, effective_user_id: int = None, is_admin: bool = False):
-    await state.update_data(phone=message.text.strip())
+    normalized_phone = "".join(filter(str.isdigit, message.text))
+    await state.update_data(phone=normalized_phone)
     await state.set_state(TrainerOnboarding.experience)
 
     user_id = effective_user_id or message.from_user.id

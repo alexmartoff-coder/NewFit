@@ -25,12 +25,11 @@ async def start_catalog(message: types.Message, state: FSMContext):
 async def search_by_phone_prompt(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state("waiting_for_phone_search")
     await callback.message.edit_text("Введите номер телефона мастера для поиска:")
-    if callback:
-        await callback.answer()
+    await callback.answer()
 
 @router.message(F.text, F.state == "waiting_for_phone_search")
 async def process_phone_search(message: types.Message, state: FSMContext):
-    phone = message.text.strip()
+    phone = "".join(filter(str.isdigit, message.text))
     # Basic phone normalization or search
     async with SessionLocal() as session:
         from sqlalchemy.orm import selectinload
@@ -79,8 +78,7 @@ async def process_catalog_city(callback: types.CallbackQuery, state: FSMContext)
         await callback.message.edit_caption(caption=text, reply_markup=kb)
     else:
         await callback.message.edit_text(text, reply_markup=kb)
-    if callback:
-        await callback.answer()
+    await callback.answer()
 
 @router.callback_query(F.data.startswith("cat_type_"))
 async def process_catalog_type(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
@@ -107,16 +105,14 @@ async def process_catalog_type(callback: types.CallbackQuery, state: FSMContext,
     else:
         await callback.message.edit_text(text, reply_markup=kb)
     await state.set_state(CatalogFilter.entering_specialization)
-    if callback:
-        await callback.answer()
+    await callback.answer()
 
 @router.callback_query(F.data == "filter_city")
 async def filter_city(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(CatalogFilter.entering_city)
     from src.keyboards.common import get_city_kb
     await callback.message.answer("Выберите или введите название города:", reply_markup=get_city_kb())
-    if callback:
-        await callback.answer()
+    await callback.answer()
 
 @router.message(CatalogFilter.entering_city)
 async def process_filter_city(message: types.Message, state: FSMContext, is_admin: bool = False):
@@ -171,8 +167,7 @@ async def filter_spec(callback: types.CallbackQuery, state: FSMContext, is_admin
         await callback.message.edit_caption(caption=text, reply_markup=kb)
     else:
         await callback.message.edit_text(text, reply_markup=kb)
-    if callback:
-        await callback.answer()
+    await callback.answer()
 
 @router.callback_query(F.data.startswith("spec_"), CatalogFilter.entering_specialization)
 async def process_filter_spec_callback(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
@@ -243,23 +238,20 @@ async def filter_price(callback: types.CallbackQuery, is_admin: bool = False):
     kb = get_price_filter_kb()
     kb = add_admin_button(kb, is_admin=is_admin)
     await callback.message.edit_reply_markup(reply_markup=kb)
-    if callback:
-        await callback.answer()
+    await callback.answer()
 
 @router.callback_query(F.data == "filter_back")
 async def filter_back(callback: types.CallbackQuery, is_admin: bool = False):
     kb = get_filter_kb()
     kb = add_admin_button(kb, is_admin=is_admin)
     await callback.message.edit_reply_markup(reply_markup=kb)
-    if callback:
-        await callback.answer()
+    await callback.answer()
 
 @router.callback_query(F.data == "price_min")
 async def filter_price_min(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(CatalogFilter.entering_price_min)
     await callback.message.answer("Введите минимальную цену:")
-    if callback:
-        await callback.answer()
+    await callback.answer()
 
 @router.message(CatalogFilter.entering_price_min)
 async def process_price_min(message: types.Message, state: FSMContext, is_admin: bool = False):
@@ -276,8 +268,7 @@ async def process_price_min(message: types.Message, state: FSMContext, is_admin:
 async def filter_price_max(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(CatalogFilter.entering_price_max)
     await callback.message.answer("Введите максимальную цену:")
-    if callback:
-        await callback.answer()
+    await callback.answer()
 
 @router.message(CatalogFilter.entering_price_max)
 async def process_price_max(message: types.Message, state: FSMContext, is_admin: bool = False):
@@ -300,8 +291,7 @@ async def filter_reset(callback: types.CallbackQuery, state: FSMContext, is_admi
         await callback.message.edit_caption(caption=text, reply_markup=kb)
     else:
         await callback.message.edit_text(text, reply_markup=kb)
-    if callback:
-        await callback.answer()
+    await callback.answer()
 
 @router.callback_query(F.data == "filter_apply")
 @router.callback_query(F.data.startswith("cat_page_"))
@@ -401,10 +391,13 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
         if not professionals:
             kb = get_filter_kb()
             text = "❌ К сожалению, профессионалов по вашему запросу не найдено.\n\nПопробуйте изменить город или сбросить фильтры."
-            if callback.message.photo:
-                await callback.message.edit_caption(caption=text, reply_markup=kb)
+            if callback:
+                if message.photo:
+                    await message.edit_caption(caption=text, reply_markup=kb)
+                else:
+                    await message.edit_text(text, reply_markup=kb)
             else:
-                await callback.message.edit_text(text, reply_markup=kb)
+                await message.answer(text, reply_markup=kb)
         else:
             fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
             for trainer_profile, user in professionals:
@@ -424,7 +417,7 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
                     f"🎯 Специализации: {specs_str}\n"
                     f"💰 Разовое: {trainer_profile.price_single}₽\n"
                     f"💳 12 занятий: {trainer_profile.price_package}₽\n"
-                    f"⭐ Рейтинг: {trainer_profile.rating}\n"
+                    f"⭐ Рейтинг: {trainer_profile.rating:.1f}\n"
                     f"📝 Формат: {work_fmt_ru}"
                 )
                 kb = types.InlineKeyboardMarkup(
@@ -439,9 +432,9 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
                 # Note: We'll actually handle this in start_booking by checking the specialist's profile directly
                 # but we can also store the 'intended' specialization here.
                 if trainer_profile.photo_url:
-                    await callback.message.answer_photo(trainer_profile.photo_url, caption=text, reply_markup=kb)
+                    await message.answer_photo(trainer_profile.photo_url, caption=text, reply_markup=kb)
                 else:
-                    await callback.message.answer(text, reply_markup=kb)
+                    await message.answer(text, reply_markup=kb)
 
             # Pagination buttons
             pagination_buttons = []
@@ -451,7 +444,7 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
                 pagination_buttons.append(types.InlineKeyboardButton(text="Вперёд ➡️", callback_data=f"cat_page_{page+1}"))
 
             if pagination_buttons:
-                await callback.message.answer(
+                await message.answer(
                     f"Страница {page+1} из {(total_count + limit - 1) // limit}",
                     reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[pagination_buttons])
                 )

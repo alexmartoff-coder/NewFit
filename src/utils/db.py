@@ -241,6 +241,9 @@ async def init_db(engine):
                     ALTER TABLE reviews ADD CONSTRAINT reviews_client_id_fkey
                     FOREIGN KEY (client_id) REFERENCES client_profiles(id) ON DELETE CASCADE;
 
+                    ALTER TABLE reviews ADD CONSTRAINT reviews_booking_id_fkey
+                    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE;
+
                 EXCEPTION WHEN others THEN
                     RAISE NOTICE 'FK comprehensive repair error: %', SQLERRM;
                 END $$;
@@ -266,6 +269,8 @@ async def init_db(engine):
 
                 await add_column_safe("client_profiles", "full_name", "VARCHAR(128)")
                 await add_column_safe("client_profiles", "status", "VARCHAR(20) DEFAULT 'active'")
+
+                await add_column_safe("reviews", "booking_id", "INTEGER")
 
 
                 # trainer_schedules columns
