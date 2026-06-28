@@ -34,10 +34,15 @@ async def process_phone_search(message: types.Message, state: FSMContext):
         await message.answer("Пожалуйста, введите корректный номер телефона (минимум 3 цифры).")
         return
 
+    # Clear state to make phone search global (ignore previous city/spec filters)
+    await state.clear()
+    await state.update_data(phone_search=phone)
+
     # Basic phone normalization or search
     async with SessionLocal() as session:
         from sqlalchemy.orm import selectinload
-        # Use regexp_replace on DB side for even more robust search if it wasn't normalized
+        # Use regexp_replace on DB side for even more robust search
+        # We also support partial matches
         stmt = select(TrainerProfile, User).join(User).where(
             func.regexp_replace(TrainerProfile.phone, '\D', '', 'g').like(f"%{phone}%")
         ).options(selectinload(TrainerProfile.specializations))
@@ -46,14 +51,9 @@ async def process_phone_search(message: types.Message, state: FSMContext):
 
         if not professionals:
             await message.answer("Мастер с таким номером не найден.")
-            await state.clear()
             return
 
         await message.answer(f"Найдено мастеров: {len(professionals)}")
-        # Reuse display logic or just show cards
-        # For simplicity, we'll manually call display or just show results here
-        # Redirecting to display logic
-        await state.update_data(phone_search=phone)
         await apply_filters(message, state)
 
 @router.callback_query(F.data.startswith("cat_city_"))
@@ -326,19 +326,19 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
 
         filters = [TrainerProfile.status == "approved"]
 
-        # Filter by role based on catalog type
-        cat_type = data.get('catalog_type')
-        role_filter_map = {
-            "fitness": UserRole.TRAINER,
-            "beauty": UserRole.BEAUTY,
-            "tennis": UserRole.TENNIS,
-            "padel": UserRole.PADEL
-        }
-        if cat_type in role_filter_map:
-            filters.append(User.role == role_filter_map[cat_type])
-
         if 'phone_search' in data:
             filters.append(func.regexp_replace(TrainerProfile.phone, '\D', '', 'g').like(f"%{data['phone_search']}%"))
+        else:
+            # Filter by role based on catalog type (only if not searching by phone)
+            cat_type = data.get('catalog_type')
+            role_filter_map = {
+                "fitness": UserRole.TRAINER,
+                "beauty": UserRole.BEAUTY,
+                "tennis": UserRole.TENNIS,
+                "padel": UserRole.PADEL
+            }
+            if cat_type in role_filter_map:
+                filters.append(User.role == role_filter_map[cat_type])
         if 'city' in data:
             filters.append(func.lower(TrainerProfile.city) == func.lower(data['city'].strip()))
         if 'district' in data and data['district']:
