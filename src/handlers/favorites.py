@@ -45,10 +45,11 @@ async def show_favorites(message: types.Message, is_admin: bool = False, effecti
 
             text = (
                 f"👤 **{user_data.full_name}**\n"
+                f"📞 Телефон: {profile.phone or 'не указан'}\n"
                 f"📍 {profile.city}"
                 f"{f', {profile.district}' if profile.district else ''}\n"
                 f"🎯 {specs_str}\n"
-                f"⭐ Рейтинг: {profile.rating}"
+                f"⭐ Рейтинг: {profile.rating:.1f}"
             )
 
             kb = types.InlineKeyboardMarkup(inline_keyboard=[
