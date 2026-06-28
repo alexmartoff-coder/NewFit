@@ -8,7 +8,7 @@ from aiogram.fsm.state import State, StatesGroup
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from src.models.models import User, TrainerProfile, ClientProfile, UserRole, Booking, TimeSlot
+from src.models.models import User, TrainerProfile, ClientProfile, UserRole, Booking, TimeSlot, PROFESSIONAL_ROLES
 from src.utils.db import SessionLocal
 from src.keyboards.common import get_trainer_main_kb, get_client_main_kb
 from src.keyboards.inline import add_admin_button
@@ -29,25 +29,29 @@ async def show_profile_cmd(message: types.Message, effective_user_id: int = None
             await message.answer("Вы не зарегистрированы. Используйте /start")
             return
 
-        if user.role == UserRole.TRAINER:
-            query = select(TrainerProfile).where(TrainerProfile.user_id == user.id)
-            result = await session.execute(query)
-            profile = result.scalar_one_or_none()
+        if user.role in PROFESSIONAL_ROLES:
+            stmt = select(TrainerProfile).where(TrainerProfile.user_id == user.id).options(selectinload(TrainerProfile.specializations))
+            res = await session.execute(stmt)
+            profile = res.scalar_one_or_none()
 
-            fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
-            work_fmt = profile.work_format.value if hasattr(profile.work_format, 'value') else str(profile.work_format)
-            work_fmt_ru = fmt_map.get(work_fmt, work_fmt.lower())
+            if profile:
+                specs = ", ".join([s.name for s in profile.specializations]) or "не указаны"
+                fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
+                work_fmt = profile.work_format.value if hasattr(profile.work_format, 'value') else str(profile.work_format)
+                work_fmt_ru = fmt_map.get(work_fmt, work_fmt.lower())
 
-            text = (
-                f"👤 Профиль профессионала: {user.full_name}\n"
-                f"📍 Город: {profile.city}\n"
-                f"💪 Опыт: {profile.experience}\n"
-                f"💰 Разовое: {profile.price_single}₽\n"
-                f"💳 12 занятий: {profile.price_package}₽\n"
-                f"⭐ Рейтинг: {profile.rating}\n"
-                f"📝 Формат: {work_fmt_ru}"
-            )
-            await message.answer(text)
+                text = (
+                    f"👨‍🏫 **Ваш профиль профессионала**\n\n"
+                    f"👤 Имя: {user.full_name}\n"
+                    f"📍 Город: {profile.city}\n"
+                    f"💪 Опыт: {profile.experience} лет\n"
+                    f"🎯 Специализации: {specs}\n"
+                    f"💰 Цена (разовое): {profile.price_single}₽\n"
+                    f"💳 Цена (пакет 12): {profile.price_package}₽\n"
+                    f"⭐ Рейтинг: {profile.rating}\n"
+                    f"🏷 Формат: {work_fmt_ru}\n"
+                )
+                await message.answer(text, parse_mode="Markdown")
         else:
             await message.answer(f"👤 Профиль клиента: {user.full_name}")
 
@@ -60,7 +64,7 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
             await message.answer("Вы не зарегистрированы. Используйте /start")
             return
 
-        if user.role == UserRole.TRAINER:
+        if user.role in PROFESSIONAL_ROLES:
             stmt = select(TrainerProfile).where(TrainerProfile.user_id == user.id).options(selectinload(TrainerProfile.specializations))
             res = await session.execute(stmt)
             profile = res.scalar_one_or_none()
@@ -101,8 +105,14 @@ async def show_schedule_placeholder(message: types.Message, effective_user_id: i
 
 @router.message(F.text == "Мои клиенты")
 @router.message(F.text == "/clients")
-async def show_clients(message: types.Message, effective_user_id: int = None):
-    user_id = effective_user_id or message.from_user.id
+@router.callback_query(F.data == "clients_list")
+async def show_clients(event: types.Message | types.CallbackQuery, effective_user_id: int = None):
+    if isinstance(event, types.CallbackQuery):
+        user_id = effective_user_id or event.from_user.id
+        message = event.message
+    else:
+        user_id = effective_user_id or event.from_user.id
+        message = event
     async with SessionLocal() as session:
         moscow_tz = gettz('Europe/Moscow')
 
@@ -131,36 +141,50 @@ async def show_clients(message: types.Message, effective_user_id: int = None):
         bookings = res.scalars().all()
 
         if not bookings:
-            await message.answer("У вас пока нет записей от клиентов.")
-            return
+            await message.answer("У вас пока нет предстоящих записей от клиентов.")
+        else:
+            text = "📅 **Ближайшие записи:**\n\n"
+            for b in bookings:
+                start_moscow = b.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
+                client_name = b.client.full_name or "Клиент"
 
-        text = "👥 **Список записей клиентов:**\n\n"
-        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+                slot_format = b.slot.format if b.slot else ""
+                is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in slot_format.split(", "))
+                term_format = "Услуга" if (profile.user.role == UserRole.BEAUTY or is_specific_sport) else "Формат"
 
-        for b in bookings:
-            status_icon = "✅" if b.start_time > now_utc else "📜"
-            start_moscow = b.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
+                text += (
+                    f"✅ {start_moscow.strftime('%d.%m %H:%M')}\n"
+                    f"👤 Клиент: {client_name}\n"
+                    f"🏷 {term_format}: {slot_format or 'не указан'}\n"
+                    f"💰 Цена: {int(b.price)}₽\n"
+                    f"-------------------\n"
+                )
+            await message.answer(text, parse_mode="Markdown")
 
-            client_name = b.client.full_name or "Клиент"
-            username = b.client.user.username if b.client.user else None
-            contact_btn = ""
-            if username:
-                contact_btn = f" | [Написать](https://t.me/{username})"
+        # Now show "My Clients" list for re-booking
+        stmt_clients = (
+            select(ClientProfile)
+            .join(Booking, Booking.client_id == ClientProfile.id)
+            .where(Booking.trainer_profile_id == profile.id)
+            .distinct()
+            .options(selectinload(ClientProfile.user))
+        )
+        res_clients = await session.execute(stmt_clients)
+        unique_clients = res_clients.scalars().all()
 
-            # Label based on role or service type
-            slot_format = b.slot.format if b.slot else ""
-            is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in slot_format.split(", "))
-            term_format = "Услуга" if (profile.user.role == UserRole.BEAUTY or is_specific_sport) else "Формат"
+        if unique_clients:
+            text_clients = "👥 **Ваши клиенты (для повторной записи):**"
+            kb_list = []
+            for c in unique_clients:
+                client_name = c.full_name or f"ID {c.id}"
+                kb_list.append([types.InlineKeyboardButton(
+                    text=f"Забронировать для {client_name}",
+                    callback_data=f"pro_book_client_{c.id}"
+                )])
 
-            text += (
-                f"{status_icon} {start_moscow.strftime('%d.%m %H:%M')}\n"
-                f"👤 Клиент: {client_name}{contact_btn}\n"
-                f"🏷 {term_format}: {slot_format or 'не указан'}\n"
-                f"💰 Цена: {int(b.price)}₽\n"
-                f"-------------------\n"
-            )
-
-        await message.answer(text, parse_mode="Markdown", disable_web_page_preview=True)
+            await message.answer(text_clients, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb_list), parse_mode="Markdown")
+        elif not bookings:
+            await message.answer("У вас пока нет базы клиентов.")
 
 @router.message(F.text == "💰 Финансы и выплаты")
 @router.message(F.text == "/earnings")

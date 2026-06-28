@@ -7,6 +7,7 @@ from src.models.models import TrainerProfile, User, ClientProfile, TimeSlot, Boo
 from src.utils.db import SessionLocal
 from src.keyboards.inline import add_admin_button
 from sqlalchemy import select, update
+from sqlalchemy.orm import selectinload
 from datetime import datetime, timedelta
 import logging
 
@@ -185,8 +186,6 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
         else:
             await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
     await callback.answer()
-
-from sqlalchemy.orm import selectinload
 
 @router.callback_query(F.data == "confirm_booking", BookingSession.confirming_booking)
 async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):

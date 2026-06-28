@@ -15,6 +15,8 @@ class UserRole(str, Enum):
     TENNIS = "TENNIS"
     PADEL = "PADEL"
 
+PROFESSIONAL_ROLES = [UserRole.TRAINER, UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL]
+
 class WorkFormat(str, Enum):
     OFFLINE = "OFFLINE"
     ONLINE = "ONLINE"
