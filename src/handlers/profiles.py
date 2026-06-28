@@ -48,7 +48,7 @@ async def show_profile_cmd(message: types.Message, effective_user_id: int = None
                     f"🎯 Специализации: {specs}\n"
                     f"💰 Цена (разовое): {profile.price_single}₽\n"
                     f"💳 Цена (пакет 12): {profile.price_package}₽\n"
-                    f"⭐ Рейтинг: {profile.rating}\n"
+                    f"⭐ Рейтинг: {profile.rating:.1f}\n"
                     f"🏷 Формат: {work_fmt_ru}\n"
                 )
                 await message.answer(text, parse_mode="Markdown")
@@ -83,7 +83,7 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
                     f"🎯 Специализации: {specs}\n"
                     f"💰 Цена (разовое): {profile.price_single}₽\n"
                     f"💳 Цена (пакет 12): {profile.price_package}₽\n"
-                    f"⭐ Рейтинг: {profile.rating}\n"
+                    f"⭐ Рейтинг: {profile.rating:.1f}\n"
                     f"🏷 Формат: {work_fmt_ru}\n"
                 )
                 kb = types.InlineKeyboardMarkup(inline_keyboard=[
@@ -231,15 +231,16 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
             await message.answer("У вас пока нет запланированных занятий.")
             return
 
-        # Show bookings starting from 2 hours ago (to include currently happening ones)
-        now_utc = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=2)
+        # Show upcoming and recent bookings (past 3 days)
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        recent_threshold = now_utc - timedelta(days=3)
 
         # We check both client_id (internal profile) and potentially user_id if migration was messy
         stmt = (
             select(Booking)
             .where(
                 Booking.client_id == client_profile.id,
-                Booking.start_time >= now_utc
+                Booking.start_time >= recent_threshold
             )
             .options(
                 selectinload(Booking.slot)
@@ -255,7 +256,8 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
             await message.answer("У вас пока нет запланированных записей.")
             return
 
-        text = "📅 **Ваши ближайшие записи:**\n\n"
+        await message.answer("📅 **Ваши записи:**")
+
         fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
         for b in bookings:
             slot = b.slot
@@ -277,15 +279,26 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
 
             work_fmt_ru = fmt_map.get(slot_format.lower(), slot_format)
 
-            text += (
+            text = (
                 f"👤 Мастер: {trainer_name}\n"
                 f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
                 f"🏷 {term_format}: {work_fmt_ru}\n"
-                f"📊 Статус: {status_map.get(b.status, b.status)}\n"
-                f"-------------------\n"
+                f"📊 Статус: {status_map.get(b.status, b.status)}"
             )
 
-        await message.answer(text, parse_mode="Markdown")
+            kb = None
+            # If booking is confirmed and in the past, allow review
+            if b.status == "confirmed" and b.start_time < now_utc:
+                # Check if already reviewed
+                from src.models.models import Review
+                review_stmt = select(Review).where(Review.booking_id == b.id)
+                review_res = await session.execute(review_stmt)
+                if not review_res.scalar_one_or_none():
+                    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                        [types.InlineKeyboardButton(text="⭐ Оставить отзыв", callback_data=f"leave_review_{b.id}")]
+                    ])
+
+            await message.answer(text, reply_markup=kb, parse_mode="Markdown")
 
 @router.message(F.text == "🏆 Топ мастеров")
 async def show_leaderboard(message: types.Message):
