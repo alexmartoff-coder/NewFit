@@ -150,8 +150,16 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext):
         client_profile = await session.get(ClientProfile, client_id, options=[selectinload(ClientProfile.user)])
 
         if slot and slot.status == "free" and client_profile:
+            # Pre-fetch needed values
+            trainer_name = slot.trainer_profile.user.full_name
+            client_user_id = client_profile.user_id
+            client_full_name = client_profile.full_name
+            slot_start_time = slot.start_time
+            slot_format = slot.format
+            slot_price = slot.price
+
             slot.status = "booked"
-            slot.client_id = client_profile.user_id
+            slot.client_id = client_user_id
 
             new_booking = Booking(
                 slot_id=slot_id,
@@ -168,29 +176,32 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext):
 
             # Setup reminders
             from src.services.reminders import ReminderService
-            await ReminderService.schedule_reminders(session, new_booking.id, client_profile.user_id, slot.start_time)
+            await ReminderService.schedule_reminders(session, new_booking.id, client_user_id, slot.start_time)
 
             await session.commit()
 
-            await callback.message.edit_text(f"✅ Клиент {client_profile.full_name} успешно записан!")
+            kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                [types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="trainer_menu")]
+            ])
+            await callback.message.edit_text(f"✅ Клиент {client_full_name} успешно записан!", reply_markup=kb)
 
             # Notify client
             try:
                 moscow_tz = gettz('Europe/Moscow')
-                s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
+                s_start = slot_start_time.replace(tzinfo=UTC) if slot_start_time.tzinfo is None else slot_start_time.astimezone(UTC)
                 start_moscow = s_start.astimezone(moscow_tz)
 
-                trainer_name = slot.trainer_profile.user.full_name
                 client_text = (
                     f"📅 **Вас записали на занятие!**\n\n"
                     f"👤 Мастер: {trainer_name}\n"
                     f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
-                    f"🏷 Услуга: {slot.format}\n\n"
+                    f"🏷 Услуга: {slot_format}\n\n"
                     "Запись отображается в вашем профиле."
                 )
-                await callback.bot.send_message(client_profile.user_id, client_text, parse_mode="Markdown")
+                await callback.bot.send_message(client_user_id, client_text, parse_mode="Markdown")
+                logger.info(f"Notification sent to client {client_user_id}")
             except Exception as e:
-                logger.error(f"Failed to notify client {client_profile.user_id}: {e}")
+                logger.error(f"Failed to notify client {client_user_id}: {e}")
         else:
             await callback.message.edit_text("❌ Ошибка при бронировании. Возможно, слот уже занят.")
 

@@ -139,53 +139,94 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
             return
 
         await state.update_data(slot_id=slot_id, start_time=slot.start_time.isoformat())
-        await state.set_state(BookingSession.confirming_booking)
 
-        from dateutil.tz import gettz, UTC
-        moscow_tz = gettz('Europe/Moscow')
-        s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
-        start_moscow = s_start.astimezone(moscow_tz)
+        # Check if we need to ask for format (offline/online)
+        # We ask if the specialist is a TRAINER (fitness) and the slot format is 'hybrid'
+        trainer_role = slot.trainer_profile.user.role
+        if trainer_role == UserRole.TRAINER and (slot.format.lower() == "hybrid" or slot.format.lower() == "гибрид"):
+            await state.set_state(BookingSession.choosing_format)
+            kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                [types.InlineKeyboardButton(text="🏢 Оффлайн (в зале)", callback_data="c_fmt_offline")],
+                [types.InlineKeyboardButton(text="💻 Онлайн (дистанционно)", callback_data="c_fmt_online")],
+                [types.InlineKeyboardButton(text="🔙 К выбору времени", callback_data=f"bdate_{slot.start_time.date().isoformat()}")]
+            ])
+            text = "Этот тренер проводит занятия и оффлайн, и онлайн. Выберите удобный вам формат:"
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=text, reply_markup=kb)
+            else:
+                await callback.message.edit_text(text, reply_markup=kb)
+            return
 
-        # Dynamic terminology based on specialist role
-        data = await state.get_data()
-        specs = data.get('specializations', [])
-
-        # Determine if we should use 'Услуга' label
-        is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY
-        is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in specs)
-        is_service_based = is_beauty or is_specific_sport
-
-        term_format = "Услуга" if is_service_based else "Формат"
-
-        # Try to use the selected service from state if it's broad 'hybrid' or we want specific niche labels
-        display_format = slot.format
-        if (slot.format.lower() == "hybrid" or is_service_based) and specs:
-            display_format = ", ".join(specs)
-            # Update slot format in state to carry over to booking
-            await state.update_data(override_format=display_format)
-
-        selected_date = s_start.date().isoformat()
-        kb = types.InlineKeyboardMarkup(
-            inline_keyboard=[
-                [types.InlineKeyboardButton(text="✅ Да, записаться", callback_data="confirm_booking")],
-                [types.InlineKeyboardButton(text="🔙 К выбору времени", callback_data=f"bdate_{selected_date}")],
-                [types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="client_menu")]
-            ]
-        )
-        kb = add_admin_button(kb, is_admin=is_admin)
-
-        text = (
-            f"📍 **Подтверждение записи**\n\n"
-            f"Время: `{start_moscow.strftime('%d.%m.%Y %H:%M')}` (МСК)\n"
-            f"{term_format}: `{display_format}`\n"
-            f"Цена: `{slot.price}₽`\n\n"
-            f"Нажмите подтвердить для завершения записи."
-        )
-        if callback.message.photo:
-            await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
-        else:
-            await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+        await show_booking_confirmation(callback, state, slot, is_admin)
     await callback.answer()
+
+@router.callback_query(F.data.startswith("c_fmt_"), BookingSession.choosing_format)
+async def process_format_selection(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
+    fmt_choice = callback.data.split("_")[2]
+    fmt_map = {"offline": "OFFLINE", "online": "ONLINE"}
+    await state.update_data(override_format=fmt_map.get(fmt_choice, "OFFLINE"))
+
+    data = await state.get_data()
+    async with SessionLocal() as session:
+        stmt = select(TimeSlot).where(TimeSlot.id == data['slot_id']).options(
+            selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
+        )
+        slot = (await session.execute(stmt)).scalar_one_or_none()
+        await show_booking_confirmation(callback, state, slot, is_admin)
+    await callback.answer()
+
+async def show_booking_confirmation(callback: types.CallbackQuery, state: FSMContext, slot: TimeSlot, is_admin: bool):
+    await state.set_state(BookingSession.confirming_booking)
+
+    from dateutil.tz import gettz, UTC
+    moscow_tz = gettz('Europe/Moscow')
+    s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
+    start_moscow = s_start.astimezone(moscow_tz)
+
+    # Dynamic terminology based on specialist role
+    data = await state.get_data()
+    specs = data.get('specializations', [])
+
+    # Determine if we should use 'Услуга' label
+    is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY
+    is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in specs)
+    is_service_based = is_beauty or is_specific_sport
+
+    term_format = "Услуга" if is_service_based else "Формат"
+
+    # Use the selected format/service from state if present
+    display_format = data.get('override_format', slot.format)
+
+    # Mapping for fitness formats to Russian
+    fmt_ru_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
+    display_format = fmt_ru_map.get(display_format, display_format)
+
+    if (slot.format.lower() == "hybrid" or is_service_based) and specs and not data.get('override_format'):
+        display_format = ", ".join(specs)
+        # Update slot format in state to carry over to booking
+        await state.update_data(override_format=display_format)
+
+    selected_date = s_start.date().isoformat()
+    kb = types.InlineKeyboardMarkup(
+        inline_keyboard=[
+            [types.InlineKeyboardButton(text="✅ Да, записаться", callback_data="confirm_booking")],
+            [types.InlineKeyboardButton(text="🔙 К выбору времени", callback_data=f"bdate_{selected_date}")],
+            [types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="client_menu")]
+        ]
+    )
+    kb = add_admin_button(kb, is_admin=is_admin)
+
+    text = (
+        f"📍 **Подтверждение записи**\n\n"
+        f"Время: `{start_moscow.strftime('%d.%m.%Y %H:%M')}` (МСК)\n"
+        f"{term_format}: `{display_format}`\n"
+        f"Цена: `{slot.price}₽`\n\n"
+        f"Нажмите подтвердить для завершения записи."
+    )
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
 
 @router.callback_query(F.data == "confirm_booking", BookingSession.confirming_booking)
 async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
