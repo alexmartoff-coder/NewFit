@@ -105,34 +105,75 @@ async def pro_date_selected(callback: types.CallbackQuery, state: FSMContext):
 async def pro_slot_selected(callback: types.CallbackQuery, state: FSMContext):
     slot_id = int(callback.data.split("_")[-1])
     async with SessionLocal() as session:
-        slot = await session.get(TimeSlot, slot_id)
+        stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(
+            selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
+        )
+        slot = (await session.execute(stmt)).scalar_one_or_none()
+
         if not slot or slot.status != "free":
             await callback.answer("Слот уже занят")
             return
 
-        data = await state.get_data()
         await state.update_data(slot_id=slot_id)
 
-        moscow_tz = gettz('Europe/Moscow')
-        s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
-        start_moscow = s_start.astimezone(moscow_tz)
+        # Check if we need to ask for format (offline/online)
+        trainer_role = slot.trainer_profile.user.role
+        if trainer_role == UserRole.TRAINER and (slot.format.lower() == "hybrid" or slot.format.lower() == "гибрид"):
+            kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                [types.InlineKeyboardButton(text="🏢 Оффлайн", callback_data="pro_fmt_OFFLINE")],
+                [types.InlineKeyboardButton(text="💻 Онлайн", callback_data="pro_fmt_ONLINE")],
+                [types.InlineKeyboardButton(text="🔙 Назад", callback_data=f"pro_bdate_{slot.start_time.date().isoformat()}")]
+            ])
+            await callback.message.edit_text("Выберите формат для этой записи:", reply_markup=kb)
+            return
 
-        text = (
-            f"❓ **Подтвердите запись клиента**\n\n"
-            f"👤 Клиент: {data['client_name']}\n"
-            f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
-            f"🏷 Формат/Услуга: {slot.format}\n"
-            f"💰 Цена: {slot.price}₽"
-        )
-
-        kb = [
-            [types.InlineKeyboardButton(text="✅ Подтвердить", callback_data="pro_confirm_booking")],
-            [types.InlineKeyboardButton(text="❌ Отмена", callback_data="pro_cancel")]
-        ]
-
-        await state.set_state(ProBookingSession.confirming)
-        await callback.message.edit_text(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="Markdown")
+        await show_pro_booking_confirmation(callback, state, slot)
     await callback.answer()
+
+@router.callback_query(F.data.startswith("pro_fmt_"))
+async def pro_format_selected(callback: types.CallbackQuery, state: FSMContext):
+    fmt = callback.data.split("_")[2]
+    await state.update_data(override_format=fmt)
+    data = await state.get_data()
+    async with SessionLocal() as session:
+        stmt = select(TimeSlot).where(TimeSlot.id == data['slot_id']).options(
+            selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
+        )
+        slot = (await session.execute(stmt)).scalar_one_or_none()
+        await show_pro_booking_confirmation(callback, state, slot)
+    await callback.answer()
+
+async def show_pro_booking_confirmation(callback: types.CallbackQuery, state: FSMContext, slot: TimeSlot):
+    data = await state.get_data()
+    moscow_tz = gettz('Europe/Moscow')
+    s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
+    start_moscow = s_start.astimezone(moscow_tz)
+
+    # Dynamic terminology
+    is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY
+    # Check specializations or slot format for Tennis/Padel
+    is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in slot.format.split(", "))
+    term_format = "Услуга" if (is_beauty or is_specific_sport) else "Формат"
+
+    display_format = data.get('override_format', slot.format)
+    fmt_ru_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
+    display_format = fmt_ru_map.get(display_format, display_format)
+
+    text = (
+        f"❓ **Подтвердите запись клиента**\n\n"
+        f"👤 Клиент: {data['client_name']}\n"
+        f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
+        f"🏷 {term_format}: {display_format}\n"
+        f"💰 Цена: {slot.price}₽"
+    )
+
+    kb = [
+        [types.InlineKeyboardButton(text="✅ Подтвердить", callback_data="pro_confirm_booking")],
+        [types.InlineKeyboardButton(text="❌ Отмена", callback_data="pro_cancel")]
+    ]
+
+    await state.set_state(ProBookingSession.confirming)
+    await callback.message.edit_text(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="Markdown")
 
 @router.callback_query(F.data == "pro_confirm_booking", ProBookingSession.confirming)
 async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext):
@@ -155,11 +196,12 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext):
             client_user_id = client_profile.user_id
             client_full_name = client_profile.full_name
             slot_start_time = slot.start_time
-            slot_format = slot.format
+            slot_format = data.get('override_format', slot.format)
             slot_price = slot.price
 
             slot.status = "booked"
             slot.client_id = client_user_id
+            slot.format = slot_format
 
             new_booking = Booking(
                 slot_id=slot_id,
@@ -168,7 +210,7 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext):
                 start_time=slot.start_time,
                 end_time=slot.end_time,
                 status="confirmed",
-                price=slot.price,
+                price=slot_price,
                 paid=False
             )
             session.add(new_booking)
