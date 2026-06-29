@@ -125,8 +125,13 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
     slot_id = int(callback.data.split("_")[1])
 
     async with SessionLocal() as session:
-        # Load slot and trainer role
-        stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user))
+        # Load slot and trainer role + specializations
+        stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(
+            selectinload(TimeSlot.trainer_profile).options(
+                selectinload(TrainerProfile.user),
+                selectinload(TrainerProfile.specializations)
+            )
+        )
         res = await session.execute(stmt)
         slot = res.scalar_one_or_none()
 
@@ -140,25 +145,60 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
 
         await state.update_data(slot_id=slot_id, start_time=slot.start_time.isoformat())
 
-        # Check if we need to ask for format (offline/online)
-        # We ask if the specialist is a TRAINER (fitness) and the slot format is 'hybrid'
+        # Step 1: Choose Service (if applicable)
         trainer_role = slot.trainer_profile.user.role
-        if trainer_role == UserRole.TRAINER and (slot.format.lower() == "hybrid" or slot.format.lower() == "гибрид"):
-            await state.set_state(BookingSession.choosing_format)
-            kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="🏢 Оффлайн (в зале)", callback_data="c_fmt_offline")],
-                [types.InlineKeyboardButton(text="💻 Онлайн (дистанционно)", callback_data="c_fmt_online")],
-                [types.InlineKeyboardButton(text="🔙 К выбору времени", callback_data=f"bdate_{slot.start_time.date().isoformat()}")]
-            ])
-            text = "Этот тренер проводит занятия и оффлайн, и онлайн. Выберите удобный вам формат:"
+        specs = slot.trainer_profile.specializations
+        if specs:
+            await state.set_state(BookingSession.choosing_service)
+            kb = []
+            for s in specs:
+                kb.append([types.InlineKeyboardButton(text=s.name, callback_data=f"c_svc_{s.name}")])
+            kb.append([types.InlineKeyboardButton(text="🔙 К выбору времени", callback_data=f"bdate_{slot.start_time.date().isoformat()}")])
+
+            term = "услугу" if trainer_role in [UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL] else "направление"
+            text = f"Выберите {term} для записи:"
             if callback.message.photo:
-                await callback.message.edit_caption(caption=text, reply_markup=kb)
+                await callback.message.edit_caption(caption=text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb))
             else:
-                await callback.message.edit_text(text, reply_markup=kb)
+                await callback.message.edit_text(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb))
             return
 
-        await show_booking_confirmation(callback, state, slot, is_admin)
+        await proceed_to_format_selection_or_confirm(callback, state, slot, is_admin)
     await callback.answer()
+
+@router.callback_query(F.data.startswith("c_svc_"), BookingSession.choosing_service)
+async def process_service_selection(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
+    svc_name = callback.data.replace("c_svc_", "")
+    await state.update_data(selected_service=svc_name)
+
+    data = await state.get_data()
+    async with SessionLocal() as session:
+        stmt = select(TimeSlot).where(TimeSlot.id == data['slot_id']).options(
+            selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
+        )
+        slot = (await session.execute(stmt)).scalar_one_or_none()
+        await proceed_to_format_selection_or_confirm(callback, state, slot, is_admin)
+    await callback.answer()
+
+async def proceed_to_format_selection_or_confirm(callback: types.CallbackQuery, state: FSMContext, slot: TimeSlot, is_admin: bool):
+    # Check if we need to ask for format (offline/online)
+    # We ask if the specialist is a TRAINER (fitness) and the slot format is 'hybrid'
+    trainer_role = slot.trainer_profile.user.role
+    if trainer_role == UserRole.TRAINER and (slot.format.lower() == "hybrid" or slot.format.lower() == "гибрид"):
+        await state.set_state(BookingSession.choosing_format)
+        kb = types.InlineKeyboardMarkup(inline_keyboard=[
+            [types.InlineKeyboardButton(text="🏢 Оффлайн (в зале)", callback_data="c_fmt_offline")],
+            [types.InlineKeyboardButton(text="💻 Онлайн (дистанционно)", callback_data="c_fmt_online")],
+            [types.InlineKeyboardButton(text="🔙 Назад", callback_data=f"slot_{slot.id}")]
+        ])
+        text = "Этот тренер проводит занятия и оффлайн, и онлайн. Выберите удобный вам формат:"
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=text, reply_markup=kb)
+        else:
+            await callback.message.edit_text(text, reply_markup=kb)
+        return
+
+    await show_booking_confirmation(callback, state, slot, is_admin)
 
 @router.callback_query(F.data.startswith("c_fmt_"), BookingSession.choosing_format)
 async def process_format_selection(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
@@ -195,16 +235,20 @@ async def show_booking_confirmation(callback: types.CallbackQuery, state: FSMCon
     term_format = "Услуга" if is_service_based else "Формат"
 
     # Use the selected format/service from state if present
-    display_format = data.get('override_format', slot.format)
+    selected_svc = data.get('selected_service', '')
+    chosen_fmt = data.get('override_format', '')
 
-    # Mapping for fitness formats to Russian
     fmt_ru_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
-    display_format = fmt_ru_map.get(display_format, display_format)
 
-    if (slot.format.lower() == "hybrid" or is_service_based) and specs and not data.get('override_format'):
-        display_format = ", ".join(specs)
-        # Update slot format in state to carry over to booking
-        await state.update_data(override_format=display_format)
+    display_format = selected_svc
+    if chosen_fmt:
+        if display_format:
+            display_format += f" ({fmt_ru_map.get(chosen_fmt, chosen_fmt)})"
+        else:
+            display_format = fmt_ru_map.get(chosen_fmt, chosen_fmt)
+
+    if not display_format:
+        display_format = fmt_ru_map.get(slot.format, slot.format)
 
     selected_date = s_start.date().isoformat()
     kb = types.InlineKeyboardMarkup(
@@ -276,8 +320,20 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             slot_end = slot.end_time
             slot_price = slot.price
 
-            # Override format if specialized service was selected
-            slot_format = data.get('override_format', slot.format)
+            # Build full slot format string (Service + Format)
+            selected_svc = data.get('selected_service', '')
+            chosen_fmt = data.get('override_format', '')
+            fmt_ru_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
+
+            slot_format = selected_svc
+            if chosen_fmt:
+                if slot_format:
+                    slot_format += f" ({fmt_ru_map.get(chosen_fmt, chosen_fmt)})"
+                else:
+                    slot_format = fmt_ru_map.get(chosen_fmt, chosen_fmt)
+
+            if not slot_format:
+                slot_format = slot.format
 
             # Determine role-specific terminology
             is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY

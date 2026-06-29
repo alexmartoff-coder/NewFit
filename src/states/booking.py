@@ -4,5 +4,6 @@ class BookingSession(StatesGroup):
     choosing_trainer = State()
     choosing_date = State()
     choosing_time = State()
+    choosing_service = State()
     choosing_format = State()
     confirming_booking = State()

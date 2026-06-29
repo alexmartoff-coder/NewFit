@@ -29,22 +29,28 @@ async def search_by_phone_prompt(callback: types.CallbackQuery, state: FSMContex
 
 @router.message(F.text, F.state == "waiting_for_phone_search")
 async def process_phone_search(message: types.Message, state: FSMContext):
-    phone = "".join(filter(str.isdigit, message.text))
-    if not phone or len(phone) < 3:
+    raw_phone = "".join(filter(str.isdigit, message.text))
+    if not raw_phone or len(raw_phone) < 3:
         await message.answer("Пожалуйста, введите корректный номер телефона (минимум 3 цифры).")
         return
 
+    # Normalize: if starts with 7 or 8 and is long, treat as interchangeable
+    search_phone = raw_phone
+    if len(raw_phone) >= 10:
+        if raw_phone.startswith('7') or raw_phone.startswith('8'):
+            search_phone = raw_phone[1:]
+
     # Clear state to make phone search global (ignore previous city/spec filters)
     await state.clear()
-    await state.update_data(phone_search=phone)
+    await state.update_data(phone_search=search_phone)
 
     # Basic phone normalization or search
     async with SessionLocal() as session:
         from sqlalchemy.orm import selectinload
         # Use regexp_replace on DB side for even more robust search
-        # We also support partial matches
+        # We search for the suffix to handle 7/8 interchangeable starts
         stmt = select(TrainerProfile, User).join(User).where(
-            func.regexp_replace(TrainerProfile.phone, '\D', '', 'g').like(f"%{phone}%")
+            func.regexp_replace(TrainerProfile.phone, '\D', '', 'g').like(f"%{search_phone}%")
         ).options(selectinload(TrainerProfile.specializations))
         res = await session.execute(stmt)
         professionals = res.all()
