@@ -17,9 +17,41 @@ async def start_catalog(message: types.Message, state: FSMContext):
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="📍 Поиск по городу/району", callback_data="filter_city")],
         [types.InlineKeyboardButton(text="📞 Поиск по номеру телефона", callback_data="search_by_phone")],
+        [types.InlineKeyboardButton(text="🔍 Поиск по Nickname ТГ", callback_data="search_by_username")],
         [types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="client_menu")]
     ])
     await message.answer("Как вы хотите найти мастера?", reply_markup=kb)
+
+@router.callback_query(F.data == "search_by_username")
+async def search_by_username_prompt(callback: types.CallbackQuery, state: FSMContext):
+    await state.set_state(CatalogFilter.waiting_for_username_search)
+    await callback.message.edit_text("Введите Telegram Nickname (username) мастера для поиска (с @ или без):")
+    await callback.answer()
+
+@router.message(F.text, CatalogFilter.waiting_for_username_search)
+async def process_username_search(message: types.Message, state: FSMContext):
+    username = message.text.strip().replace("@", "")
+    if len(username) < 3:
+        await message.answer("Пожалуйста, введите корректный Nickname (минимум 3 символа).")
+        return
+
+    await state.clear()
+    await state.update_data(username_search=username)
+
+    async with SessionLocal() as session:
+        from sqlalchemy.orm import selectinload
+        stmt = select(TrainerProfile, User).join(User).where(
+            func.lower(User.username).like(f"%{username.lower()}%")
+        ).options(selectinload(TrainerProfile.specializations))
+        res = await session.execute(stmt)
+        professionals = res.all()
+
+        if not professionals:
+            await message.answer(f"Мастер с Nickname '{username}' не найден.")
+            return
+
+        await message.answer(f"Найдено мастеров: {len(professionals)}")
+        await apply_filters(message, state)
 
 @router.callback_query(F.data == "search_by_phone")
 async def search_by_phone_prompt(callback: types.CallbackQuery, state: FSMContext):
@@ -334,6 +366,8 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
 
         if 'phone_search' in data:
             filters.append(func.regexp_replace(TrainerProfile.phone, '\D', '', 'g').like(f"%{data['phone_search']}%"))
+        elif 'username_search' in data:
+            filters.append(func.lower(User.username).like(f"%{data['username_search'].lower()}%"))
         else:
             # Filter by role based on catalog type (only if not searching by phone)
             cat_type = data.get('catalog_type')
