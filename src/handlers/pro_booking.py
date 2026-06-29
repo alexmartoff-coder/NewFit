@@ -59,7 +59,7 @@ async def pro_start_booking(callback: types.CallbackQuery, state: FSMContext, is
                 text=d.strftime("%d.%m (%a)"),
                 callback_data=f"pro_bdate_{d.isoformat()}"
             )])
-        kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="clients_list")]) # To be implemented or handled
+        kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="clients_list")]) # To be handled by show_clients
 
     await state.set_state(ProBookingSession.choosing_date)
     await callback.message.edit_text(f"Выберите дату для записи клиента {client.full_name}:", reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb))
@@ -186,7 +186,6 @@ async def show_pro_booking_confirmation(callback: types.CallbackQuery, state: FS
 
     # Dynamic terminology
     is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY
-    # Check specializations or slot format for Tennis/Padel
     is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in slot.format.split(", "))
     term_format = "Услуга" if (is_beauty or is_specific_sport) else "Формат"
 
@@ -225,6 +224,7 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     slot_id = data['slot_id']
     client_id = data['client_id']
+    pro_user_id = callback.from_user.id
 
     async with SessionLocal() as session:
         stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(
@@ -243,6 +243,7 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext):
             slot_start_time = slot.start_time
             slot_zoom_url = slot.zoom_join_url
             slot_online_platform = slot.online_platform
+
             # Build full slot format string (Service + Format)
             selected_svc = data.get('selected_service', '')
             chosen_fmt = data.get('override_format', '')
@@ -280,12 +281,18 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext):
             # Setup reminders
             from src.services.reminders import ReminderService
             is_online = ("онлайн" in slot_format.lower() or "online" in slot_format.lower())
-            # Important: we need the professional's user_id. We can get it from callback.from_user.id
-            pro_user_id = callback.from_user.id
             await ReminderService.schedule_reminders(session, new_booking.id, client_user_id, pro_user_id, slot_start_time, is_online=is_online)
 
             await session.commit()
 
+            # Sync to Google Calendar
+            try:
+                from src.services.calendar import CalendarService
+                await CalendarService.add_event_to_google(pro_user_id, new_booking.id)
+            except Exception as e:
+                logger.error(f"Failed to sync with Google Calendar for trainer {pro_user_id}: {e}")
+
+            # Feedback to Professional
             kb = types.InlineKeyboardMarkup(inline_keyboard=[
                 [types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="trainer_menu")]
             ])
@@ -316,7 +323,7 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext):
             except Exception as e:
                 logger.error(f"Failed to notify client {client_user_id}: {e}")
         else:
-            await callback.message.edit_text("❌ Ошибка при бронировании. Возможно, слот уже занят.")
+            await callback.message.edit_text("❌ Ошибка при бронировании. Возможно, слот уже занят или клиент не найден.")
 
     await state.clear()
     await callback.answer()

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Optional
 from sqlalchemy import BigInteger, String, ForeignKey, Float, DateTime, Boolean, Table, Column, Enum as SQLEnum, Integer, Text, JSON
@@ -46,7 +46,7 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(128))
     role: Mapped[UserRole] = mapped_column(SQLEnum(UserRole), nullable=True)
     is_test: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     trainer_profile: Mapped["TrainerProfile"] = relationship(back_populates="user", cascade="all, delete-orphan")
     client_profile: Mapped["ClientProfile"] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -72,6 +72,7 @@ class TrainerProfile(Base):
     photo_url: Mapped[Optional[str]] = mapped_column(String(512))
     video_presentation_url: Mapped[Optional[str]] = mapped_column(String(512))
     rating: Mapped[float] = mapped_column(Float, default=5.0)
+    online_meeting_link: Mapped[Optional[str]] = mapped_column(String(500))
     is_premium: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String(20), default="approved") # pending, approved, rejected
 
@@ -101,7 +102,7 @@ class Subscription(Base):
     client_id: Mapped[int] = mapped_column(ForeignKey("client_profiles.id"))
     total_sessions: Mapped[int] = mapped_column(Integer)
     remaining_sessions: Mapped[int] = mapped_column(Integer)
-    purchase_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    purchase_date: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     trainer: Mapped["TrainerProfile"] = relationship(back_populates="subscriptions")
@@ -115,7 +116,7 @@ class Review(Base):
     client_id: Mapped[int] = mapped_column(ForeignKey("client_profiles.id"))
     rating: Mapped[int] = mapped_column(Integer)
     comment: Mapped[Optional[str]] = mapped_column(String(1000))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 # ========== АДМИН-ПАНЕЛЬ ==========
 
@@ -126,7 +127,7 @@ class Admin(Base):
     user_id = Column(BigInteger, ForeignKey("users.id"), unique=True, nullable=False)
     role = Column(String(50), default="admin")  # "owner", "co_admin", "tester_trainer", "tester_client", "tester_both"
     added_by = Column(BigInteger, nullable=True)
-    added_at = Column(DateTime, default=datetime.utcnow)
+    added_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     can_test_trainer = Column(Boolean, default=False)
     can_test_client = Column(Boolean, default=False)
 
@@ -149,7 +150,7 @@ class TrainerSchedule(Base):
     slot_duration = Column(Integer, default=60)
     rolling_window = Column(Integer, nullable=True) # In days: 7, 14, 30
     last_replenished = Column(DateTime, nullable=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     trainer = relationship("User", back_populates="schedule")
 
@@ -185,6 +186,7 @@ class TimeSlot(Base):
     zoom_join_url = Column(String(500), nullable=True)
     zoom_start_url = Column(String(500), nullable=True)
     online_platform = Column(String(50), nullable=True) # telegram, zoom
+    max_clients = Column(Integer, default=1) # For group sessions
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
 
@@ -208,7 +210,7 @@ class Booking(Base):
     paid = Column(Boolean, default=False)
     client_notes = Column(Text, nullable=True)
     trainer_notes = Column(Text, nullable=True)
-    booked_at = Column(DateTime, default=datetime.utcnow)
+    booked_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class Reminder(Base):
     __tablename__ = "reminders"

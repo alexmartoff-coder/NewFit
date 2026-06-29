@@ -59,6 +59,7 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
                     f"💳 Цена (пакет 12): {profile.price_package}₽\n"
                     f"⭐ Рейтинг: {profile.rating:.1f}\n"
                     f"🏷 Формат: {escape_md(work_fmt_ru)}\n"
+                    f"🔗 Ссылка: {escape_md(profile.online_meeting_link) if profile.online_meeting_link else 'не указана'}\n"
                 )
                 kb = types.InlineKeyboardMarkup(inline_keyboard=[
                     [types.InlineKeyboardButton(text="📝 Редактировать профиль", callback_data="start_registration")]
@@ -78,6 +79,7 @@ async def show_online_training(message: types.Message):
     user_id = message.from_user.id
     moscow_tz = gettz('Europe/Moscow')
     now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+    future_limit = now_utc + timedelta(days=3)
 
     async with SessionLocal() as session:
         user = await session.get(User, user_id)
@@ -92,45 +94,50 @@ async def show_online_training(message: types.Message):
                 await message.answer("Профиль не найден.")
                 return
 
-            # Find nearest upcoming online/hybrid slot that is booked
+            # Find upcoming online/hybrid slots that are booked in next 3 days
             stmt = (
                 select(TimeSlot)
                 .where(
                     TimeSlot.trainer_profile_id == profile.id,
                     TimeSlot.status == "booked",
-                    TimeSlot.start_time >= now_utc
+                    TimeSlot.start_time >= now_utc,
+                    TimeSlot.start_time <= future_limit
                 )
                 .options(selectinload(TimeSlot.booking).selectinload(Booking.client).selectinload(ClientProfile.user))
                 .order_by(TimeSlot.start_time.asc())
-                .limit(1)
             )
             res = await session.execute(stmt)
-            slot = res.scalar_one_or_none()
+            slots = res.scalars().all()
 
-            if not slot or not ("онлайн" in slot.format.lower() or "online" in slot.format.lower()):
-                await message.answer("У вас нет ближайших онлайн тренировок.")
+            # Filter online manually to handle "Manicure (online)" etc.
+            online_slots = [s for s in slots if ("онлайн" in s.format.lower() or "online" in s.format.lower())]
+
+            if not online_slots:
+                await message.answer("У вас нет онлайн тренировок на ближайшие 3 дня.")
                 return
 
-            start_moscow = slot.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
-            client_name = slot.booking.client.full_name if slot.booking and slot.booking.client else "Клиент"
+            await message.answer(f"🖥 **Ваши онлайн тренировки (на 3 дня):**", parse_mode="Markdown")
 
-            text = (
-                f"🖥 **Ближайшая онлайн тренировка**\n\n"
-                f"👤 Клиент: {escape_md(client_name)}\n"
-                f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')} (МСК)\n"
-                f"🏷 Услуга: {escape_md(slot.format)}\n"
-            )
+            for slot in online_slots:
+                start_moscow = slot.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
+                client_name = slot.booking.client.full_name if slot.booking and slot.booking.client else "Клиент"
 
-            kb = []
-            if slot.online_platform == "telegram":
-                text += "\n📱 Формат: Telegram Video. Свяжитесь с клиентом в назначенное время."
-                client_user = slot.booking.client.user if slot.booking and slot.booking.client else None
-                if client_user and client_user.username:
-                    kb.append([types.InlineKeyboardButton(text="💬 Написать клиенту", url=f"https://t.me/{client_user.username}")])
-            elif slot.zoom_start_url:
-                kb.append([types.InlineKeyboardButton(text="🚀 Начать Zoom", url=slot.zoom_start_url)])
+                text = (
+                    f"⏰ `{start_moscow.strftime('%d.%m %H:%M')}`\n"
+                    f"👤 Клиент: {escape_md(client_name)}\n"
+                    f"🏷 Услуга: {escape_md(slot.format)}\n"
+                )
 
-            await message.answer(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb) if kb else None, parse_mode="Markdown")
+                kb = []
+                if slot.online_platform == "telegram":
+                    client_user = slot.booking.client.user if slot.booking and slot.booking.client else None
+                    if client_user and client_user.username:
+                        kb.append([types.InlineKeyboardButton(text="💬 Написать клиенту", url=f"https://t.me/{client_user.username}")])
+                elif slot.zoom_start_url or slot.zoom_join_url:
+                    url = slot.zoom_start_url or slot.zoom_join_url
+                    kb.append([types.InlineKeyboardButton(text="🚀 Начать Zoom", url=url)])
+
+                await message.answer(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb) if kb else None, parse_mode="Markdown")
 
         else:
             # Client view
@@ -144,42 +151,45 @@ async def show_online_training(message: types.Message):
                 select(Booking)
                 .where(
                     Booking.client_id == client_profile.id,
-                    Booking.start_time >= now_utc
+                    Booking.start_time >= now_utc,
+                    Booking.start_time <= future_limit
                 )
                 .options(
                     selectinload(Booking.slot).selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
                 )
                 .order_by(Booking.start_time.asc())
-                .limit(1)
             )
             res = await session.execute(stmt)
-            booking = res.scalar_one_or_none()
+            bookings = res.scalars().all()
 
-            if not booking or not booking.slot or not ("онлайн" in booking.slot.format.lower() or "online" in booking.slot.format.lower()):
-                await message.answer("У вас нет ближайших онлайн тренировок.")
+            online_bookings = [b for b in bookings if b.slot and ("онлайн" in b.slot.format.lower() or "online" in b.slot.format.lower())]
+
+            if not online_bookings:
+                await message.answer("У вас нет онлайн тренировок на ближайшие 3 дня.")
                 return
 
-            slot = booking.slot
-            start_moscow = booking.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
-            trainer_name = slot.trainer_profile.user.full_name
+            await message.answer(f"🖥 **Ваши онлайн тренировки (на 3 дня):**", parse_mode="Markdown")
 
-            text = (
-                f"🖥 **Ваша онлайн тренировка**\n\n"
-                f"👤 Мастер: {escape_md(trainer_name)}\n"
-                f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')} (МСК)\n"
-                f"🏷 Услуга: {escape_md(slot.format)}\n"
-            )
+            for booking in online_bookings:
+                slot = booking.slot
+                start_moscow = booking.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
+                trainer_name = slot.trainer_profile.user.full_name
 
-            kb = []
-            if slot.online_platform == "telegram":
-                text += "\n📱 Формат: Telegram Video. Ожидайте звонка от мастера в назначенное время."
-                trainer_user = slot.trainer_profile.user
-                if trainer_user.username:
-                    kb.append([types.InlineKeyboardButton(text="💬 Написать мастеру", url=f"https://t.me/{trainer_user.username}")])
-            elif slot.zoom_join_url:
-                kb.append([types.InlineKeyboardButton(text="🔗 Войти в Zoom", url=slot.zoom_join_url)])
+                text = (
+                    f"⏰ `{start_moscow.strftime('%d.%m %H:%M')}`\n"
+                    f"👤 Мастер: {escape_md(trainer_name)}\n"
+                    f"🏷 Услуга: {escape_md(slot.format)}\n"
+                )
 
-            await message.answer(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb) if kb else None, parse_mode="Markdown")
+                kb = []
+                if slot.online_platform == "telegram":
+                    trainer_user = slot.trainer_profile.user
+                    if trainer_user.username:
+                        kb.append([types.InlineKeyboardButton(text="💬 Написать мастеру", url=f"https://t.me/{trainer_user.username}")])
+                elif slot.zoom_join_url:
+                    kb.append([types.InlineKeyboardButton(text="🔗 Войти в Zoom", url=slot.zoom_join_url)])
+
+                await message.answer(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb) if kb else None, parse_mode="Markdown")
 
 @router.message(F.text == "Мои клиенты")
 @router.message(F.text == "/clients")

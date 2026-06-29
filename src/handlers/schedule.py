@@ -20,6 +20,7 @@ class ScheduleState(StatesGroup):
     choosing_format = State()
     choosing_platform = State()
     entering_zoom = State()
+    entering_capacity = State()
     choosing_price = State()
 
 class GenerateSlotsState(StatesGroup):
@@ -155,6 +156,9 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
                 fmt_ru = fmt_map.get(fmt_val, fmt_val.lower())
 
                 info = f"{start_moscow.strftime('%H:%M')}—{end_moscow.strftime('%H:%M')} | {int(s.price)}₽ ({fmt_ru})"
+                if s.max_clients > 1:
+                    info += f" [Групповое: до {s.max_clients} чел.]"
+
                 if s.status == "booked" and s.booking and s.booking.client:
                     client_name = s.booking.client.full_name or "Клиент"
                     info += f" — 👤 {client_name}"
@@ -257,12 +261,20 @@ async def add_slot_format(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(format=fmt)
 
     if fmt in ["ONLINE", "HYBRID"]:
-        kb = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="Telegram Video", callback_data="plat_telegram")],
-            [types.InlineKeyboardButton(text="Zoom", callback_data="plat_zoom")]
-        ])
-        await callback.message.answer("Выберите платформу для онлайн-занятия:", reply_markup=kb)
-        await state.set_state(ScheduleState.choosing_platform)
+        async with SessionLocal() as session:
+            stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == callback.from_user.id)
+            profile = (await session.execute(stmt_p)).scalar_one_or_none()
+
+            kb_list = [
+                [types.InlineKeyboardButton(text="Telegram Video", callback_data="plat_telegram")],
+                [types.InlineKeyboardButton(text="Zoom", callback_data="plat_zoom")]
+            ]
+            if profile and profile.online_meeting_link:
+                kb_list.append([types.InlineKeyboardButton(text="Использовать постоянную ссылку", callback_data="plat_permanent")])
+
+            kb = types.InlineKeyboardMarkup(inline_keyboard=kb_list)
+            await callback.message.answer("Выберите платформу для онлайн-занятия:", reply_markup=kb)
+            await state.set_state(ScheduleState.choosing_platform)
     else:
         await callback.message.answer("Введите цену для этого занятия (в ₽):")
         await state.set_state(ScheduleState.choosing_price)
@@ -271,8 +283,18 @@ async def add_slot_format(callback: types.CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith("plat_"), ScheduleState.choosing_platform)
 async def add_slot_platform(callback: types.CallbackQuery, state: FSMContext):
     platform = callback.data.split("_")[1]
-    await state.update_data(online_platform=platform)
 
+    if platform == "permanent":
+        async with SessionLocal() as session:
+            stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == callback.from_user.id)
+            profile = (await session.execute(stmt_p)).scalar_one_or_none()
+            await state.update_data(online_platform="zoom", zoom_url=profile.online_meeting_link)
+        await callback.message.answer(f"Использую вашу ссылку: {profile.online_meeting_link}. Сколько человек может записаться? (по умолчанию 1):")
+        await state.set_state(ScheduleState.entering_capacity)
+        await callback.answer()
+        return
+
+    await state.update_data(online_platform=platform)
     if platform == "zoom":
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="Пропустить", callback_data="skip_zoom")]
@@ -280,15 +302,15 @@ async def add_slot_platform(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.answer("Введите Zoom-ссылку для этого занятия (или нажмите пропустить):", reply_markup=kb)
         await state.set_state(ScheduleState.entering_zoom)
     else:
-        await callback.message.answer("Выбрано: Telegram Video. Теперь введите цену для этого занятия (в ₽):")
-        await state.set_state(ScheduleState.choosing_price)
+        await callback.message.answer("Выбрано: Telegram Video. Сколько человек может записаться? (по умолчанию 1):")
+        await state.set_state(ScheduleState.entering_capacity)
     await callback.answer()
 
 @router.callback_query(F.data == "skip_zoom", ScheduleState.entering_zoom)
 async def skip_zoom(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(zoom_url=None)
-    await callback.message.answer("Введите цену для этого занятия (в ₽):")
-    await state.set_state(ScheduleState.choosing_price)
+    await callback.message.answer("Введите количество участников (по умолчанию 1):")
+    await state.set_state(ScheduleState.entering_capacity)
     await callback.answer()
 
 @router.message(ScheduleState.entering_zoom)
@@ -298,7 +320,18 @@ async def add_slot_zoom(message: types.Message, state: FSMContext):
         await message.answer("Пожалуйста, введите корректную ссылку (начинающуюся с http:// или https://) или нажмите 'Пропустить'.")
         return
     await state.update_data(zoom_url=zoom_url)
-    await message.answer("Zoom-ссылка сохранена. Теперь введите цену для этого занятия (в ₽):")
+    await message.answer("Zoom-ссылка сохранена. Сколько человек может записаться? (по умолчанию 1):")
+    await state.set_state(ScheduleState.entering_capacity)
+
+@router.message(ScheduleState.entering_capacity)
+async def add_slot_capacity(message: types.Message, state: FSMContext):
+    try:
+        capacity = int(message.text)
+        await state.update_data(max_clients=capacity)
+    except ValueError:
+        await state.update_data(max_clients=1)
+
+    await message.answer("Введите цену для этого занятия (в ₽):")
     await state.set_state(ScheduleState.choosing_price)
 
 async def save_new_time_slot(message: types.Message, state: FSMContext, data: dict, user_id: int):
@@ -312,6 +345,7 @@ async def save_new_time_slot(message: types.Message, state: FSMContext, data: di
         duration = data['duration']
         end_time = start_time + timedelta(minutes=duration)
         price = data['price']
+        max_clients = data.get('max_clients', 1)
 
         async with SessionLocal() as session:
             # Resolve profile
@@ -343,6 +377,7 @@ async def save_new_time_slot(message: types.Message, state: FSMContext, data: di
                 status="free",
                 format=str(data['format']),
                 price=price,
+                max_clients=max_clients,
                 zoom_join_url=data.get('zoom_url'),
                 online_platform=data.get('online_platform')
             )
@@ -531,6 +566,25 @@ async def quick_gen_period(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(period=period)
 
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="Оффлайн", callback_data="gen_f_OFFLINE")],
+        [types.InlineKeyboardButton(text="Онлайн", callback_data="gen_f_ONLINE")],
+        [types.InlineKeyboardButton(text="Гибрид", callback_data="gen_f_HYBRID")],
+        [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_quick_gen")]
+    ])
+    text = "Выберите формат занятий для генерации:"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb)
+    else:
+        await callback.message.edit_text(text, reply_markup=kb)
+    await state.set_state("choosing_gen_format")
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("gen_f_"), F.state == "choosing_gen_format")
+async def quick_gen_format(callback: types.CallbackQuery, state: FSMContext):
+    fmt = callback.data.split("_")[2]
+    await state.update_data(gen_format=fmt)
+
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="60 минут", callback_data="gen_s_60")],
         [types.InlineKeyboardButton(text="90 минут", callback_data="gen_s_90")],
         [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_quick_gen")]
@@ -595,7 +649,8 @@ async def quick_gen_confirm(callback: types.CallbackQuery, state: FSMContext, ef
         count = await generate_slots_from_quick_template(
             user_id=user_id,
             days=data['period'],
-            interval=data['step']
+            interval=data['step'],
+            work_format=data.get('gen_format', 'hybrid')
         )
         await callback.message.answer(f"✅ Успешно! Сгенерировано новых слотов: {count}.\n🔄 Автогенерация на {data['period']} дн. включена.")
     except Exception as e:
@@ -606,7 +661,7 @@ async def quick_gen_confirm(callback: types.CallbackQuery, state: FSMContext, ef
     await show_schedule_menu(callback.message, effective_user_id=user_id)
     await callback.answer()
 
-async def generate_slots_from_quick_template(user_id: int, days: int, interval: int) -> int:
+async def generate_slots_from_quick_template(user_id: int, days: int, interval: int, work_format: str = "hybrid") -> int:
     from dateutil.tz import gettz, UTC
     from datetime import datetime, time, timedelta
     from dateutil.rrule import rrule, DAILY, MO, TU, WE, TH, FR, SA, SU
@@ -673,8 +728,8 @@ async def generate_slots_from_quick_template(user_id: int, days: int, interval: 
                         trainer_profile_id=profile.id,      # ← КРИТИЧНО!
                         start_time=start_utc,
                         end_time=end_utc,
-                        format="hybrid",
-                        price=default_price,
+                        format=work_format.lower(),
+                        price=default_price if work_format.upper() != "ONLINE" else (profile.price_online or default_price),
                         status="free"
                     )
                     session.add(new_slot)
