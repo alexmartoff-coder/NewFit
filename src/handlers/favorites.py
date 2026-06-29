@@ -7,9 +7,24 @@ from src.keyboards.inline import add_admin_button
 
 router = Router()
 
+from src.models.models import UserRole
+
 @router.message(F.text == "Специалисты")
-async def show_favorites(message: types.Message, is_admin: bool = False, effective_user_id: int = None):
-    user_id = effective_user_id or message.from_user.id
+async def show_favorites_categories(message: types.Message, is_admin: bool = False):
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="💪 Фитнес", callback_data="fav_sphere_TRAINER")],
+        [types.InlineKeyboardButton(text="💅 Бьюти", callback_data="fav_sphere_BEAUTY")],
+        [types.InlineKeyboardButton(text="🎾 Теннис", callback_data="fav_sphere_TENNIS")],
+        [types.InlineKeyboardButton(text="🏸 Падл", callback_data="fav_sphere_PADEL")],
+        [types.InlineKeyboardButton(text="🌍 Все специалисты", callback_data="fav_sphere_ALL")]
+    ])
+    kb = add_admin_button(kb, is_admin=is_admin)
+    await message.answer("Выберите категорию специалистов:", reply_markup=kb)
+
+@router.callback_query(F.data.startswith("fav_sphere_"))
+async def show_favorites(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
+    user_id = effective_user_id or callback.from_user.id
+    sphere = callback.data.split("_")[2]
 
     async with SessionLocal() as session:
         # 1. Get client profile
@@ -17,28 +32,34 @@ async def show_favorites(message: types.Message, is_admin: bool = False, effecti
         client_profile = (await session.execute(stmt_cp)).scalar_one_or_none()
 
         if not client_profile:
-            await message.answer("Профиль клиента не найден.")
+            await callback.message.answer("Профиль клиента не найден.")
+            await callback.answer()
             return
 
         # 2. Find unique trainers from bookings
-        # We join Booking -> TrainerProfile -> User to get names
         stmt = (
             select(TrainerProfile, User)
             .join(Booking, Booking.trainer_profile_id == TrainerProfile.id)
             .join(User, TrainerProfile.user_id == User.id)
             .where(Booking.client_id == client_profile.id)
-            .distinct(TrainerProfile.id)
-            .options(selectinload(TrainerProfile.specializations))
         )
+
+        if sphere != "ALL":
+            stmt = stmt.where(User.role == UserRole(sphere))
+
+        stmt = stmt.distinct(TrainerProfile.id).options(selectinload(TrainerProfile.specializations))
 
         res = await session.execute(stmt)
         specialists = res.all()
 
         if not specialists:
-            await message.answer("Вы еще не записывались к специалистам. После первой записи они появятся здесь!")
+            text = "В этой категории у вас пока нет специалистов." if sphere != "ALL" else "Вы еще не записывались к специалистам."
+            await callback.message.answer(text)
+            await callback.answer()
             return
 
-        await message.answer(f"Ваши специалисты ({len(specialists)}):")
+        sphere_names = {"TRAINER": "фитнесу", "BEAUTY": "бьюти", "TENNIS": "теннису", "PADEL": "падлу", "ALL": ""}
+        await callback.message.answer(f"Ваши специалисты по {sphere_names.get(sphere)} ({len(specialists)}):")
 
         for profile, user_data in specialists:
             specs_str = ", ".join([s.name for s in profile.specializations]) or "не указаны"
@@ -58,6 +79,8 @@ async def show_favorites(message: types.Message, is_admin: bool = False, effecti
             kb = add_admin_button(kb, is_admin=is_admin)
 
             if profile.photo_url:
-                await message.answer_photo(profile.photo_url, caption=text, reply_markup=kb, parse_mode="Markdown")
+                await callback.message.answer_photo(profile.photo_url, caption=text, reply_markup=kb, parse_mode="Markdown")
             else:
-                await message.answer(text, reply_markup=kb, parse_mode="Markdown")
+                await callback.message.answer(text, reply_markup=kb, parse_mode="Markdown")
+
+    await callback.answer()

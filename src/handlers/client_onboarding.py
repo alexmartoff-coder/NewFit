@@ -20,7 +20,7 @@ async def client_start(event: types.Message | types.CallbackQuery, state: FSMCon
         client_profile = (await session.execute(stmt)).scalar_one_or_none()
 
         # If user has a role and profile with a name, skip onboarding
-        if user and user.role == UserRole.CLIENT and client_profile and client_profile.full_name:
+        if user and user.role in [UserRole.CLIENT, UserRole.TRAINER, UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL] and client_profile and client_profile.full_name:
             count_stmt = select(func.count(Booking.id)).where(Booking.client_id == client_profile.id)
             booking_count = (await session.execute(count_stmt)).scalar_one()
             has_specialists = booking_count > 0
