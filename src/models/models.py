@@ -180,6 +180,9 @@ class TimeSlot(Base):
     format = Column(String(20), default="hybrid")
     price = Column(Float, nullable=False, default=0.0)
     google_event_id = Column(String(200), nullable=True)
+    zoom_meeting_id = Column(String(100), nullable=True)
+    zoom_join_url = Column(String(500), nullable=True)
+    zoom_start_url = Column(String(500), nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
 

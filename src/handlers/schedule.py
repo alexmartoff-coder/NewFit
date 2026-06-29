@@ -18,6 +18,7 @@ class ScheduleState(StatesGroup):
     choosing_time = State()
     choosing_duration = State()
     choosing_format = State()
+    entering_zoom = State()
     choosing_price = State()
 
 class GenerateSlotsState(StatesGroup):
@@ -157,6 +158,9 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
                     client_name = s.booking.client.full_name or "Клиент"
                     info += f" — 👤 {client_name}"
 
+                if s.zoom_join_url:
+                    info += f"\n     🔗 Zoom: {s.zoom_join_url}"
+
                 text += f"  {status_icon} {info}\n"
             text += "\n"
 
@@ -248,9 +252,34 @@ async def add_slot_duration(callback: types.CallbackQuery, state: FSMContext):
 async def add_slot_format(callback: types.CallbackQuery, state: FSMContext):
     fmt = callback.data.split("_")[2]
     await state.update_data(format=fmt)
+
+    if fmt in ["ONLINE", "HYBRID"]:
+        kb = types.InlineKeyboardMarkup(inline_keyboard=[
+            [types.InlineKeyboardButton(text="Пропустить", callback_data="skip_zoom")]
+        ])
+        await callback.message.answer("Введите Zoom-ссылку для этого занятия (или нажмите пропустить):", reply_markup=kb)
+        await state.set_state(ScheduleState.entering_zoom)
+    else:
+        await callback.message.answer("Введите цену для этого занятия (в ₽):")
+        await state.set_state(ScheduleState.choosing_price)
+    await callback.answer()
+
+@router.callback_query(F.data == "skip_zoom", ScheduleState.entering_zoom)
+async def skip_zoom(callback: types.CallbackQuery, state: FSMContext):
+    await state.update_data(zoom_url=None)
     await callback.message.answer("Введите цену для этого занятия (в ₽):")
     await state.set_state(ScheduleState.choosing_price)
     await callback.answer()
+
+@router.message(ScheduleState.entering_zoom)
+async def add_slot_zoom(message: types.Message, state: FSMContext):
+    zoom_url = message.text.strip()
+    if not (zoom_url.startswith("http://") or zoom_url.startswith("https://")):
+        await message.answer("Пожалуйста, введите корректную ссылку (начинающуюся с http:// или https://) или нажмите 'Пропустить'.")
+        return
+    await state.update_data(zoom_url=zoom_url)
+    await message.answer("Zoom-ссылка сохранена. Теперь введите цену для этого занятия (в ₽):")
+    await state.set_state(ScheduleState.choosing_price)
 
 async def save_new_time_slot(message: types.Message, state: FSMContext, data: dict, user_id: int):
     """Вспомогательная функция для сохранения слота в БД"""
@@ -293,7 +322,8 @@ async def save_new_time_slot(message: types.Message, state: FSMContext, data: di
                 end_time=end_time,
                 status="free",
                 format=str(data['format']),
-                price=price
+                price=price,
+                zoom_join_url=data.get('zoom_url')
             )
             session.add(new_slot)
             await session.commit()
