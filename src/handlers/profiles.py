@@ -40,14 +40,16 @@ async def show_profile_cmd(message: types.Message, effective_user_id: int = None
                 work_fmt = profile.work_format.value if hasattr(profile.work_format, 'value') else str(profile.work_format)
                 work_fmt_ru = fmt_map.get(work_fmt, work_fmt.lower())
 
+                username_text = f" (@{user.username})" if user.username else ""
                 text = (
                     f"👨‍🏫 **Ваш профиль профессионала**\n\n"
-                    f"👤 Имя: {user.full_name}\n"
+                    f"👤 Имя: {user.full_name}{username_text}\n"
                     f"📞 Телефон: {profile.phone or 'не указан'}\n"
                     f"📍 Город: {profile.city}\n"
                     f"💪 Опыт: {profile.experience} лет\n"
                     f"🎯 Специализации: {specs}\n"
                     f"💰 Цена (разовое): {profile.price_single}₽\n"
+                    f"💰 Цена (онлайн): {profile.price_online}₽\n"
                     f"💳 Цена (пакет 12): {profile.price_package}₽\n"
                     f"⭐ Рейтинг: {profile.rating:.1f}\n"
                     f"🏷 Формат: {work_fmt_ru}\n"
@@ -76,14 +78,16 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
                 work_fmt = profile.work_format.value if hasattr(profile.work_format, 'value') else str(profile.work_format)
                 work_fmt_ru = fmt_map.get(work_fmt, work_fmt.lower())
 
+                username_text = f" (@{user.username})" if user.username else ""
                 text = (
                     f"👨‍🏫 **Ваш профиль профессионала**\n\n"
-                    f"👤 Имя: {user.full_name}\n"
+                    f"👤 Имя: {user.full_name}{username_text}\n"
                     f"📞 Телефон: {profile.phone or 'не указан'}\n"
                     f"📍 Город: {profile.city}\n"
                     f"💪 Опыт: {profile.experience} лет\n"
                     f"🎯 Специализации: {specs}\n"
                     f"💰 Цена (разовое): {profile.price_single}₽\n"
+                    f"💰 Цена (онлайн): {profile.price_online}₽\n"
                     f"💳 Цена (пакет 12): {profile.price_package}₽\n"
                     f"⭐ Рейтинг: {profile.rating:.1f}\n"
                     f"🏷 Формат: {work_fmt_ru}\n"
@@ -101,9 +105,113 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
             kb = get_client_main_kb(is_admin=is_admin)
             await message.answer(f"🏋️‍♀️ **Личный кабинет клиента**\n\n👤 Имя: {user.full_name}", reply_markup=kb, parse_mode="Markdown")
 
-@router.message(F.text == "📆 Расписание и запись")
-async def show_schedule_placeholder(message: types.Message, effective_user_id: int = None):
-    await message.answer("Ваше расписание на сегодня пусто. Интеграция с Google Calendar будет доступна в следующем обновлении.")
+@router.message(F.text == "🖥 Онлайн тренировка")
+async def show_online_training(message: types.Message):
+    user_id = message.from_user.id
+    moscow_tz = gettz('Europe/Moscow')
+    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    async with SessionLocal() as session:
+        user = await session.get(User, user_id)
+        if not user:
+            await message.answer("Вы не зарегистрированы.")
+            return
+
+        if user.role in PROFESSIONAL_ROLES:
+            stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user.id)
+            profile = (await session.execute(stmt_p)).scalar_one_or_none()
+            if not profile:
+                await message.answer("Профиль не найден.")
+                return
+
+            # Find nearest upcoming online/hybrid slot that is booked
+            stmt = (
+                select(TimeSlot)
+                .where(
+                    TimeSlot.trainer_profile_id == profile.id,
+                    TimeSlot.status == "booked",
+                    TimeSlot.start_time >= now_utc
+                )
+                .options(selectinload(TimeSlot.booking).selectinload(Booking.client).selectinload(ClientProfile.user))
+                .order_by(TimeSlot.start_time.asc())
+                .limit(1)
+            )
+            res = await session.execute(stmt)
+            slot = res.scalar_one_or_none()
+
+            if not slot or not ("онлайн" in slot.format.lower() or "online" in slot.format.lower()):
+                await message.answer("У вас нет ближайших онлайн тренировок.")
+                return
+
+            start_moscow = slot.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
+            client_name = slot.booking.client.full_name if slot.booking and slot.booking.client else "Клиент"
+
+            text = (
+                f"🖥 **Ближайшая онлайн тренировка**\n\n"
+                f"👤 Клиент: {client_name}\n"
+                f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')} (МСК)\n"
+                f"🏷 Услуга: {slot.format}\n"
+            )
+
+            kb = []
+            if slot.online_platform == "telegram":
+                text += "\n📱 Формат: Telegram Video. Свяжитесь с клиентом в назначенное время."
+                client_user = slot.booking.client.user if slot.booking and slot.booking.client else None
+                if client_user and client_user.username:
+                    kb.append([types.InlineKeyboardButton(text="💬 Написать клиенту", url=f"https://t.me/{client_user.username}")])
+            elif slot.zoom_start_url:
+                kb.append([types.InlineKeyboardButton(text="🚀 Начать Zoom", url=slot.zoom_start_url)])
+
+            await message.answer(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb) if kb else None, parse_mode="Markdown")
+
+        else:
+            # Client view
+            cp_stmt = select(ClientProfile).where(ClientProfile.user_id == user_id)
+            client_profile = (await session.execute(cp_stmt)).scalar_one_or_none()
+            if not client_profile:
+                await message.answer("У вас нет ближайших онлайн тренировок.")
+                return
+
+            stmt = (
+                select(Booking)
+                .where(
+                    Booking.client_id == client_profile.id,
+                    Booking.start_time >= now_utc
+                )
+                .options(
+                    selectinload(Booking.slot).selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
+                )
+                .order_by(Booking.start_time.asc())
+                .limit(1)
+            )
+            res = await session.execute(stmt)
+            booking = res.scalar_one_or_none()
+
+            if not booking or not booking.slot or not ("онлайн" in booking.slot.format.lower() or "online" in booking.slot.format.lower()):
+                await message.answer("У вас нет ближайших онлайн тренировок.")
+                return
+
+            slot = booking.slot
+            start_moscow = booking.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
+            trainer_name = slot.trainer_profile.user.full_name
+
+            text = (
+                f"🖥 **Ваша онлайн тренировка**\n\n"
+                f"👤 Мастер: {trainer_name}\n"
+                f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')} (МСК)\n"
+                f"🏷 Услуга: {slot.format}\n"
+            )
+
+            kb = []
+            if slot.online_platform == "telegram":
+                text += "\n📱 Формат: Telegram Video. Ожидайте звонка от мастера в назначенное время."
+                trainer_user = slot.trainer_profile.user
+                if trainer_user.username:
+                    kb.append([types.InlineKeyboardButton(text="💬 Написать мастеру", url=f"https://t.me/{trainer_user.username}")])
+            elif slot.zoom_join_url:
+                kb.append([types.InlineKeyboardButton(text="🔗 Войти в Zoom", url=slot.zoom_join_url)])
+
+            await message.answer(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb) if kb else None, parse_mode="Markdown")
 
 @router.message(F.text == "Мои клиенты")
 @router.message(F.text == "/clients")
@@ -470,9 +578,9 @@ async def show_instructions_detailed(message: types.Message):
         "1. Зайдите на [console.cloud.google.com](https://console.cloud.google.com/)\n"
         "2. Создайте проект 'NewFit'\n"
         "3. В поиске найдите 'Google Calendar API' и нажмите 'Enable'\n"
-        "4. Перейдите в 'Credentials' -> 'Create Credentials' -> 'OAuth client ID'\n"
+        "4. Перейдите in 'Credentials' -> 'Create Credentials' -> 'OAuth client ID'\n"
         "5. Выберите 'Web application'\n"
         "6. Добавьте Authorized redirect URIs: `https://your-bot.railway.app/oauth2callback`\n"
-        "7. Скопируйте Client ID и Client Secret и введите их в боте через меню подключения."
+        "7. Скопируйте Client ID and Client Secret и введите их в боте через меню подключения."
     )
     await message.answer(instruction, parse_mode="Markdown", disable_web_page_preview=True)

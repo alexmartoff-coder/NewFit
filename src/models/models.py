@@ -66,6 +66,7 @@ class TrainerProfile(Base):
     certificates: Mapped[Optional[str]] = mapped_column(String(1000))
     work_format: Mapped[WorkFormat] = mapped_column(SQLEnum(WorkFormat))
     price_single: Mapped[float] = mapped_column(Float, default=0.0)
+    price_online: Mapped[float] = mapped_column(Float, default=0.0)
     price_package: Mapped[float] = mapped_column(Float, default=0.0)
     service_prices: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     photo_url: Mapped[Optional[str]] = mapped_column(String(512))

@@ -288,6 +288,7 @@ async def init_db(engine):
 
                 # trainer_profiles columns
                 await add_column_safe("trainer_profiles", "price_single", "FLOAT DEFAULT 0.0")
+                await add_column_safe("trainer_profiles", "price_online", "FLOAT DEFAULT 0.0")
                 await add_column_safe("trainer_profiles", "price_package", "FLOAT DEFAULT 0.0")
                 await add_column_safe("trainer_profiles", "service_prices", "JSON")
                 await add_column_safe("trainer_profiles", "rating", "FLOAT DEFAULT 5.0")
