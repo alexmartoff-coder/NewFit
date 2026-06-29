@@ -160,10 +160,21 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
                 text += f"  {status_icon} {info}\n"
             text += "\n"
 
-        if callback.message.photo:
-            await callback.message.edit_caption(caption=text, reply_markup=kb_back, parse_mode="Markdown")
+        # Handle large messages for Telegram
+        if len(text) > 4000:
+            parts = [text[i:i+4000] for i in range(0, len(text), 4000)]
+            for part in parts[:-1]:
+                await callback.message.answer(part, parse_mode="Markdown")
+            last_part = parts[-1]
+            if callback.message.photo:
+                await callback.message.answer(last_part, reply_markup=kb_back, parse_mode="Markdown")
+            else:
+                await callback.message.answer(last_part, reply_markup=kb_back, parse_mode="Markdown")
         else:
-            await callback.message.edit_text(text, reply_markup=kb_back, parse_mode="Markdown")
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=text, reply_markup=kb_back, parse_mode="Markdown")
+            else:
+                await callback.message.edit_text(text, reply_markup=kb_back, parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data == "sche_add")
