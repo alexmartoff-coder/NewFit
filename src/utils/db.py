@@ -319,6 +319,7 @@ async def init_db(engine):
                 await add_column_safe("time_slots", "zoom_meeting_id", "VARCHAR(100)")
                 await add_column_safe("time_slots", "zoom_join_url", "VARCHAR(500)")
                 await add_column_safe("time_slots", "zoom_start_url", "VARCHAR(500)")
+                await add_column_safe("time_slots", "online_platform", "VARCHAR(50)")
                 await add_column_safe("time_slots", "notes", "TEXT")
 
                 # Миграция данных клиентов

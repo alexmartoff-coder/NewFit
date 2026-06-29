@@ -18,6 +18,7 @@ class ScheduleState(StatesGroup):
     choosing_time = State()
     choosing_duration = State()
     choosing_format = State()
+    choosing_platform = State()
     entering_zoom = State()
     choosing_price = State()
 
@@ -158,7 +159,9 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
                     client_name = s.booking.client.full_name or "Клиент"
                     info += f" — 👤 {client_name}"
 
-                if s.zoom_join_url:
+                if s.online_platform == "telegram":
+                    info += "\n     📱 Видео: Telegram"
+                elif s.zoom_join_url:
                     info += f"\n     🔗 Zoom: {s.zoom_join_url}"
 
                 text += f"  {status_icon} {info}\n"
@@ -255,12 +258,29 @@ async def add_slot_format(callback: types.CallbackQuery, state: FSMContext):
 
     if fmt in ["ONLINE", "HYBRID"]:
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
+            [types.InlineKeyboardButton(text="Telegram Video", callback_data="plat_telegram")],
+            [types.InlineKeyboardButton(text="Zoom", callback_data="plat_zoom")]
+        ])
+        await callback.message.answer("Выберите платформу для онлайн-занятия:", reply_markup=kb)
+        await state.set_state(ScheduleState.choosing_platform)
+    else:
+        await callback.message.answer("Введите цену для этого занятия (в ₽):")
+        await state.set_state(ScheduleState.choosing_price)
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("plat_"), ScheduleState.choosing_platform)
+async def add_slot_platform(callback: types.CallbackQuery, state: FSMContext):
+    platform = callback.data.split("_")[1]
+    await state.update_data(online_platform=platform)
+
+    if platform == "zoom":
+        kb = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="Пропустить", callback_data="skip_zoom")]
         ])
         await callback.message.answer("Введите Zoom-ссылку для этого занятия (или нажмите пропустить):", reply_markup=kb)
         await state.set_state(ScheduleState.entering_zoom)
     else:
-        await callback.message.answer("Введите цену для этого занятия (в ₽):")
+        await callback.message.answer("Выбрано: Telegram Video. Теперь введите цену для этого занятия (в ₽):")
         await state.set_state(ScheduleState.choosing_price)
     await callback.answer()
 
@@ -323,7 +343,8 @@ async def save_new_time_slot(message: types.Message, state: FSMContext, data: di
                 status="free",
                 format=str(data['format']),
                 price=price,
-                zoom_join_url=data.get('zoom_url')
+                zoom_join_url=data.get('zoom_url'),
+                online_platform=data.get('online_platform')
             )
             session.add(new_slot)
             await session.commit()

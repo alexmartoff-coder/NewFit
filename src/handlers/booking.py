@@ -361,14 +361,18 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
 
             # Setup reminders
             from src.services.reminders import ReminderService
-            await ReminderService.schedule_reminders(session, new_booking.id, user_id, slot_start)
+            is_online = ("онлайн" in slot_format.lower() or "online" in slot_format.lower())
+            await ReminderService.schedule_reminders(session, new_booking.id, user_id, trainer_user_id, slot_start, is_online=is_online)
 
             await session.commit()
 
             text = f"✅ **Запись успешно подтверждена!**\n\nВы успешно записаны {term_lesson}.\n📅 Мы пришлем вам напоминание за 24 и 2 часа до начала."
 
-            if slot.zoom_join_url and ("онлайн" in slot_format.lower() or "online" in slot_format.lower()):
-                text += f"\n\n🔗 **Ссылка на Zoom:** {slot.zoom_join_url}"
+            if ("онлайн" in slot_format.lower() or "online" in slot_format.lower()):
+                if slot.online_platform == "telegram":
+                    text += "\n\n📱 **Формат:** Telegram Video\nИнструкция: Занятие будет проходить в этом чате по видеосвязи. Тренер свяжется с вами в назначенное время."
+                elif slot.zoom_join_url:
+                    text += f"\n\n🔗 **Ссылка на Zoom:** {slot.zoom_join_url}"
 
             # Show main menu keyboard to client
             from src.keyboards.common import get_client_main_kb

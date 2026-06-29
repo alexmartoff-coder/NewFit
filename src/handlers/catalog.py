@@ -55,11 +55,11 @@ async def process_username_search(message: types.Message, state: FSMContext):
 
 @router.callback_query(F.data == "search_by_phone")
 async def search_by_phone_prompt(callback: types.CallbackQuery, state: FSMContext):
-    await state.set_state("waiting_for_phone_search")
+    await state.set_state(CatalogFilter.waiting_for_phone_search)
     await callback.message.edit_text("Введите номер телефона мастера для поиска:")
     await callback.answer()
 
-@router.message(F.text, F.state == "waiting_for_phone_search")
+@router.message(F.text, CatalogFilter.waiting_for_phone_search)
 async def process_phone_search(message: types.Message, state: FSMContext):
     raw_phone = "".join(filter(str.isdigit, message.text))
     if not raw_phone or len(raw_phone) < 3:

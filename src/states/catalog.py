@@ -8,3 +8,4 @@ class CatalogFilter(StatesGroup):
     entering_price_min = State()
     entering_price_max = State()
     waiting_for_username_search = State()
+    waiting_for_phone_search = State()
