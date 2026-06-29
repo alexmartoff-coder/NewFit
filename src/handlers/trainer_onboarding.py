@@ -317,13 +317,37 @@ async def process_price_single(message: types.Message, state: FSMContext, is_adm
 
 # --- STEP 11: Price Package ---
 @router.message(TrainerOnboarding.price_package)
-async def process_price_package(message: types.Message, state: FSMContext):
+async def process_price_package(message: types.Message, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     try:
         await state.update_data(price_package=float(message.text))
-        await state.set_state(TrainerOnboarding.photo)
-        await message.answer("Шаг 12: Загрузите ваше фото в хорошем качестве (портрет):", reply_markup=types.ReplyKeyboardRemove())
+        data = await state.get_data()
+        work_fmt = data.get('work_format')
+
+        if work_fmt in [WorkFormat.ONLINE, WorkFormat.HYBRID]:
+            await state.set_state(TrainerOnboarding.online_link)
+            user_id = effective_user_id or message.from_user.id
+            async with SessionLocal() as session:
+                profile = (await session.execute(select(TrainerProfile).where(TrainerProfile.user_id == user_id))).scalar_one_or_none()
+                kb = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text="Пропустить", callback_data="skip_step")]])
+                if profile and profile.online_meeting_link:
+                    kb.inline_keyboard.insert(0, [types.InlineKeyboardButton(text=f"Не менять ({profile.online_meeting_link[:20]}...)", callback_data="skip_step")])
+
+                await message.answer("Шаг 11.1: Введите вашу постоянную ссылку для онлайн-занятий (Zoom, Google Meet и т.д.):", reply_markup=add_admin_button(kb, is_admin=is_admin))
+        else:
+            await state.set_state(TrainerOnboarding.photo)
+            await message.answer("Шаг 12: Загрузите ваше фото в хорошем качестве (портрет):", reply_markup=types.ReplyKeyboardRemove())
     except ValueError:
         await message.answer("Введите число.")
+
+@router.message(TrainerOnboarding.online_link)
+async def process_online_link(message: types.Message, state: FSMContext):
+    link = message.text.strip()
+    if not (link.startswith("http://") or link.startswith("https://")):
+        await message.answer("Пожалуйста, введите корректную ссылку (начинающуюся с http:// или https://) или нажмите 'Пропустить'.")
+        return
+    await state.update_data(online_link=link)
+    await state.set_state(TrainerOnboarding.photo)
+    await message.answer("Ссылка сохранена. Шаг 12: Загрузите ваше фото в хорошем качестве (портрет):", reply_markup=types.ReplyKeyboardRemove())
 
 # --- PHOTO & VIDEO ---
 @router.message(TrainerOnboarding.photo, F.photo)
@@ -419,6 +443,20 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
 
         elif current_state == TrainerOnboarding.price_package:
             await state.update_data(price_package=profile.price_package if profile else 0.0)
+            data = await state.get_data()
+            work_fmt = data.get('work_format')
+            if work_fmt in [WorkFormat.ONLINE, WorkFormat.HYBRID]:
+                await state.set_state(TrainerOnboarding.online_link)
+                kb = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text="Пропустить", callback_data="skip_step")]])
+                if profile and profile.online_meeting_link:
+                    kb.inline_keyboard.insert(0, [types.InlineKeyboardButton(text=f"Не менять ({profile.online_meeting_link[:20]}...)", callback_data="skip_step")])
+                await callback.message.answer("Шаг 11.1: Введите вашу постоянную ссылку для онлайн-занятий:", reply_markup=add_admin_button(kb, is_admin=is_admin))
+            else:
+                await state.set_state(TrainerOnboarding.photo)
+                await callback.message.answer("Шаг 12: Загрузите ваше фото или оставьте прежнее:", reply_markup=types.ReplyKeyboardRemove())
+
+        elif current_state == TrainerOnboarding.online_link:
+            await state.update_data(online_link=profile.online_meeting_link if profile else None)
             await state.set_state(TrainerOnboarding.photo)
             await callback.message.answer("Шаг 12: Загрузите ваше фото или оставьте прежнее:", reply_markup=types.ReplyKeyboardRemove())
 
@@ -472,6 +510,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                     service_prices=data.get('service_prices'),
                     photo_url=data.get('photo_url'),
                     video_presentation_url=data.get('video_url'),
+                    online_meeting_link=data.get('online_link'),
                     status="approved"
                 )
                 session.add(profile)
@@ -487,6 +526,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 profile.service_prices = data.get('service_prices', profile.service_prices)
                 if data.get('photo_url'): profile.photo_url = data.get('photo_url')
                 if data.get('video_url'): profile.video_presentation_url = data.get('video_url')
+                if data.get('online_link'): profile.online_meeting_link = data.get('online_link')
 
             if data.get('specializations'):
                 spec_names = [s.strip() for s in data['specializations']]

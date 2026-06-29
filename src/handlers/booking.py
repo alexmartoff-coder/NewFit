@@ -366,6 +366,13 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
 
             await session.commit()
 
+            # Sync to Google Calendar
+            try:
+                from src.services.calendar import CalendarService
+                await CalendarService.add_event_to_google(trainer_user_id, new_booking.id)
+            except Exception as e:
+                logger.error(f"Failed to sync with Google Calendar for trainer {trainer_user_id}: {e}")
+
             text = f"✅ **Запись успешно подтверждена!**\n\nВы успешно записаны {term_lesson}.\n📅 Мы пришлем вам напоминание за 24 и 2 часа до начала."
 
             if ("онлайн" in slot_format.lower() or "online" in slot_format.lower()):

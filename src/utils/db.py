@@ -296,6 +296,7 @@ async def init_db(engine):
                 await add_column_safe("trainer_profiles", "status", "VARCHAR(20) DEFAULT 'approved'")
                 await add_column_safe("trainer_profiles", "district", "VARCHAR(100)")
                 await add_column_safe("trainer_profiles", "phone", "VARCHAR(20)")
+                await add_column_safe("trainer_profiles", "online_meeting_link", "VARCHAR(500)")
 
                 # Normalize existing phone numbers in trainer_profiles
                 try:
@@ -321,6 +322,7 @@ async def init_db(engine):
                 await add_column_safe("time_slots", "zoom_join_url", "VARCHAR(500)")
                 await add_column_safe("time_slots", "zoom_start_url", "VARCHAR(500)")
                 await add_column_safe("time_slots", "online_platform", "VARCHAR(50)")
+                await add_column_safe("time_slots", "max_clients", "INTEGER DEFAULT 1")
                 await add_column_safe("time_slots", "notes", "TEXT")
 
                 # Миграция данных клиентов

@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.models import Reminder, User, Booking, TrainerProfile, TimeSlot
 from sqlalchemy.orm import selectinload
@@ -17,7 +17,7 @@ class ReminderService:
         """
         Creates reminder records for 24h, 2h (and 10m for online) before training.
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
 
         reminders = [
             ("24h", start_time - timedelta(hours=24)),
@@ -58,7 +58,7 @@ class ReminderService:
 
         while True:
             try:
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc).replace(tzinfo=None)
                 async with SessionLocal() as session:
                     # Find pending reminders that are due
                     stmt = select(Reminder).where(
