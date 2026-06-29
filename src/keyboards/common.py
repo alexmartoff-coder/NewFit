@@ -19,6 +19,7 @@ def get_sphere_kb():
 def get_trainer_main_kb(is_admin: bool = False):
     kb = [
         [KeyboardButton(text="Мой профиль"), KeyboardButton(text="Моё расписание")],
+        [KeyboardButton(text="🖥 Онлайн тренировка")],
         [KeyboardButton(text="Мои клиенты"), KeyboardButton(text="Статистика")],
         [KeyboardButton(text="Поддержка"), KeyboardButton(text="Инструкции")]
     ]
@@ -29,6 +30,7 @@ def get_trainer_main_kb(is_admin: bool = False):
 def get_client_main_kb(is_admin: bool = False, has_specialists: bool = False):
     kb = [
         [KeyboardButton(text="Выбрать услугу")],
+        [KeyboardButton(text="🖥 Онлайн тренировка")],
     ]
 
     records_row = [KeyboardButton(text="Мои записи")]

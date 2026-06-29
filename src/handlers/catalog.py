@@ -18,6 +18,7 @@ async def start_catalog(message: types.Message, state: FSMContext):
         [types.InlineKeyboardButton(text="📍 Поиск по городу/району", callback_data="filter_city")],
         [types.InlineKeyboardButton(text="📞 Поиск по номеру телефона", callback_data="search_by_phone")],
         [types.InlineKeyboardButton(text="🔍 Поиск по Nickname ТГ", callback_data="search_by_username")],
+        [types.InlineKeyboardButton(text="👤 Поиск по ФИО", callback_data="search_by_name")],
         [types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="client_menu")]
     ])
     await message.answer("Как вы хотите найти мастера?", reply_markup=kb)
@@ -58,6 +59,37 @@ async def search_by_phone_prompt(callback: types.CallbackQuery, state: FSMContex
     await state.set_state(CatalogFilter.waiting_for_phone_search)
     await callback.message.edit_text("Введите номер телефона мастера для поиска:")
     await callback.answer()
+
+@router.callback_query(F.data == "search_by_name")
+async def search_by_name_prompt(callback: types.CallbackQuery, state: FSMContext):
+    await state.set_state(CatalogFilter.waiting_for_name_search)
+    await callback.message.edit_text("Введите ФИО (или часть имени) мастера для поиска:")
+    await callback.answer()
+
+@router.message(F.text, CatalogFilter.waiting_for_name_search)
+async def process_name_search(message: types.Message, state: FSMContext):
+    name_query = message.text.strip()
+    if len(name_query) < 2:
+        await message.answer("Пожалуйста, введите минимум 2 символа для поиска.")
+        return
+
+    await state.clear()
+    await state.update_data(name_search=name_query)
+
+    async with SessionLocal() as session:
+        from sqlalchemy.orm import selectinload
+        stmt = select(TrainerProfile, User).join(User).where(
+            User.full_name.ilike(f"%{name_query}%")
+        ).options(selectinload(TrainerProfile.specializations))
+        res = await session.execute(stmt)
+        professionals = res.all()
+
+        if not professionals:
+            await message.answer(f"Мастер с именем '{name_query}' не найден.")
+            return
+
+        await message.answer(f"Найдено мастеров: {len(professionals)}")
+        await apply_filters(message, state)
 
 @router.message(F.text, CatalogFilter.waiting_for_phone_search)
 async def process_phone_search(message: types.Message, state: FSMContext):
@@ -368,6 +400,8 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
             filters.append(func.regexp_replace(TrainerProfile.phone, '\D', '', 'g').like(f"%{data['phone_search']}%"))
         elif 'username_search' in data:
             filters.append(func.lower(User.username).like(f"%{data['username_search'].lower()}%"))
+        elif 'name_search' in data:
+            filters.append(User.full_name.ilike(f"%{data['name_search']}%"))
         else:
             # Filter by role based on catalog type (only if not searching by phone)
             cat_type = data.get('catalog_type')
