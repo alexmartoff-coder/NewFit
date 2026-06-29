@@ -367,6 +367,9 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
 
             text = f"✅ **Запись успешно подтверждена!**\n\nВы успешно записаны {term_lesson}.\n📅 Мы пришлем вам напоминание за 24 и 2 часа до начала."
 
+            if slot.zoom_join_url and ("онлайн" in slot_format.lower() or "online" in slot_format.lower()):
+                text += f"\n\n🔗 **Ссылка на Zoom:** {slot.zoom_join_url}"
+
             # Show main menu keyboard to client
             from src.keyboards.common import get_client_main_kb
             # After a successful booking, the user definitely has at least one specialist now

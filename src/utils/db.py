@@ -316,6 +316,9 @@ async def init_db(engine):
                 except Exception: await conn.rollback()
 
                 await add_column_safe("time_slots", "google_event_id", "VARCHAR(200)")
+                await add_column_safe("time_slots", "zoom_meeting_id", "VARCHAR(100)")
+                await add_column_safe("time_slots", "zoom_join_url", "VARCHAR(500)")
+                await add_column_safe("time_slots", "zoom_start_url", "VARCHAR(500)")
                 await add_column_safe("time_slots", "notes", "TEXT")
 
                 # Миграция данных клиентов
