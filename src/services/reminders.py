@@ -13,9 +13,9 @@ logger = logging.getLogger(__name__)
 
 class ReminderService:
     @staticmethod
-    async def schedule_reminders(session: AsyncSession, booking_id: int, user_id: int, start_time: datetime):
+    async def schedule_reminders(session: AsyncSession, booking_id: int, client_user_id: int, trainer_user_id: int, start_time: datetime, is_online: bool = False):
         """
-        Creates reminder records for 24h and 2h before training.
+        Creates reminder records for 24h, 2h (and 10m for online) before training.
         """
         now = datetime.utcnow()
 
@@ -24,19 +24,30 @@ class ReminderService:
             ("2h", start_time - timedelta(hours=2))
         ]
 
+        if is_online:
+            reminders.append(("10m", start_time - timedelta(minutes=10)))
+
         for r_type, scheduled_for in reminders:
             if scheduled_for > now:
-                new_reminder = Reminder(
+                # Reminder for client
+                session.add(Reminder(
                     booking_id=booking_id,
-                    user_id=user_id,
+                    user_id=client_user_id,
                     reminder_type=r_type,
                     scheduled_for=scheduled_for,
                     status="pending"
-                )
-                session.add(new_reminder)
-                logger.info(f"Scheduled {r_type} reminder for user {user_id} at {scheduled_for}")
+                ))
+                # Reminder for trainer
+                session.add(Reminder(
+                    booking_id=booking_id,
+                    user_id=trainer_user_id,
+                    reminder_type=r_type,
+                    scheduled_for=scheduled_for,
+                    status="pending"
+                ))
+                logger.info(f"Scheduled {r_type} reminder for client {client_user_id} and trainer {trainer_user_id} at {scheduled_for}")
             else:
-                logger.info(f"Skipping {r_type} reminder for user {user_id} (already in the past)")
+                logger.info(f"Skipping {r_type} reminder (already in the past)")
 
     @staticmethod
     async def process_reminders(bot: Bot):
@@ -82,7 +93,7 @@ class ReminderService:
                                 trainer_name = trainer_data[1].full_name
 
                             # Terminology based on type
-                            time_text = "24 часа" if r.reminder_type == "24h" else "2 часа"
+                            time_text = "24 часа" if r.reminder_type == "24h" else ("2 часа" if r.reminder_type == "2h" else "10 минут")
 
                             # Convert start time to Moscow for message
                             s_start = booking.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
@@ -93,6 +104,12 @@ class ReminderService:
                                 f"📅 Время: `{s_start.strftime('%d.%m %H:%M')}` (МСК)\n"
                                 f"🏷 Услуга: `{booking.slot.format}`"
                             )
+
+                            if r.reminder_type == "10m" and ("онлайн" in booking.slot.format.lower() or "online" in booking.slot.format.lower()):
+                                if booking.slot.online_platform == "telegram":
+                                    msg += "\n\n📱 **Занятие в Telegram Video.** Приготовьтесь к звонку. Нажмите на профиль собеседника и выберите 'Видеозвонок' или дождитесь вызова."
+                                elif booking.slot.zoom_join_url:
+                                    msg += f"\n\n🔗 **Ссылка на Zoom:** {booking.slot.zoom_join_url}"
 
                             await bot.send_message(r.user_id, msg, parse_mode="Markdown")
                             r.status = "sent"

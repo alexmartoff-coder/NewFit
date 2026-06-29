@@ -183,6 +183,7 @@ class TimeSlot(Base):
     zoom_meeting_id = Column(String(100), nullable=True)
     zoom_join_url = Column(String(500), nullable=True)
     zoom_start_url = Column(String(500), nullable=True)
+    online_platform = Column(String(50), nullable=True) # telegram, zoom
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
 

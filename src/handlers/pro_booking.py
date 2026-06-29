@@ -241,6 +241,8 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext):
             client_user_id = client_profile.user_id
             client_full_name = client_profile.full_name
             slot_start_time = slot.start_time
+            slot_zoom_url = slot.zoom_join_url
+            slot_online_platform = slot.online_platform
             # Build full slot format string (Service + Format)
             selected_svc = data.get('selected_service', '')
             chosen_fmt = data.get('override_format', '')
@@ -277,7 +279,10 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext):
 
             # Setup reminders
             from src.services.reminders import ReminderService
-            await ReminderService.schedule_reminders(session, new_booking.id, client_user_id, slot.start_time)
+            is_online = ("онлайн" in slot_format.lower() or "online" in slot_format.lower())
+            # Important: we need the professional's user_id. We can get it from callback.from_user.id
+            pro_user_id = callback.from_user.id
+            await ReminderService.schedule_reminders(session, new_booking.id, client_user_id, pro_user_id, slot_start_time, is_online=is_online)
 
             await session.commit()
 
@@ -296,9 +301,16 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext):
                     f"📅 **Вас записали на занятие!**\n\n"
                     f"👤 Мастер: {trainer_name}\n"
                     f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
-                    f"🏷 Услуга: {slot_format}\n\n"
-                    "Запись отображается в вашем профиле."
+                    f"🏷 Услуга: {slot_format}\n"
                 )
+
+                if ("онлайн" in slot_format.lower() or "online" in slot_format.lower()):
+                    if slot_online_platform == "telegram":
+                        client_text += "\n📱 **Формат:** Telegram Video\nИнструкция: Занятие будет проходить в этом чате по видеосвязи. Тренер свяжется с вами в назначенное время.\n"
+                    elif slot_zoom_url:
+                        client_text += f"\n🔗 **Ссылка на Zoom:** {slot_zoom_url}\n"
+
+                client_text += "\nЗапись отображается в вашем профиле."
                 await callback.bot.send_message(client_user_id, client_text, parse_mode="Markdown")
                 logger.info(f"Notification sent to client {client_user_id}")
             except Exception as e:
