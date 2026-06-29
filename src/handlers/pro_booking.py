@@ -241,12 +241,17 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext):
             client_user_id = client_profile.user_id
             client_full_name = client_profile.full_name
             slot_start_time = slot.start_time
-            slot_format = data.get('selected_service', '')
-            if data.get('override_format'):
+            # Build full slot format string (Service + Format)
+            selected_svc = data.get('selected_service', '')
+            chosen_fmt = data.get('override_format', '')
+            fmt_ru_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
+
+            slot_format = selected_svc
+            if chosen_fmt:
                 if slot_format:
-                    slot_format += f" ({data['override_format']})"
+                    slot_format += f" ({fmt_ru_map.get(chosen_fmt, chosen_fmt)})"
                 else:
-                    slot_format = data['override_format']
+                    slot_format = fmt_ru_map.get(chosen_fmt, chosen_fmt)
 
             if not slot_format:
                 slot_format = slot.format
