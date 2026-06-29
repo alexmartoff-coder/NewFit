@@ -43,6 +43,7 @@ async def show_profile_cmd(message: types.Message, effective_user_id: int = None
                 text = (
                     f"👨‍🏫 **Ваш профиль профессионала**\n\n"
                     f"👤 Имя: {user.full_name}\n"
+                    f"📞 Телефон: {profile.phone or 'не указан'}\n"
                     f"📍 Город: {profile.city}\n"
                     f"💪 Опыт: {profile.experience} лет\n"
                     f"🎯 Специализации: {specs}\n"
@@ -78,6 +79,7 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
                 text = (
                     f"👨‍🏫 **Ваш профиль профессионала**\n\n"
                     f"👤 Имя: {user.full_name}\n"
+                    f"📞 Телефон: {profile.phone or 'не указан'}\n"
                     f"📍 Город: {profile.city}\n"
                     f"💪 Опыт: {profile.experience} лет\n"
                     f"🎯 Специализации: {specs}\n"
