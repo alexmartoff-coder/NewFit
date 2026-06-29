@@ -20,45 +20,13 @@ class GoogleKeysState(StatesGroup):
     waiting_for_client_id = State()
     waiting_for_client_secret = State()
 
-@router.message(F.text == "/profile")
-async def show_profile_cmd(message: types.Message, effective_user_id: int = None):
-    user_id = effective_user_id or message.from_user.id
-    async with SessionLocal() as session:
-        user = await session.get(User, user_id)
-        if not user:
-            await message.answer("Вы не зарегистрированы. Используйте /start")
-            return
+def escape_md(text: str) -> str:
+    """Helper to escape underscores for MarkdownV1"""
+    if text is None:
+        return ""
+    return str(text).replace("_", "\\_").replace("*", "\\*").replace("[", "\\[").replace("`", "\\`")
 
-        if user.role in PROFESSIONAL_ROLES:
-            stmt = select(TrainerProfile).where(TrainerProfile.user_id == user.id).options(selectinload(TrainerProfile.specializations))
-            res = await session.execute(stmt)
-            profile = res.scalar_one_or_none()
-
-            if profile:
-                specs = ", ".join([s.name for s in profile.specializations]) or "не указаны"
-                fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
-                work_fmt = profile.work_format.value if hasattr(profile.work_format, 'value') else str(profile.work_format)
-                work_fmt_ru = fmt_map.get(work_fmt, work_fmt.lower())
-
-                username_text = f" (@{user.username})" if user.username else ""
-                text = (
-                    f"👨‍🏫 **Ваш профиль профессионала**\n\n"
-                    f"👤 Имя: {user.full_name}{username_text}\n"
-                    f"📞 Телефон: {profile.phone or 'не указан'}\n"
-                    f"📍 Город: {profile.city}\n"
-                    f"💪 Опыт: {profile.experience} лет\n"
-                    f"🎯 Специализации: {specs}\n"
-                    f"💰 Цена (разовое): {profile.price_single}₽\n"
-                    f"💰 Цена (онлайн): {profile.price_online}₽\n"
-                    f"💳 Цена (пакет 12): {profile.price_package}₽\n"
-                    f"⭐ Рейтинг: {profile.rating:.1f}\n"
-                    f"🏷 Формат: {work_fmt_ru}\n"
-                )
-                await message.answer(text, parse_mode="Markdown")
-        else:
-            await message.answer(f"👤 Профиль клиента: {user.full_name}")
-
-@router.message(F.text == "Мой профиль")
+@router.message(F.text.in_(["/profile", "Мой профиль"]))
 async def show_profile(message: types.Message, is_admin: bool = False, effective_user_id: int = None):
     user_id = effective_user_id or message.from_user.id
     async with SessionLocal() as session:
@@ -76,21 +44,21 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
                 specs = ", ".join([s.name for s in profile.specializations]) or "не указаны"
                 fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
                 work_fmt = profile.work_format.value if hasattr(profile.work_format, 'value') else str(profile.work_format)
-                work_fmt_ru = fmt_map.get(work_fmt, work_fmt.lower())
+                work_fmt_ru = fmt_map.get(work_fmt.upper(), work_fmt.lower())
 
-                username_text = f" (@{user.username})" if user.username else ""
+                username_text = f" (@{escape_md(user.username)})" if user.username else ""
                 text = (
                     f"👨‍🏫 **Ваш профиль профессионала**\n\n"
-                    f"👤 Имя: {user.full_name}{username_text}\n"
-                    f"📞 Телефон: {profile.phone or 'не указан'}\n"
-                    f"📍 Город: {profile.city}\n"
+                    f"👤 Имя: {escape_md(user.full_name)}{username_text}\n"
+                    f"📞 Телефон: {escape_md(profile.phone) or 'не указан'}\n"
+                    f"📍 Город: {escape_md(profile.city)}\n"
                     f"💪 Опыт: {profile.experience} лет\n"
-                    f"🎯 Специализации: {specs}\n"
+                    f"🎯 Специализации: {escape_md(specs)}\n"
                     f"💰 Цена (разовое): {profile.price_single}₽\n"
                     f"💰 Цена (онлайн): {profile.price_online}₽\n"
                     f"💳 Цена (пакет 12): {profile.price_package}₽\n"
                     f"⭐ Рейтинг: {profile.rating:.1f}\n"
-                    f"🏷 Формат: {work_fmt_ru}\n"
+                    f"🏷 Формат: {escape_md(work_fmt_ru)}\n"
                 )
                 kb = types.InlineKeyboardMarkup(inline_keyboard=[
                     [types.InlineKeyboardButton(text="📝 Редактировать профиль", callback_data="start_registration")]
@@ -103,7 +71,7 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
 
         elif user.role == UserRole.CLIENT:
             kb = get_client_main_kb(is_admin=is_admin)
-            await message.answer(f"🏋️‍♀️ **Личный кабинет клиента**\n\n👤 Имя: {user.full_name}", reply_markup=kb, parse_mode="Markdown")
+            await message.answer(f"🏋️‍♀️ **Личный кабинет клиента**\n\n👤 Имя: {escape_md(user.full_name)}", reply_markup=kb, parse_mode="Markdown")
 
 @router.message(F.text == "🖥 Онлайн тренировка")
 async def show_online_training(message: types.Message):
@@ -148,9 +116,9 @@ async def show_online_training(message: types.Message):
 
             text = (
                 f"🖥 **Ближайшая онлайн тренировка**\n\n"
-                f"👤 Клиент: {client_name}\n"
+                f"👤 Клиент: {escape_md(client_name)}\n"
                 f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')} (МСК)\n"
-                f"🏷 Услуга: {slot.format}\n"
+                f"🏷 Услуга: {escape_md(slot.format)}\n"
             )
 
             kb = []
@@ -197,9 +165,9 @@ async def show_online_training(message: types.Message):
 
             text = (
                 f"🖥 **Ваша онлайн тренировка**\n\n"
-                f"👤 Мастер: {trainer_name}\n"
+                f"👤 Мастер: {escape_md(trainer_name)}\n"
                 f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')} (МСК)\n"
-                f"🏷 Услуга: {slot.format}\n"
+                f"🏷 Услуга: {escape_md(slot.format)}\n"
             )
 
             kb = []
@@ -264,8 +232,8 @@ async def show_clients(event: types.Message | types.CallbackQuery, effective_use
 
                 text += (
                     f"✅ {start_moscow.strftime('%d.%m %H:%M')}\n"
-                    f"👤 Клиент: {client_name}\n"
-                    f"🏷 {term_format}: {slot_format or 'не указан'}\n"
+                    f"👤 Клиент: {escape_md(client_name)}\n"
+                    f"🏷 {term_format}: {escape_md(slot_format) or 'не указан'}\n"
                     f"💰 Цена: {int(b.price)}₽\n"
                     f"-------------------\n"
                 )
@@ -345,7 +313,6 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
         now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
         recent_threshold = now_utc - timedelta(days=3)
 
-        # We check both client_id (internal profile) and potentially user_id if migration was messy
         stmt = (
             select(Booking)
             .where(
@@ -390,9 +357,9 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
             work_fmt_ru = fmt_map.get(slot_format.lower(), slot_format)
 
             text = (
-                f"👤 Мастер: {trainer_name}\n"
+                f"👤 Мастер: {escape_md(trainer_name)}\n"
                 f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
-                f"🏷 {term_format}: {work_fmt_ru}\n"
+                f"🏷 {term_format}: {escape_md(work_fmt_ru)}\n"
                 f"📊 Статус: {status_map.get(b.status, b.status)}"
             )
 
