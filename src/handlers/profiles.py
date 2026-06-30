@@ -131,8 +131,10 @@ async def show_online_training(message: types.Message, effective_user_id: int = 
                 kb = []
                 if slot.online_platform == "telegram":
                     client_user = slot.booking.client.user if slot.booking and slot.booking.client else None
-                    if client_user and client_user.username:
-                        kb.append([types.InlineKeyboardButton(text="💬 Написать клиенту", url=f"https://t.me/{client_user.username}")])
+                    if client_user:
+                        if client_user.username:
+                            kb.append([types.InlineKeyboardButton(text="💬 Написать клиенту", url=f"https://t.me/{client_user.username}")])
+                        kb.append([types.InlineKeyboardButton(text="📹 Онлайн тренировка", url=f"tg://user?id={client_user.id}")])
                 elif slot.zoom_start_url or slot.zoom_join_url:
                     url = slot.zoom_start_url or slot.zoom_join_url
                     kb.append([types.InlineKeyboardButton(text="🚀 Начать Zoom", url=url)])
@@ -184,8 +186,10 @@ async def show_online_training(message: types.Message, effective_user_id: int = 
                 kb = []
                 if slot.online_platform == "telegram":
                     trainer_user = slot.trainer_profile.user
-                    if trainer_user.username:
-                        kb.append([types.InlineKeyboardButton(text="💬 Написать мастеру", url=f"https://t.me/{trainer_user.username}")])
+                    if trainer_user:
+                        if trainer_user.username:
+                            kb.append([types.InlineKeyboardButton(text="💬 Написать мастеру", url=f"https://t.me/{trainer_user.username}")])
+                        kb.append([types.InlineKeyboardButton(text="📹 Онлайн тренировка", url=f"tg://user?id={trainer_user.id}")])
                 elif slot.zoom_join_url:
                     kb.append([types.InlineKeyboardButton(text="🔗 Войти в Zoom", url=slot.zoom_join_url)])
 
