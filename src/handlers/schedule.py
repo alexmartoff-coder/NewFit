@@ -258,8 +258,9 @@ async def add_slot_duration(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @router.callback_query(F.data.startswith("as_fmt_"), ScheduleState.choosing_format)
-async def add_slot_format(callback: types.CallbackQuery, state: FSMContext):
+async def add_slot_format(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
     fmt = callback.data.split("_")[2]
+    user_id = effective_user_id or callback.from_user.id
 
     if fmt == "TG":
         await state.update_data(format="ONLINE", online_platform="telegram")
@@ -268,7 +269,7 @@ async def add_slot_format(callback: types.CallbackQuery, state: FSMContext):
     elif fmt in ["ONLINE", "HYBRID"]:
         await state.update_data(format=fmt)
         async with SessionLocal() as session:
-            stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == callback.from_user.id)
+            stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
             profile = (await session.execute(stmt_p)).scalar_one_or_none()
 
             kb_list = [
@@ -288,12 +289,13 @@ async def add_slot_format(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @router.callback_query(F.data.startswith("plat_"), ScheduleState.choosing_platform)
-async def add_slot_platform(callback: types.CallbackQuery, state: FSMContext):
+async def add_slot_platform(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
     platform = callback.data.split("_")[1]
+    user_id = effective_user_id or callback.from_user.id
 
     if platform == "permanent":
         async with SessionLocal() as session:
-            stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == callback.from_user.id)
+            stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
             profile = (await session.execute(stmt_p)).scalar_one_or_none()
             await state.update_data(online_platform="zoom", zoom_url=profile.online_meeting_link)
         await callback.message.answer(f"Использую вашу ссылку: {profile.online_meeting_link}. Сколько человек может записаться? (по умолчанию 1):")
