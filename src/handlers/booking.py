@@ -362,7 +362,7 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             # Setup reminders
             from src.services.reminders import ReminderService
             is_online = ("онлайн" in slot_format.lower() or "online" in slot_format.lower())
-            await ReminderService.schedule_reminders(session, new_booking.id, user_id, trainer_user_id, slot_start, is_online=is_online)
+            await ReminderService.schedule_reminders(session, new_booking.id, user_id, trainer_user_id, slot_start, slot_end, is_online=is_online)
 
             await session.commit()
 
