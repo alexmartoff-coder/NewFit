@@ -8,7 +8,7 @@ from aiogram.fsm.state import State, StatesGroup
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from src.models.models import User, TrainerProfile, ClientProfile, UserRole, Booking, TimeSlot, PROFESSIONAL_ROLES
+from src.models.models import User, TrainerProfile, ClientProfile, UserRole, Booking, TimeSlot, PROFESSIONAL_ROLES, WorkFormat
 from src.utils.db import SessionLocal
 from src.keyboards.common import get_trainer_main_kb, get_client_main_kb
 from src.keyboards.inline import add_admin_button
@@ -72,7 +72,17 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
             await message.answer("Управление кабинетом:", reply_markup=kb_main)
 
         elif user.role == UserRole.CLIENT:
-            kb = get_client_main_kb(is_admin=is_admin)
+            from sqlalchemy import func
+            cp_stmt = select(ClientProfile).where(ClientProfile.user_id == user_id)
+            cp = (await session.execute(cp_stmt)).scalar_one_or_none()
+
+            has_specialists = False
+            if cp:
+                count_stmt = select(func.count(Booking.id)).where(Booking.client_id == cp.id)
+                booking_count = (await session.execute(count_stmt)).scalar_one()
+                has_specialists = booking_count > 0
+
+            kb = get_client_main_kb(is_admin=is_admin, has_specialists=has_specialists)
             await message.answer(f"🏋️‍♀️ **Личный кабинет клиента**\n\n👤 Имя: {escape_md(user.full_name)}", reply_markup=kb, parse_mode="Markdown")
 
 @router.message(F.text == "🖥 Онлайн тренировка")
