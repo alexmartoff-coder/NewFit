@@ -67,7 +67,8 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
                 kb = add_admin_button(kb, is_admin=is_admin)
                 await message.answer(text, reply_markup=kb, parse_mode="Markdown")
 
-            kb_main = get_trainer_main_kb(is_admin=is_admin)
+            has_online = (profile.work_format in [WorkFormat.ONLINE, WorkFormat.HYBRID]) if profile else False
+            kb_main = get_trainer_main_kb(is_admin=is_admin, has_online=has_online)
             await message.answer("Управление кабинетом:", reply_markup=kb_main)
 
         elif user.role == UserRole.CLIENT:
@@ -309,28 +310,64 @@ async def show_support(message: types.Message):
 
 @router.message(F.text == "Мои записи")
 @router.message(F.text == "/bookings")
-async def show_my_bookings(message: types.Message, effective_user_id: int = None):
+async def show_my_bookings_menu(message: types.Message, effective_user_id: int = None):
     user_id = effective_user_id or message.from_user.id
     async with SessionLocal() as session:
-        moscow_tz = gettz('Europe/Moscow')
-
         # Получаем профиль клиента
         cp_stmt = select(ClientProfile).where(ClientProfile.user_id == user_id)
-        cp_res = await session.execute(cp_stmt)
-        client_profile = cp_res.scalar_one_or_none()
+        client_profile = (await session.execute(cp_stmt)).scalar_one_or_none()
 
         if not client_profile:
             await message.answer("У вас пока нет запланированных занятий.")
             return
 
-        # Show only upcoming bookings
+        # Fetch unique services (slot formats) from client's upcoming bookings
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        stmt = (
+            select(TimeSlot.format)
+            .join(Booking, Booking.slot_id == TimeSlot.id)
+            .where(Booking.client_id == client_profile.id, Booking.end_time >= now_utc)
+            .distinct()
+        )
+        res = await session.execute(stmt)
+        services = res.scalars().all()
+
+        if not services:
+            await message.answer("У вас пока нет запланированных занятий.")
+            return
+
+        kb_list = []
+        for svc in services:
+            # Clean service name for display and callback
+            display_name = svc.split(' (')[0] if '(' in svc else svc
+            kb_list.append([types.InlineKeyboardButton(text=display_name, callback_data=f"my_bookings_svc_{svc[:30]}")] )
+
+        await message.answer("Выберите услугу для просмотра записей:", reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb_list))
+
+@router.callback_query(F.data.startswith("my_bookings_svc_"))
+async def show_my_bookings_by_service(callback: types.CallbackQuery, effective_user_id: int = None):
+    svc_prefix = callback.data.replace("my_bookings_svc_", "")
+    user_id = effective_user_id or callback.from_user.id
+
+    async with SessionLocal() as session:
+        moscow_tz = gettz('Europe/Moscow')
+        cp_stmt = select(ClientProfile).where(ClientProfile.user_id == user_id)
+        client_profile = (await session.execute(cp_stmt)).scalar_one_or_none()
+
+        if not client_profile:
+            await callback.answer("Профиль не найден")
+            return
+
         now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
 
+        # We search by prefix since we truncated it in callback_data
         stmt = (
             select(Booking)
+            .join(TimeSlot)
             .where(
                 Booking.client_id == client_profile.id,
-                Booking.end_time >= now_utc
+                Booking.end_time >= now_utc,
+                TimeSlot.format.like(f"{svc_prefix}%")
             )
             .options(
                 selectinload(Booking.slot)
@@ -343,17 +380,18 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
         bookings = res.scalars().all()
 
         if not bookings:
-            await message.answer("У вас пока нет запланированных записей.")
+            await callback.message.edit_text("Записи по этой услуге не найдены.")
             return
 
-        await message.answer("📅 **Ваши записи:**")
+        # Clean display name
+        full_svc_name = bookings[0].slot.format
+        display_svc = full_svc_name.split(' (')[0] if '(' in full_svc_name else full_svc_name
+
+        await callback.message.edit_text(f"📅 **Ваши записи ({display_svc}):**", parse_mode="Markdown")
 
         fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
         for b in bookings:
             slot = b.slot
-            if not slot or not slot.trainer_profile or not slot.trainer_profile.user:
-                continue
-
             trainer_name = slot.trainer_profile.user.full_name
             status_map = {"confirmed": "✅ Подтверждено", "pending": "⏳ Ожидает", "canceled": "❌ Отменено"}
 
@@ -363,7 +401,6 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
             is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in slot_format.split(", "))
             term_format = "Услуга" if (is_beauty or is_specific_sport) else "Формат"
 
-            # Конвертируем время в МСК
             s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
             start_moscow = s_start.astimezone(moscow_tz)
 
@@ -377,10 +414,7 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
             )
 
             kb = None
-            # If booking is confirmed and in the past, allow review
             if b.status == "confirmed" and b.start_time < now_utc:
-                # Check if already reviewed
-                from src.models.models import Review
                 review_stmt = select(Review).where(Review.booking_id == b.id)
                 review_res = await session.execute(review_stmt)
                 if not review_res.scalar_one_or_none():
@@ -388,7 +422,8 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
                         [types.InlineKeyboardButton(text="⭐ Оставить отзыв", callback_data=f"leave_review_{b.id}")]
                     ])
 
-            await message.answer(text, reply_markup=kb, parse_mode="Markdown")
+            await callback.message.answer(text, reply_markup=kb, parse_mode="Markdown")
+    await callback.answer()
 
 @router.message(F.text == "🏆 Топ мастеров")
 async def show_leaderboard(message: types.Message):

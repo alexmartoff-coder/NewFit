@@ -18,7 +18,12 @@ async def cmd_start(message: types.Message, is_admin: bool = False, effective_us
         if user and user.role:
             if user.role in [UserRole.TRAINER, UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL]:
                 from src.keyboards.common import get_trainer_main_kb
-                kb = get_trainer_main_kb(is_admin=is_admin)
+                from src.models.models import TrainerProfile, WorkFormat
+                stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user.id)
+                profile = (await session.execute(stmt_p)).scalar_one_or_none()
+                has_online = (profile.work_format in [WorkFormat.ONLINE, WorkFormat.HYBRID]) if profile else False
+
+                kb = get_trainer_main_kb(is_admin=is_admin, has_online=has_online)
                 role_text = "мастера"
                 if user.role == UserRole.BEAUTY: role_text = "бьюти-мастера"
                 elif user.role == UserRole.TENNIS: role_text = "тренера по теннису"
