@@ -105,13 +105,28 @@ class ReminderService:
                                 f"🏷 Услуга: `{booking.slot.format}`"
                             )
 
+                            kb = None
                             if r.reminder_type == "10m" and ("онлайн" in booking.slot.format.lower() or "online" in booking.slot.format.lower()):
                                 if booking.slot.online_platform == "telegram":
-                                    msg += "\n\n📱 **Занятие в Telegram Video.** Приготовьтесь к звонку. Нажмите на профиль собеседника и выберите 'Видеозвонок' или дождитесь вызова."
+                                    msg = (
+                                        f"🔔 **Занятие начинается через 10 минут!**\n\n"
+                                        f"Мастер: {trainer_name}\n"
+                                        f"Услуга: {booking.slot.format}\n\n"
+                                        f"📱 **Инструкция:** Нажмите кнопку ниже, затем выберите 'Видеозвонок' в профиле собеседника."
+                                    )
+                                    # Link to the other participant
+                                    other_user_id = trainer_data[0].user_id if r.user_id == booking.client.user_id else booking.client.user_id
+                                    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                                        [types.InlineKeyboardButton(text="📞 Видеозвонок", url=f"tg://user?id={other_user_id}")]
+                                    ])
                                 elif booking.slot.zoom_join_url:
                                     msg += f"\n\n🔗 **Ссылка на Zoom:** {booking.slot.zoom_join_url}"
+                                    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                                        [types.InlineKeyboardButton(text="🚀 Войти в Zoom", url=booking.slot.zoom_join_url)]
+                                    ])
 
-                            await bot.send_message(r.user_id, msg, parse_mode="Markdown")
+                            from aiogram import types
+                            await bot.send_message(r.user_id, msg, reply_markup=kb, parse_mode="Markdown")
                             r.status = "sent"
                             logger.info(f"Sent {r.reminder_type} reminder to user {r.user_id}")
 

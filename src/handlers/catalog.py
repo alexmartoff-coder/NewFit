@@ -308,6 +308,10 @@ async def process_filter_spec_callback(callback: types.CallbackQuery, state: FSM
     if callback:
         await callback.answer()
 
+@router.message(CatalogFilter.entering_specialization)
+async def catch_catalog_invalid_input(message: types.Message):
+    await message.answer("Пожалуйста, используйте кнопки для выбора направления.")
+
 @router.callback_query(F.data == "filter_price")
 async def filter_price(callback: types.CallbackQuery, is_admin: bool = False):
     kb = get_price_filter_kb()
