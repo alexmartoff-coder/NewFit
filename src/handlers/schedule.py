@@ -25,6 +25,7 @@ class ScheduleState(StatesGroup):
 
 class GenerateSlotsState(StatesGroup):
     choosing_period = State()
+    choosing_format = State()
     choosing_step = State()
     confirming = State()
 
@@ -418,7 +419,9 @@ async def block_slot_start(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state("waiting_for_block_time")
     await callback.answer()
 
-@router.message(F.text, F.state == "waiting_for_block_time")
+from aiogram.filters import StateFilter
+
+@router.message(F.text, StateFilter("waiting_for_block_time"))
 async def process_block_time(message: types.Message, state: FSMContext, effective_user_id: int = None):
     try:
         moscow_tz = gettz('Europe/Moscow')
@@ -576,10 +579,10 @@ async def quick_gen_period(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.edit_caption(caption=text, reply_markup=kb)
     else:
         await callback.message.edit_text(text, reply_markup=kb)
-    await state.set_state("choosing_gen_format")
+    await state.set_state(GenerateSlotsState.choosing_format)
     await callback.answer()
 
-@router.callback_query(F.data.startswith("gen_f_"), F.state == "choosing_gen_format")
+@router.callback_query(F.data.startswith("gen_f_"), GenerateSlotsState.choosing_format)
 async def quick_gen_format(callback: types.CallbackQuery, state: FSMContext):
     fmt = callback.data.split("_")[2]
     await state.update_data(gen_format=fmt)
@@ -896,7 +899,7 @@ async def config_duration_start(callback: types.CallbackQuery, state: FSMContext
     await state.set_state("waiting_for_duration")
     await callback.answer()
 
-@router.message(F.text, F.state == "waiting_for_duration")
+@router.message(F.text, StateFilter("waiting_for_duration"))
 async def process_config_duration(message: types.Message, state: FSMContext, effective_user_id: int = None):
     try:
         duration = int(message.text)
