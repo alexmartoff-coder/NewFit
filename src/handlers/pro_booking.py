@@ -313,7 +313,7 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext):
 
                 if ("онлайн" in slot_format.lower() or "online" in slot_format.lower()):
                     if slot_online_platform == "telegram":
-                        client_text += "\n📱 **Формат:** Telegram Video\nИнструкция: Занятие будет проходить в этом чате по видеосвязи. Тренер свяжется с вами в назначенное время.\n"
+                        client_text += "\n📱 **Формат:** Telegram Video\n**Инструкция:** Занятие будет проходить в этом чате по видеосвязи. Тренер свяжется с вами в назначенное время.\n"
                     elif slot_zoom_url:
                         client_text += f"\n🔗 **Ссылка на Zoom:** {slot_zoom_url}\n"
 

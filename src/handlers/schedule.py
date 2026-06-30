@@ -244,9 +244,10 @@ async def add_slot_duration(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(duration=duration)
 
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
-        [types.InlineKeyboardButton(text="Оффлайн", callback_data="as_fmt_OFFLINE")],
-        [types.InlineKeyboardButton(text="Онлайн", callback_data="as_fmt_ONLINE")],
-        [types.InlineKeyboardButton(text="Гибрид", callback_data="as_fmt_HYBRID")]
+        [types.InlineKeyboardButton(text="🏢 Оффлайн", callback_data="as_fmt_OFFLINE")],
+        [types.InlineKeyboardButton(text="📱 Онлайн в Telegram", callback_data="as_fmt_TG")],
+        [types.InlineKeyboardButton(text="💻 Другой (Zoom/Meet)", callback_data="as_fmt_ONLINE")],
+        [types.InlineKeyboardButton(text="🔄 Гибрид", callback_data="as_fmt_HYBRID")]
     ])
     text = "Выберите формат для этого слота:"
     if callback.message.photo:
@@ -259,9 +260,13 @@ async def add_slot_duration(callback: types.CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith("as_fmt_"), ScheduleState.choosing_format)
 async def add_slot_format(callback: types.CallbackQuery, state: FSMContext):
     fmt = callback.data.split("_")[2]
-    await state.update_data(format=fmt)
 
-    if fmt in ["ONLINE", "HYBRID"]:
+    if fmt == "TG":
+        await state.update_data(format="ONLINE", online_platform="telegram")
+        await callback.message.answer("Выбрано: Онлайн в Telegram. Сколько человек может записаться? (по умолчанию 1):")
+        await state.set_state(ScheduleState.entering_capacity)
+    elif fmt in ["ONLINE", "HYBRID"]:
+        await state.update_data(format=fmt)
         async with SessionLocal() as session:
             stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == callback.from_user.id)
             profile = (await session.execute(stmt_p)).scalar_one_or_none()
@@ -277,6 +282,7 @@ async def add_slot_format(callback: types.CallbackQuery, state: FSMContext):
             await callback.message.answer("Выберите платформу для онлайн-занятия:", reply_markup=kb)
             await state.set_state(ScheduleState.choosing_platform)
     else:
+        await state.update_data(format=fmt)
         await callback.message.answer("Введите цену для этого занятия (в ₽):")
         await state.set_state(ScheduleState.choosing_price)
     await callback.answer()
@@ -925,3 +931,17 @@ async def process_config_duration(message: types.Message, state: FSMContext, eff
 async def sche_back(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
     await show_schedule_menu(callback.message, is_admin=is_admin, effective_user_id=effective_user_id)
     await callback.answer()
+
+# --- Catch-all handlers for state consistency ---
+@router.message(ScheduleState.choosing_duration)
+@router.message(ScheduleState.choosing_format)
+@router.message(ScheduleState.choosing_platform)
+async def catch_invalid_input(message: types.Message):
+    await message.answer("Пожалуйста, используйте кнопки меню для выбора.")
+
+@router.message(GenerateSlotsState.choosing_period)
+@router.message(GenerateSlotsState.choosing_format)
+@router.message(GenerateSlotsState.choosing_step)
+@router.message(GenerateSlotsState.confirming)
+async def catch_invalid_gen_input(message: types.Message):
+    await message.answer("Пожалуйста, используйте кнопки меню для выбора параметров генерации.")
