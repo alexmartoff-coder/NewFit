@@ -38,6 +38,10 @@ async def start_review(callback: types.CallbackQuery, state: FSMContext):
          types.InlineKeyboardButton(text="⭐⭐⭐⭐⭐", callback_data="rate_5")]
     ])
 
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
     await callback.message.answer("Пожалуйста, оцените работу мастера от 1 до 5:", reply_markup=kb)
     await callback.answer()
 

@@ -221,7 +221,7 @@ async def show_clients(event: types.Message | types.CallbackQuery, effective_use
             select(Booking)
             .where(
                 Booking.trainer_profile_id == profile.id,
-                Booking.start_time >= now_utc
+                Booking.end_time >= now_utc
             )
             .options(
                 selectinload(Booking.client).selectinload(ClientProfile.user),
@@ -323,15 +323,14 @@ async def show_my_bookings(message: types.Message, effective_user_id: int = None
             await message.answer("У вас пока нет запланированных занятий.")
             return
 
-        # Show upcoming and recent bookings (past 3 days)
+        # Show only upcoming bookings
         now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
-        recent_threshold = now_utc - timedelta(days=3)
 
         stmt = (
             select(Booking)
             .where(
                 Booking.client_id == client_profile.id,
-                Booking.start_time >= recent_threshold
+                Booking.end_time >= now_utc
             )
             .options(
                 selectinload(Booking.slot)

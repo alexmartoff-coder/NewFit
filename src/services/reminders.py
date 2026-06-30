@@ -13,9 +13,9 @@ logger = logging.getLogger(__name__)
 
 class ReminderService:
     @staticmethod
-    async def schedule_reminders(session: AsyncSession, booking_id: int, client_user_id: int, trainer_user_id: int, start_time: datetime, is_online: bool = False):
+    async def schedule_reminders(session: AsyncSession, booking_id: int, client_user_id: int, trainer_user_id: int, start_time: datetime, end_time: datetime = None, is_online: bool = False):
         """
-        Creates reminder records for 24h, 2h (and 10m for online) before training.
+        Creates reminder records for 24h, 2h (and 10m for online) before training, and 10m after for review.
         """
         now = datetime.now(timezone.utc).replace(tzinfo=None)
 
@@ -27,6 +27,9 @@ class ReminderService:
         if is_online:
             reminders.append(("10m", start_time - timedelta(minutes=10)))
 
+        if end_time:
+            reminders.append(("review", end_time + timedelta(minutes=10)))
+
         for r_type, scheduled_for in reminders:
             if scheduled_for > now:
                 # Reminder for client
@@ -37,14 +40,15 @@ class ReminderService:
                     scheduled_for=scheduled_for,
                     status="pending"
                 ))
-                # Reminder for trainer
-                session.add(Reminder(
-                    booking_id=booking_id,
-                    user_id=trainer_user_id,
-                    reminder_type=r_type,
-                    scheduled_for=scheduled_for,
-                    status="pending"
-                ))
+                # Reminder for trainer (skip for review)
+                if r_type != "review":
+                    session.add(Reminder(
+                        booking_id=booking_id,
+                        user_id=trainer_user_id,
+                        reminder_type=r_type,
+                        scheduled_for=scheduled_for,
+                        status="pending"
+                    ))
                 logger.info(f"Scheduled {r_type} reminder for client {client_user_id} and trainer {trainer_user_id} at {scheduled_for}")
             else:
                 logger.info(f"Skipping {r_type} reminder (already in the past)")
@@ -109,7 +113,16 @@ class ReminderService:
                             )
 
                             kb = None
-                            if r.reminder_type == "10m" and ("онлайн" in booking.slot.format.lower() or "online" in booking.slot.format.lower()):
+                            if r.reminder_type == "review":
+                                msg = (
+                                    f"⭐ **Как прошло занятие?**\n\n"
+                                    f"Ваше занятие с {trainer_name} завершилось. "
+                                    f"Пожалуйста, оставьте отзыв, это поможет другим пользователям!"
+                                )
+                                kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                                    [types.InlineKeyboardButton(text="⭐ Оставить отзыв", callback_data=f"leave_review_{booking.id}")]
+                                ])
+                            elif r.reminder_type == "10m" and ("онлайн" in booking.slot.format.lower() or "online" in booking.slot.format.lower()):
                                 if booking.slot.online_platform == "telegram":
                                     msg = "Занятие начинается через 10 минут."
                                     # Link to the other participant
