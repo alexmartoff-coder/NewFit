@@ -75,8 +75,8 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
             await message.answer(f"🏋️‍♀️ **Личный кабинет клиента**\n\n👤 Имя: {escape_md(user.full_name)}", reply_markup=kb, parse_mode="Markdown")
 
 @router.message(F.text == "🖥 Онлайн тренировка")
-async def show_online_training(message: types.Message):
-    user_id = message.from_user.id
+async def show_online_training(message: types.Message, effective_user_id: int = None):
+    user_id = effective_user_id or message.from_user.id
     moscow_tz = gettz('Europe/Moscow')
     now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
     future_limit = now_utc + timedelta(days=3)

@@ -75,7 +75,10 @@ class ReminderService:
                     for r in reminders:
                         try:
                             # Fetch booking and trainer info
-                            booking_stmt = select(Booking).where(Booking.id == r.booking_id).options(selectinload(Booking.slot))
+                            booking_stmt = select(Booking).where(Booking.id == r.booking_id).options(
+                                selectinload(Booking.slot),
+                                selectinload(Booking.client)
+                            )
                             booking_res = await session.execute(booking_stmt)
                             booking = booking_res.scalar_one_or_none()
 
@@ -108,16 +111,11 @@ class ReminderService:
                             kb = None
                             if r.reminder_type == "10m" and ("онлайн" in booking.slot.format.lower() or "online" in booking.slot.format.lower()):
                                 if booking.slot.online_platform == "telegram":
-                                    msg = (
-                                        f"🔔 **Занятие начинается через 10 минут!**\n\n"
-                                        f"Мастер: {trainer_name}\n"
-                                        f"Услуга: {booking.slot.format}\n\n"
-                                        f"📱 **Инструкция:** Нажмите кнопку ниже, затем выберите 'Видеозвонок' в профиле собеседника."
-                                    )
+                                    msg = "Занятие начинается через 10 минут."
                                     # Link to the other participant
                                     other_user_id = trainer_data[0].user_id if r.user_id == booking.client.user_id else booking.client.user_id
                                     kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                                        [types.InlineKeyboardButton(text="📞 Видеозвонок", url=f"tg://user?id={other_user_id}")]
+                                        [types.InlineKeyboardButton(text="🎥 Начать видеозвонок", url=f"tg://user?id={other_user_id}")]
                                     ])
                                 elif booking.slot.zoom_join_url:
                                     msg += f"\n\n🔗 **Ссылка на Zoom:** {booking.slot.zoom_join_url}"
