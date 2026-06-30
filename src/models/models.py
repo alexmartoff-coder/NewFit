@@ -46,7 +46,7 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(128))
     role: Mapped[UserRole] = mapped_column(SQLEnum(UserRole), nullable=True)
     is_test: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     trainer_profile: Mapped["TrainerProfile"] = relationship(back_populates="user", cascade="all, delete-orphan")
     client_profile: Mapped["ClientProfile"] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -102,7 +102,7 @@ class Subscription(Base):
     client_id: Mapped[int] = mapped_column(ForeignKey("client_profiles.id"))
     total_sessions: Mapped[int] = mapped_column(Integer)
     remaining_sessions: Mapped[int] = mapped_column(Integer)
-    purchase_date: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    purchase_date: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     trainer: Mapped["TrainerProfile"] = relationship(back_populates="subscriptions")
@@ -116,7 +116,7 @@ class Review(Base):
     client_id: Mapped[int] = mapped_column(ForeignKey("client_profiles.id"))
     rating: Mapped[int] = mapped_column(Integer)
     comment: Mapped[Optional[str]] = mapped_column(String(1000))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 # ========== АДМИН-ПАНЕЛЬ ==========
 
@@ -127,7 +127,7 @@ class Admin(Base):
     user_id = Column(BigInteger, ForeignKey("users.id"), unique=True, nullable=False)
     role = Column(String(50), default="admin")  # "owner", "co_admin", "tester_trainer", "tester_client", "tester_both"
     added_by = Column(BigInteger, nullable=True)
-    added_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    added_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     can_test_trainer = Column(Boolean, default=False)
     can_test_client = Column(Boolean, default=False)
 
@@ -150,7 +150,7 @@ class TrainerSchedule(Base):
     slot_duration = Column(Integer, default=60)
     rolling_window = Column(Integer, nullable=True) # In days: 7, 14, 30
     last_replenished = Column(DateTime, nullable=True)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     trainer = relationship("User", back_populates="schedule")
 
@@ -210,7 +210,7 @@ class Booking(Base):
     paid = Column(Boolean, default=False)
     client_notes = Column(Text, nullable=True)
     trainer_notes = Column(Text, nullable=True)
-    booked_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    booked_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 class Reminder(Base):
     __tablename__ = "reminders"
