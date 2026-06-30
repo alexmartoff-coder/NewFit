@@ -16,9 +16,9 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 @router.callback_query(F.data.startswith("pro_book_client_"))
-async def pro_start_booking(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
+async def pro_start_booking(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     client_id = int(callback.data.split("_")[-1])
-    user_id = callback.from_user.id
+    user_id = effective_user_id or callback.from_user.id
 
     async with SessionLocal() as session:
         # Get professional profile
@@ -220,11 +220,11 @@ async def show_pro_booking_confirmation(callback: types.CallbackQuery, state: FS
     await callback.message.edit_text(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="Markdown")
 
 @router.callback_query(F.data == "pro_confirm_booking", ProBookingSession.confirming)
-async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext):
+async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     data = await state.get_data()
     slot_id = data['slot_id']
     client_id = data['client_id']
-    pro_user_id = callback.from_user.id
+    pro_user_id = effective_user_id or callback.from_user.id
 
     async with SessionLocal() as session:
         stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(
@@ -296,6 +296,7 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext):
             kb = types.InlineKeyboardMarkup(inline_keyboard=[
                 [types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="trainer_menu")]
             ])
+            kb = add_admin_button(kb, is_admin=is_admin)
             await callback.message.edit_text(f"✅ Клиент {client_full_name} успешно записан!", reply_markup=kb)
 
             # Notify client

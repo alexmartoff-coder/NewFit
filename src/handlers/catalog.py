@@ -374,7 +374,7 @@ async def filter_reset(callback: types.CallbackQuery, state: FSMContext, is_admi
 
 @router.callback_query(F.data == "filter_apply")
 @router.callback_query(F.data.startswith("cat_page_"))
-async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMContext):
+async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMContext, is_admin: bool = False):
     if isinstance(event, types.CallbackQuery):
         callback = event
         message = event.message

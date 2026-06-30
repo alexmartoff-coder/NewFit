@@ -12,7 +12,7 @@ router = Router()
 @router.callback_query(F.data == "client_menu")
 async def client_start(event: types.Message | types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     message = event if isinstance(event, types.Message) else event.message
-    user_id = effective_user_id or message.from_user.id
+    user_id = effective_user_id or event.from_user.id
 
     async with SessionLocal() as session:
         user = await session.get(User, user_id)

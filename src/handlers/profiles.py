@@ -544,8 +544,8 @@ async def trainer_google_settings(callback: types.CallbackQuery):
     await callback.answer()
 
 @router.callback_query(F.data == "trainer_menu")
-async def trainer_menu_redirect(callback: types.CallbackQuery):
-    await show_profile(callback.message, is_admin=False) # Simplified, middleware would handle is_admin
+async def trainer_menu_redirect(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
+    await show_profile(callback.message, is_admin=is_admin, effective_user_id=effective_user_id)
     await callback.answer()
 
 @router.message(F.text == "Инструкции")
