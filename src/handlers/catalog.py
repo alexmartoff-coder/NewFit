@@ -3,7 +3,7 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy import select, and_, func
 from src.models.models import TrainerProfile, User, Specialization, UserRole
 from src.utils.db import SessionLocal
-from src.keyboards.catalog import get_filter_kb, get_price_filter_kb
+from src.keyboards.catalog import get_filter_kb, get_price_filter_kb, get_catalog_city_kb
 from src.keyboards.inline import add_admin_button
 from src.keyboards.common import get_district_kb
 from src.states.catalog import CatalogFilter
@@ -185,8 +185,11 @@ async def process_catalog_type(callback: types.CallbackQuery, state: FSMContext,
 @router.callback_query(F.data == "filter_city")
 async def filter_city(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(CatalogFilter.entering_city)
-    from src.keyboards.common import get_city_kb
-    await callback.message.answer("Выберите или введите название города:", reply_markup=get_city_kb())
+    text = "Выберите город для поиска:"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=get_catalog_city_kb())
+    else:
+        await callback.message.edit_text(text, reply_markup=get_catalog_city_kb())
     await callback.answer()
 
 @router.message(CatalogFilter.entering_city)
@@ -195,38 +198,37 @@ async def process_filter_city(message: types.Message, state: FSMContext, is_admi
     await state.update_data(city=city)
 
     if city == "Онлайн":
-        kb = get_filter_kb()
-        kb = add_admin_button(kb, is_admin=is_admin)
-        await message.answer(
-            f"Город установлен: {city}\n"
-            "Выберите дополнительные фильтры или нажмите 'Показать':",
-            reply_markup=kb
-        )
+        await state.update_data(district=None)
     else:
         dist_kb = get_district_kb(city)
         if dist_kb:
             await state.set_state(CatalogFilter.entering_district)
             await message.answer(f"Выберите район в г. {city}:", reply_markup=dist_kb)
-        else:
-            kb = get_filter_kb()
-            kb = add_admin_button(kb, is_admin=is_admin)
-            await message.answer(
-                f"Город установлен: {city}\n"
-                "Выберите дополнительные фильтры или нажмите 'Показать':",
-                reply_markup=kb
-            )
+            return
+
+    # If no districts or Online, proceed to sphere selection
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="Фитнес", callback_data="cat_type_fitness")],
+        [types.InlineKeyboardButton(text="Бьюти", callback_data="cat_type_beauty")],
+        [types.InlineKeyboardButton(text="Большой теннис", callback_data="cat_type_tennis")],
+        [types.InlineKeyboardButton(text="Падл", callback_data="cat_type_padel")]
+    ])
+    await message.answer(f"Город: {city}\n\nКакая сфера услуг вас интересует?", reply_markup=kb)
 
 @router.message(CatalogFilter.entering_district)
 async def process_filter_district(message: types.Message, state: FSMContext, is_admin: bool = False):
     district = message.text.strip()
     await state.update_data(district=district)
-    kb = get_filter_kb()
-    kb = add_admin_button(kb, is_admin=is_admin)
-    await message.answer(
-        f"Район установлен: {district}\n"
-        "Выберите дополнительные фильтры или нажмите 'Показать':",
-        reply_markup=kb
-    )
+    data = await state.get_data()
+    city = data.get("city", "Неизвестно")
+
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="Фитнес", callback_data="cat_type_fitness")],
+        [types.InlineKeyboardButton(text="Бьюти", callback_data="cat_type_beauty")],
+        [types.InlineKeyboardButton(text="Большой теннис", callback_data="cat_type_tennis")],
+        [types.InlineKeyboardButton(text="Падл", callback_data="cat_type_padel")]
+    ])
+    await message.answer(f"Город: {city}, Район: {district}\n\nКакая сфера услуг вас интересует?", reply_markup=kb)
 
 @router.callback_query(F.data == "filter_spec")
 async def filter_spec(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
