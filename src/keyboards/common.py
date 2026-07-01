@@ -33,14 +33,12 @@ def get_trainer_main_kb(is_admin: bool = False, has_online: bool = True):
 
 def get_client_main_kb(is_admin: bool = False, has_specialists: bool = False):
     kb = [
-        [KeyboardButton(text="Выбрать услугу")],
+        [KeyboardButton(text="Выбрать услугу"), KeyboardButton(text="Мои записи")],
         [KeyboardButton(text="🖥 Онлайн тренировка")],
     ]
 
-    records_row = [KeyboardButton(text="Мои записи")]
     if has_specialists:
-        records_row.append(KeyboardButton(text="Специалисты"))
-    kb.append(records_row)
+        kb[1].append(KeyboardButton(text="Специалисты"))
 
     kb.append([KeyboardButton(text="💬 Мои диалоги")])
 
