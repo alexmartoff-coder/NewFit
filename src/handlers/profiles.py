@@ -350,7 +350,8 @@ async def show_my_bookings_menu(message: types.Message, effective_user_id: int =
         for svc in services:
             # Clean service name for display and callback
             display_name = svc.split(' (')[0] if '(' in svc else svc
-            kb_list.append([types.InlineKeyboardButton(text=display_name, callback_data=f"my_bookings_svc_{svc[:30]}")] )
+            # Use shorter prefix to avoid Telegram 64-byte callback_data limit
+            kb_list.append([types.InlineKeyboardButton(text=display_name, callback_data=f"my_bookings_svc_{svc[:15]}")] )
 
         await message.answer("Выберите услугу для просмотра записей:", reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb_list))
 
