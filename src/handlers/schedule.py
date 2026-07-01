@@ -157,7 +157,9 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
 
                 if s.status == "booked" and s.booking and s.booking.client:
                     client_name = s.booking.client.full_name or "Клиент"
-                    btn_text += f" 👤 {client_name}"
+                    fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
+                    fmt_ru = fmt_map.get(s.format, s.format)
+                    btn_text += f" 👤 {client_name} ({fmt_ru})"
 
                 kb_day.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"sche_slot_info_{s.id}")])
 
