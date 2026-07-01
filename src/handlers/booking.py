@@ -90,7 +90,6 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
             return
 
         kb = []
-        fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
         from dateutil.tz import gettz, UTC
         moscow_tz = gettz('Europe/Moscow')
 
@@ -102,10 +101,7 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
             start_str = s_start.astimezone(moscow_tz).strftime('%H:%M')
             end_str = s_end.astimezone(moscow_tz).strftime('%H:%M')
 
-            fmt_val = s.format.value if hasattr(s.format, 'value') else str(s.format)
-            fmt_ru = fmt_map.get(fmt_val, fmt_val.lower())
-
-            btn_text = f"{start_str} - {end_str} — {int(s.price)}₽ ({fmt_ru})"
+            btn_text = f"{start_str} - {end_str} — {int(s.price)}₽"
             kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"slot_{s.id}")])
 
         kb.append([types.InlineKeyboardButton(text="🔙 К выбору даты", callback_data=f"book_{trainer_user_id}")])
@@ -182,16 +178,15 @@ async def process_service_selection(callback: types.CallbackQuery, state: FSMCon
 
 async def proceed_to_format_selection_or_confirm(callback: types.CallbackQuery, state: FSMContext, slot: TimeSlot, is_admin: bool):
     # Check if we need to ask for format (offline/online)
-    # We ask if the specialist is a TRAINER (fitness) and the slot format is 'hybrid'
-    trainer_role = slot.trainer_profile.user.role
-    if trainer_role == UserRole.TRAINER and (slot.format.lower() == "hybrid" or slot.format.lower() == "гибрид"):
+    # We ask if the specialist's slot format is 'hybrid'
+    if slot.format.lower() == "hybrid" or slot.format.lower() == "гибрид":
         await state.set_state(BookingSession.choosing_format)
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="🏢 Оффлайн (в зале)", callback_data="c_fmt_offline")],
+            [types.InlineKeyboardButton(text="🏢 Оффлайн", callback_data="c_fmt_offline")],
             [types.InlineKeyboardButton(text="💻 Онлайн (дистанционно)", callback_data="c_fmt_online")],
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data=f"slot_{slot.id}")]
         ])
-        text = "Этот тренер проводит занятия и оффлайн, и онлайн. Выберите удобный вам формат:"
+        text = "Этот специалист проводит занятия и оффлайн, и онлайн. Выберите удобный вам формат:"
         if callback.message.photo:
             await callback.message.edit_caption(caption=text, reply_markup=kb)
         else:
