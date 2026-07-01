@@ -8,7 +8,7 @@ from aiogram.fsm.state import State, StatesGroup
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from src.models.models import User, TrainerProfile, ClientProfile, UserRole, Booking, TimeSlot, PROFESSIONAL_ROLES, WorkFormat
+from src.models.models import User, TrainerProfile, ClientProfile, UserRole, Booking, TimeSlot, PROFESSIONAL_ROLES, WorkFormat, Review
 from src.utils.db import SessionLocal
 from src.keyboards.common import get_trainer_main_kb, get_client_main_kb
 from src.keyboards.inline import add_admin_button

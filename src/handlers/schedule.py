@@ -140,53 +140,49 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
             start_moscow = s.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
             grouped[start_moscow.date()].append(s)
 
-        text = "📅 **Ваше расписание на 14 дней (МСК):**\n\n"
-        fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
+        kb_slots = []
         for date_obj, day_slots in sorted(grouped.items()):
-            text += f"🗓 `{date_obj.strftime('%d.%m (%a)')}`\n"
             for s in day_slots:
                 # Ensure we handle naive vs aware datetimes consistently
                 s_start = s.start_time.replace(tzinfo=UTC) if s.start_time.tzinfo is None else s.start_time.astimezone(UTC)
-                s_end = s.end_time.replace(tzinfo=UTC) if s.end_time.tzinfo is None else s.end_time.astimezone(UTC)
-
                 start_moscow = s_start.astimezone(moscow_tz)
-                end_moscow = s_end.astimezone(moscow_tz)
 
                 status_icon = "🟢" if s.status == "free" else ("🔴" if s.status == "booked" else "⚪")
-                fmt_val = s.format.value if hasattr(s.format, 'value') else str(s.format)
-                fmt_ru = fmt_map.get(fmt_val, fmt_val.lower())
-
-                info = f"{start_moscow.strftime('%H:%M')}—{end_moscow.strftime('%H:%M')} | {int(s.price)}₽ ({fmt_ru})"
-                if s.max_clients > 1:
-                    info += f" [Групповое: до {s.max_clients} чел.]"
+                btn_text = f"{status_icon} {start_moscow.strftime('%d.%m %H:%M')} ({int(s.price)}₽)"
 
                 if s.status == "booked" and s.booking and s.booking.client:
                     client_name = s.booking.client.full_name or "Клиент"
-                    info += f" — 👤 {client_name}"
+                    btn_text += f" 👤 {client_name}"
 
-                if s.online_platform == "telegram":
-                    info += "\n     📱 Видео: Telegram"
-                elif s.zoom_join_url:
-                    info += f"\n     🔗 Zoom: {s.zoom_join_url}"
+                kb_slots.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"sche_slot_info_{s.id}")])
 
-                text += f"  {status_icon} {info}\n"
-            text += "\n"
+        # Chunking: Telegram allows max 100 buttons per message. We'll use 40 for safety.
+        chunk_size = 40
+        chunks = [kb_slots[i:i + chunk_size] for i in range(0, len(kb_slots), chunk_size)]
 
-        # Handle large messages for Telegram
-        if len(text) > 4000:
-            parts = [text[i:i+4000] for i in range(0, len(text), 4000)]
-            for part in parts[:-1]:
-                await callback.message.answer(part, parse_mode="Markdown")
-            last_part = parts[-1]
+        main_text = "📅 **Ваше расписание (на 14 дней):**"
+
+        if not chunks:
             if callback.message.photo:
-                await callback.message.answer(last_part, reply_markup=kb_back, parse_mode="Markdown")
+                await callback.message.edit_caption(caption=main_text + "\n\n📭 Слотов не найдено.", reply_markup=kb_back)
             else:
-                await callback.message.answer(last_part, reply_markup=kb_back, parse_mode="Markdown")
-        else:
-            if callback.message.photo:
-                await callback.message.edit_caption(caption=text, reply_markup=kb_back, parse_mode="Markdown")
+                await callback.message.edit_text(main_text + "\n\n📭 Слотов не найдено.", reply_markup=kb_back)
+            return
+
+        for i, chunk in enumerate(chunks):
+            current_kb = types.InlineKeyboardMarkup(inline_keyboard=chunk)
+            # Add navigation/back buttons only to the last chunk
+            if i == len(chunks) - 1:
+                current_kb.inline_keyboard.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")])
+                current_kb = add_admin_button(current_kb, is_admin=is_admin)
+
+            if i == 0:
+                if callback.message.photo:
+                    await callback.message.edit_caption(caption=main_text, reply_markup=current_kb)
+                else:
+                    await callback.message.edit_text(main_text, reply_markup=current_kb)
             else:
-                await callback.message.edit_text(text, reply_markup=kb_back, parse_mode="Markdown")
+                await callback.message.answer(f"📅 Расписание (часть {i+1}):", reply_markup=current_kb)
     await callback.answer()
 
 @router.callback_query(F.data == "sche_add")
@@ -928,6 +924,52 @@ async def process_config_duration(message: types.Message, state: FSMContext, eff
         await state.clear()
     except ValueError:
         await message.answer("Введите число.")
+
+@router.callback_query(F.data.startswith("sche_slot_info_"))
+async def view_slot_info_details(callback: types.CallbackQuery):
+    slot_id = int(callback.data.split("_")[3])
+    async with SessionLocal() as session:
+        from sqlalchemy.orm import selectinload
+        stmt = (
+            select(TimeSlot)
+            .where(TimeSlot.id == slot_id)
+            .options(selectinload(TimeSlot.booking).selectinload(Booking.client))
+        )
+        res = await session.execute(stmt)
+        slot = res.scalars().first()
+
+        if not slot:
+            await callback.answer("Слот не найден.")
+            return
+
+        moscow_tz = gettz('Europe/Moscow')
+        s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
+        s_end = slot.end_time.replace(tzinfo=UTC) if slot.end_time.tzinfo is None else slot.end_time.astimezone(UTC)
+
+        start_moscow = s_start.astimezone(moscow_tz)
+        end_moscow = s_end.astimezone(moscow_tz)
+
+        status_map = {"free": "Свободен 🟢", "booked": "Забронирован 🔴", "blocked": "Заблокирован ⚪"}
+        fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
+
+        details = (
+            f"⏰ {start_moscow.strftime('%d.%m %H:%M')}—{end_moscow.strftime('%H:%M')}\n"
+            f"📊 {status_map.get(slot.status, slot.status)}\n"
+            f"💰 {int(slot.price)}₽ | {fmt_map.get(slot.format, slot.format)}"
+        )
+
+        if slot.max_clients > 1:
+            details += f"\n👥 До {slot.max_clients} чел."
+
+        if slot.status == "booked" and slot.booking and slot.booking.client:
+            details += f"\n👤 {slot.booking.client.full_name}"
+
+        if slot.online_platform == "telegram":
+            details += "\n📱 Видео: Telegram"
+        elif slot.zoom_join_url:
+            details += f"\n🔗 Zoom: {slot.zoom_join_url}"
+
+        await callback.answer(details, show_alert=True)
 
 @router.callback_query(F.data == "sche_back")
 async def sche_back(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
