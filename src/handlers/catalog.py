@@ -15,13 +15,30 @@ router = Router()
 async def start_catalog(message: types.Message, state: FSMContext):
     await state.clear()
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="Фитнес", callback_data="cat_start_fitness")],
+        [types.InlineKeyboardButton(text="Бьюти", callback_data="cat_start_beauty")],
+        [types.InlineKeyboardButton(text="Большой теннис", callback_data="cat_start_tennis")],
+        [types.InlineKeyboardButton(text="Падл", callback_data="cat_start_padel")],
+        [types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="client_menu")]
+    ])
+    await message.answer("Какая сфера услуг вас интересует?", reply_markup=kb)
+
+@router.callback_query(F.data.startswith("cat_start_"))
+async def process_catalog_sphere_start(callback: types.CallbackQuery, state: FSMContext):
+    cat_type = callback.data.split("_")[2]
+    await state.update_data(catalog_type=cat_type)
+
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="📍 Поиск по городу/району", callback_data="filter_city")],
         [types.InlineKeyboardButton(text="📞 Поиск по номеру телефона", callback_data="search_by_phone")],
         [types.InlineKeyboardButton(text="🔍 Поиск по Nickname ТГ", callback_data="search_by_username")],
         [types.InlineKeyboardButton(text="👤 Поиск по ФИО", callback_data="search_by_name")],
         [types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="client_menu")]
     ])
-    await message.answer("Как вы хотите найти мастера?", reply_markup=kb)
+
+    type_names = {"fitness": "Фитнес", "beauty": "Бьюти", "tennis": "Большой теннис", "padel": "Падл"}
+    await callback.message.edit_text(f"Сфера: {type_names.get(cat_type, cat_type)}\n\nКак вы хотите найти мастера?", reply_markup=kb)
+    await callback.answer()
 
 @router.callback_query(F.data == "search_by_username")
 async def search_by_username_prompt(callback: types.CallbackQuery, state: FSMContext):
@@ -36,8 +53,11 @@ async def process_username_search(message: types.Message, state: FSMContext):
         await message.answer("Пожалуйста, введите корректный Nickname (минимум 3 символа).")
         return
 
+    data = await state.get_data()
+    cat_type = data.get('catalog_type')
     await state.clear()
     await state.update_data(username_search=username)
+    if cat_type: await state.update_data(catalog_type=cat_type)
 
     async with SessionLocal() as session:
         from sqlalchemy.orm import selectinload
@@ -73,8 +93,11 @@ async def process_name_search(message: types.Message, state: FSMContext):
         await message.answer("Пожалуйста, введите минимум 2 символа для поиска.")
         return
 
+    data = await state.get_data()
+    cat_type = data.get('catalog_type')
     await state.clear()
     await state.update_data(name_search=name_query)
+    if cat_type: await state.update_data(catalog_type=cat_type)
 
     async with SessionLocal() as session:
         from sqlalchemy.orm import selectinload
@@ -105,8 +128,11 @@ async def process_phone_search(message: types.Message, state: FSMContext):
             search_phone = raw_phone[1:]
 
     # Clear state to make phone search global (ignore previous city/spec filters)
+    data = await state.get_data()
+    cat_type = data.get('catalog_type')
     await state.clear()
     await state.update_data(phone_search=search_phone)
+    if cat_type: await state.update_data(catalog_type=cat_type)
 
     # Basic phone normalization or search
     async with SessionLocal() as session:
@@ -127,13 +153,12 @@ async def process_phone_search(message: types.Message, state: FSMContext):
         await apply_filters(message, state)
 
 @router.callback_query(F.data.startswith("cat_city_"))
-async def process_catalog_city(callback: types.CallbackQuery, state: FSMContext):
+async def process_catalog_city(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
     city = callback.data.split("_")[2]
     await state.update_data(city=city)
 
     if city == "Онлайн":
         await state.update_data(district=None)
-        # Proceed to sphere
     else:
         dist_kb = get_district_kb(city)
         if dist_kb:
@@ -141,6 +166,12 @@ async def process_catalog_city(callback: types.CallbackQuery, state: FSMContext)
             await callback.message.answer(f"Выберите район в г. {city}:", reply_markup=dist_kb)
             await callback.answer()
             return
+
+    data = await state.get_data()
+    if 'catalog_type' in data:
+        # If sphere already selected, go directly to specializations
+        await show_sphere_specializations(callback, state, data['catalog_type'], is_admin=is_admin)
+        return
 
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="Фитнес", callback_data="cat_type_fitness")],
@@ -155,12 +186,7 @@ async def process_catalog_city(callback: types.CallbackQuery, state: FSMContext)
         await callback.message.edit_text(text, reply_markup=kb)
     await callback.answer()
 
-@router.callback_query(F.data.startswith("cat_type_"))
-async def process_catalog_type(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
-    cat_type = callback.data.split("_")[2]
-    await state.update_data(catalog_type=cat_type)
-
-    # Directly show specializations (services) buttons
+async def show_sphere_specializations(event: types.CallbackQuery | types.Message, state: FSMContext, cat_type: str, is_admin: bool = False):
     from src.keyboards.common import get_spec_kb
     data = await state.get_data()
     role_map = {
@@ -174,12 +200,24 @@ async def process_catalog_type(callback: types.CallbackQuery, state: FSMContext,
     kb = add_admin_button(kb, is_admin=is_admin)
 
     type_names = {"fitness": "Фитнес", "beauty": "Бьюти", "tennis": "Большой теннис", "padel": "Падл"}
-    text = f"Город: {data.get('city')}\nСфера: {type_names.get(cat_type, cat_type)}\n\nВыберите услугу:"
-    if callback.message.photo:
-        await callback.message.edit_caption(caption=text, reply_markup=kb)
+    city_text = f"Город: {data.get('city')}\n" if data.get('city') else ""
+    text = f"{city_text}Сфера: {type_names.get(cat_type, cat_type)}\n\nВыберите услугу:"
+
+    if isinstance(event, types.CallbackQuery):
+        if event.message.photo:
+            await event.message.edit_caption(caption=text, reply_markup=kb)
+        else:
+            await event.message.edit_text(text, reply_markup=kb)
     else:
-        await callback.message.edit_text(text, reply_markup=kb)
+        await event.answer(text, reply_markup=kb)
+
     await state.set_state(CatalogFilter.entering_specialization)
+
+@router.callback_query(F.data.startswith("cat_type_"))
+async def process_catalog_type(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
+    cat_type = callback.data.split("_")[2]
+    await state.update_data(catalog_type=cat_type)
+    await show_sphere_specializations(callback, state, cat_type, is_admin)
     await callback.answer()
 
 @router.callback_query(F.data == "filter_city")
@@ -206,6 +244,12 @@ async def process_filter_city(message: types.Message, state: FSMContext, is_admi
             await message.answer(f"Выберите район в г. {city}:", reply_markup=dist_kb)
             return
 
+    data = await state.get_data()
+    if 'catalog_type' in data:
+        # If sphere already selected, go to specializations
+        await show_sphere_specializations(message, state, data['catalog_type'], is_admin=is_admin)
+        return
+
     # If no districts or Online, proceed to sphere selection
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="Фитнес", callback_data="cat_type_fitness")],
@@ -221,6 +265,11 @@ async def process_filter_district(message: types.Message, state: FSMContext, is_
     await state.update_data(district=district)
     data = await state.get_data()
     city = data.get("city", "Неизвестно")
+
+    if 'catalog_type' in data:
+        # If sphere already selected, go to specializations
+        await show_sphere_specializations(message, state, data['catalog_type'], is_admin=is_admin)
+        return
 
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="Фитнес", callback_data="cat_type_fitness")],
@@ -404,21 +453,21 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
 
         if 'phone_search' in data:
             filters.append(func.regexp_replace(TrainerProfile.phone, '\D', '', 'g').like(f"%{data['phone_search']}%"))
-        elif 'username_search' in data:
+        if 'username_search' in data:
             filters.append(func.lower(User.username).like(f"%{data['username_search'].lower()}%"))
-        elif 'name_search' in data:
+        if 'name_search' in data:
             filters.append(User.full_name.ilike(f"%{data['name_search']}%"))
-        else:
-            # Filter by role based on catalog type (only if not searching by phone)
-            cat_type = data.get('catalog_type')
-            role_filter_map = {
-                "fitness": UserRole.TRAINER,
-                "beauty": UserRole.BEAUTY,
-                "tennis": UserRole.TENNIS,
-                "padel": UserRole.PADEL
-            }
-            if cat_type in role_filter_map:
-                filters.append(User.role == role_filter_map[cat_type])
+
+        # Filter by role based on catalog type
+        cat_type = data.get('catalog_type')
+        role_filter_map = {
+            "fitness": UserRole.TRAINER,
+            "beauty": UserRole.BEAUTY,
+            "tennis": UserRole.TENNIS,
+            "padel": UserRole.PADEL
+        }
+        if cat_type in role_filter_map:
+            filters.append(User.role == role_filter_map[cat_type])
         if 'city' in data:
             filters.append(func.lower(TrainerProfile.city) == func.lower(data['city'].strip()))
         if 'district' in data and data['district']:
