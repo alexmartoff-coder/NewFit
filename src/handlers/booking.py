@@ -101,7 +101,7 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
             start_str = s_start.astimezone(moscow_tz).strftime('%H:%M')
             end_str = s_end.astimezone(moscow_tz).strftime('%H:%M')
 
-            btn_text = f"{start_str} - {end_str} — {int(s.price)}₽"
+            btn_text = f"{start_str} - {end_str}"
             kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"slot_{s.id}")])
 
         kb.append([types.InlineKeyboardButton(text="🔙 К выбору даты", callback_data=f"book_{trainer_user_id}")])
