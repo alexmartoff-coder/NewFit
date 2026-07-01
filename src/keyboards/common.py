@@ -38,7 +38,7 @@ def get_client_main_kb(is_admin: bool = False, has_specialists: bool = False):
     ]
 
     if has_specialists:
-        kb[1].append(KeyboardButton(text="Специалисты"))
+        kb.append([KeyboardButton(text="Мои специалисты")])
 
     kb.append([KeyboardButton(text="💬 Мои диалоги")])
 
