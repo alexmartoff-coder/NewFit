@@ -93,7 +93,7 @@ async def pro_date_selected(callback: types.CallbackQuery, state: FSMContext):
         for s in slots:
             s_start = s.start_time.replace(tzinfo=UTC) if s.start_time.tzinfo is None else s.start_time.astimezone(UTC)
             start_str = s_start.astimezone(moscow_tz).strftime('%H:%M')
-            kb.append([types.InlineKeyboardButton(text=f"{start_str} — {s.format}", callback_data=f"pro_slot_{s.id}")])
+            kb.append([types.InlineKeyboardButton(text=f"{start_str}", callback_data=f"pro_slot_{s.id}")])
 
         kb.append([types.InlineKeyboardButton(text="🔙 К выбору даты", callback_data=f"pro_book_client_{data['client_id']}")])
 
