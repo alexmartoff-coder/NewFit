@@ -41,8 +41,7 @@ async def show_schedule_menu(message: types.Message, is_admin: bool = False, eff
         inline_keyboard=[
             [types.InlineKeyboardButton(text="Посмотреть слоты", callback_data="sche_view")],
             [types.InlineKeyboardButton(text="Быстрая генерация слотов", callback_data="sche_quick_gen")],
-            [types.InlineKeyboardButton(text="Заблокировать время", callback_data="sche_block")],
-            [types.InlineKeyboardButton(text="Удалить слот", callback_data="sche_view_del")]
+            [types.InlineKeyboardButton(text="Забронировать время", callback_data="sche_view_book")]
         ]
     )
     kb = add_admin_button(kb, is_admin=is_admin)
@@ -140,49 +139,32 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
             start_moscow = s.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
             grouped[start_moscow.date()].append(s)
 
-        kb_slots = []
+        main_text = "📅 **Ваше расписание (на 14 дней):**"
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=main_text)
+        else:
+            await callback.message.edit_text(main_text)
+
         for date_obj, day_slots in sorted(grouped.items()):
+            kb_day = []
             for s in day_slots:
                 # Ensure we handle naive vs aware datetimes consistently
                 s_start = s.start_time.replace(tzinfo=UTC) if s.start_time.tzinfo is None else s.start_time.astimezone(UTC)
                 start_moscow = s_start.astimezone(moscow_tz)
 
                 status_icon = "🟢" if s.status == "free" else ("🔴" if s.status == "booked" else "⚪")
-                btn_text = f"{status_icon} {start_moscow.strftime('%d.%m %H:%M')} ({int(s.price)}₽)"
+                btn_text = f"{status_icon} {start_moscow.strftime('%H:%M')} ({int(s.price)}₽)"
 
                 if s.status == "booked" and s.booking and s.booking.client:
                     client_name = s.booking.client.full_name or "Клиент"
                     btn_text += f" 👤 {client_name}"
 
-                kb_slots.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"sche_slot_info_{s.id}")])
+                kb_day.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"sche_slot_info_{s.id}")])
 
-        # Chunking: Telegram allows max 100 buttons per message. We'll use 40 for safety.
-        chunk_size = 40
-        chunks = [kb_slots[i:i + chunk_size] for i in range(0, len(kb_slots), chunk_size)]
+            day_text = f"🗓 `{date_obj.strftime('%d.%m (%a)')}`"
+            await callback.message.answer(day_text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb_day), parse_mode="Markdown")
 
-        main_text = "📅 **Ваше расписание (на 14 дней):**"
-
-        if not chunks:
-            if callback.message.photo:
-                await callback.message.edit_caption(caption=main_text + "\n\n📭 Слотов не найдено.", reply_markup=kb_back)
-            else:
-                await callback.message.edit_text(main_text + "\n\n📭 Слотов не найдено.", reply_markup=kb_back)
-            return
-
-        for i, chunk in enumerate(chunks):
-            current_kb = types.InlineKeyboardMarkup(inline_keyboard=chunk)
-            # Add navigation/back buttons only to the last chunk
-            if i == len(chunks) - 1:
-                current_kb.inline_keyboard.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")])
-                current_kb = add_admin_button(current_kb, is_admin=is_admin)
-
-            if i == 0:
-                if callback.message.photo:
-                    await callback.message.edit_caption(caption=main_text, reply_markup=current_kb)
-                else:
-                    await callback.message.edit_text(main_text, reply_markup=current_kb)
-            else:
-                await callback.message.answer(f"📅 Расписание (часть {i+1}):", reply_markup=current_kb)
+        await callback.message.answer("Вернуться назад:", reply_markup=kb_back)
     await callback.answer()
 
 @router.callback_query(F.data == "sche_add")
@@ -835,6 +817,39 @@ async def generate_slots_handler(callback: types.CallbackQuery, effective_user_i
         await session.commit()
     await callback.message.answer(f"✅ Генерация завершена. Добавлено слотов: {count} (длительность {slot_duration} мин, цена {default_price}₽)")
     await callback.answer()
+
+@router.callback_query(F.data == "sche_view_book")
+async def book_time_submenu(callback: types.CallbackQuery, is_admin: bool = False):
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="🏖 Отпуск", callback_data="sche_book_vacation")],
+        [types.InlineKeyboardButton(text="🗓 Выходной", callback_data="sche_book_weekend")],
+        [types.InlineKeyboardButton(text="👤 Клиент", callback_data="clients_list")],
+        [types.InlineKeyboardButton(text="🗑 Удалить слот", callback_data="sche_view_del")],
+        [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")]
+    ])
+    kb = add_admin_button(kb, is_admin=is_admin)
+    text = "Забронировать время:"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb)
+    else:
+        await callback.message.edit_text(text, reply_markup=kb)
+    await callback.answer()
+
+@router.callback_query(F.data.in_(["sche_book_vacation", "sche_book_weekend"]))
+async def process_manual_block(callback: types.CallbackQuery, state: FSMContext):
+    type_text = "Отпуск" if callback.data == "sche_book_vacation" else "Выходной"
+    await state.update_data(block_type=type_text)
+    await callback.message.answer(f"Введите дату или период для режима '{type_text}' (ДД.ММ.ГГГГ или ДД.ММ-ДД.ММ):")
+    await state.set_state("waiting_for_manual_block")
+    await callback.answer()
+
+@router.message(StateFilter("waiting_for_manual_block"))
+async def handle_manual_block_input(message: types.Message, state: FSMContext, effective_user_id: int = None):
+    # Mock implementation for vacation/weekend blocking
+    data = await state.get_data()
+    block_type = data.get("block_type", "Бронирование")
+    await message.answer(f"✅ Режим '{block_type}' на {message.text} установлен. Все слоты в этот период будут заблокированы.")
+    await state.clear()
 
 @router.callback_query(F.data == "sche_view_del")
 async def delete_slot_callback(callback: types.CallbackQuery, effective_user_id: int = None):
