@@ -9,7 +9,7 @@ router = Router()
 
 from src.models.models import UserRole
 
-@router.message(F.text == "Специалисты")
+@router.message(F.text == "Мои специалисты")
 async def show_favorites_categories(message: types.Message, is_admin: bool = False):
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="💪 Фитнес", callback_data="fav_sphere_TRAINER")],

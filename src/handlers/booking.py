@@ -152,11 +152,12 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
             kb.append([types.InlineKeyboardButton(text="🔙 К выбору времени", callback_data=f"bdate_{slot.start_time.date().isoformat()}")])
 
             term = "услугу" if trainer_role in [UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL] else "направление"
-            text = f"Выберите {term} для записи:"
+            # At this stage we show the base price from the slot
+            text = f"Цена: `{int(slot.price)}₽`\n\nВыберите {term} для записи:"
             if callback.message.photo:
-                await callback.message.edit_caption(caption=text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb))
+                await callback.message.edit_caption(caption=text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="Markdown")
             else:
-                await callback.message.edit_text(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb))
+                await callback.message.edit_text(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="Markdown")
             return
 
         await proceed_to_format_selection_or_confirm(callback, state, slot, is_admin)
@@ -173,6 +174,13 @@ async def process_service_selection(callback: types.CallbackQuery, state: FSMCon
             selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
         )
         slot = (await session.execute(stmt)).scalar_one_or_none()
+
+        # Look up price for the selected service
+        if slot and slot.trainer_profile.service_prices:
+            price = slot.trainer_profile.service_prices.get(svc_name)
+            if price is not None:
+                await state.update_data(override_price=float(price))
+
         await proceed_to_format_selection_or_confirm(callback, state, slot, is_admin)
     await callback.answer()
 
@@ -186,11 +194,14 @@ async def proceed_to_format_selection_or_confirm(callback: types.CallbackQuery, 
             [types.InlineKeyboardButton(text="💻 Онлайн (дистанционно)", callback_data="c_fmt_online")],
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data=f"slot_{slot.id}")]
         ])
-        text = "Этот специалист проводит занятия и оффлайн, и онлайн. Выберите удобный вам формат:"
+
+        data = await state.get_data()
+        current_price = data.get('override_price', slot.price)
+        text = f"Цена: `{int(current_price)}₽`\n\nЭтот специалист проводит занятия и оффлайн, и онлайн. Выберите удобный вам формат:"
         if callback.message.photo:
-            await callback.message.edit_caption(caption=text, reply_markup=kb)
+            await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
         else:
-            await callback.message.edit_text(text, reply_markup=kb)
+            await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
         return
 
     await show_booking_confirmation(callback, state, slot, is_admin)
@@ -199,14 +210,22 @@ async def proceed_to_format_selection_or_confirm(callback: types.CallbackQuery, 
 async def process_format_selection(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
     fmt_choice = callback.data.split("_")[2]
     fmt_map = {"offline": "OFFLINE", "online": "ONLINE"}
-    await state.update_data(override_format=fmt_map.get(fmt_choice, "OFFLINE"))
+    chosen_fmt = fmt_map.get(fmt_choice, "OFFLINE")
+    await state.update_data(override_format=chosen_fmt)
 
     data = await state.get_data()
     async with SessionLocal() as session:
         stmt = select(TimeSlot).where(TimeSlot.id == data['slot_id']).options(
-            selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
+            selectinload(TimeSlot.trainer_profile)
         )
         slot = (await session.execute(stmt)).scalar_one_or_none()
+
+        # If ONLINE chosen, check for specialist's online price
+        if chosen_fmt == "ONLINE" and slot and slot.trainer_profile.price_online > 0:
+            # Service price from Step 1 usually takes precedence if present
+            if 'override_price' not in data:
+                await state.update_data(override_price=slot.trainer_profile.price_online)
+
         await show_booking_confirmation(callback, state, slot, is_admin)
     await callback.answer()
 
@@ -255,11 +274,13 @@ async def show_booking_confirmation(callback: types.CallbackQuery, state: FSMCon
     )
     kb = add_admin_button(kb, is_admin=is_admin)
 
+    display_price = data.get('override_price', slot.price)
+
     text = (
         f"📍 **Подтверждение записи**\n\n"
         f"Время: `{start_moscow.strftime('%d.%m.%Y %H:%M')}` (МСК)\n"
         f"{term_format}: `{display_format}`\n"
-        f"Цена: `{slot.price}₽`\n\n"
+        f"Цена: `{int(display_price)}₽`\n\n"
         f"Нажмите подтвердить для завершения записи."
     )
     if callback.message.photo:
@@ -313,7 +334,7 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             trainer_user_id = slot.trainer_profile.user_id
             slot_start = slot.start_time
             slot_end = slot.end_time
-            slot_price = slot.price
+            slot_price = data.get('override_price', slot.price)
 
             # Build full slot format string (Service + Format)
             selected_svc = data.get('selected_service', '')
@@ -340,6 +361,7 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             slot.status = "booked"
             slot.client_id = user_id
             slot.format = slot_format # Store the specific service name
+            slot.price = slot_price   # Store the final price for this booking
 
             new_booking = Booking(
                 slot_id=slot_id,
