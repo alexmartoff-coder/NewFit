@@ -336,7 +336,7 @@ async def show_my_bookings_menu(message: types.Message, effective_user_id: int =
         stmt = (
             select(TimeSlot.format)
             .join(Booking, Booking.slot_id == TimeSlot.id)
-            .where(Booking.client_id == client_profile.id, Booking.end_time >= now_utc)
+            .where(Booking.client_id == client_profile.id, Booking.start_time >= now_utc)
             .distinct()
         )
         res = await session.execute(stmt)
@@ -376,7 +376,7 @@ async def show_my_bookings_by_service(callback: types.CallbackQuery, effective_u
             .join(TimeSlot)
             .where(
                 Booking.client_id == client_profile.id,
-                Booking.end_time >= now_utc,
+                Booking.start_time >= now_utc,
                 TimeSlot.format.like(f"{svc_prefix}%")
             )
             .options(
