@@ -144,7 +144,9 @@ async def pro_service_selected(callback: types.CallbackQuery, state: FSMContext)
     data = await state.get_data()
     async with SessionLocal() as session:
         stmt = select(TimeSlot).where(TimeSlot.id == data['slot_id']).options(
-            selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
+            selectinload(TimeSlot.trainer_profile).options(
+                selectinload(TrainerProfile.user)
+            )
         )
         slot = (await session.execute(stmt)).scalar_one_or_none()
         await proceed_to_format_or_confirm(callback, state, slot)
@@ -172,7 +174,9 @@ async def pro_format_selected(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     async with SessionLocal() as session:
         stmt = select(TimeSlot).where(TimeSlot.id == data['slot_id']).options(
-            selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
+            selectinload(TimeSlot.trainer_profile).options(
+                selectinload(TrainerProfile.user)
+            )
         )
         slot = (await session.execute(stmt)).scalar_one_or_none()
         await show_pro_booking_confirmation(callback, state, slot)
@@ -228,7 +232,9 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext, 
 
     async with SessionLocal() as session:
         stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(
-            selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
+            selectinload(TimeSlot.trainer_profile).options(
+                selectinload(TrainerProfile.user)
+            )
         )
         res = await session.execute(stmt)
         slot = res.scalar_one_or_none()

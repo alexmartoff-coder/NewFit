@@ -475,7 +475,9 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
         async with SessionLocal() as session:
             # 1. Load User and Profile with explicit relationship loading
             stmt = select(User).where(User.id == user_id).options(
-                selectinload(User.trainer_profile).selectinload(TrainerProfile.specializations)
+                selectinload(User.trainer_profile).options(
+                    selectinload(TrainerProfile.specializations)
+                )
             )
             res = await session.execute(stmt)
             user = res.scalar_one_or_none()

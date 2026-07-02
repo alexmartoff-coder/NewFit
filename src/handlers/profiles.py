@@ -114,7 +114,13 @@ async def show_online_training(message: types.Message, effective_user_id: int = 
                     TimeSlot.start_time >= now_utc,
                     TimeSlot.start_time <= future_limit
                 )
-                .options(selectinload(TimeSlot.booking).selectinload(Booking.client).selectinload(ClientProfile.user))
+                .options(
+                    selectinload(TimeSlot.booking).options(
+                        selectinload(Booking.client).options(
+                            selectinload(ClientProfile.user)
+                        )
+                    )
+                )
                 .order_by(TimeSlot.start_time.asc())
             )
             res = await session.execute(stmt)
@@ -168,7 +174,11 @@ async def show_online_training(message: types.Message, effective_user_id: int = 
                     Booking.start_time <= future_limit
                 )
                 .options(
-                    selectinload(Booking.slot).selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
+                    selectinload(Booking.slot).options(
+                        selectinload(TimeSlot.trainer_profile).options(
+                            selectinload(TrainerProfile.user)
+                        )
+                    )
                 )
                 .order_by(Booking.start_time.asc())
             )
@@ -235,7 +245,9 @@ async def show_clients(event: types.Message | types.CallbackQuery, effective_use
                 Booking.end_time >= now_utc
             )
             .options(
-                selectinload(Booking.client).selectinload(ClientProfile.user),
+                selectinload(Booking.client).options(
+                    selectinload(ClientProfile.user)
+                ),
                 selectinload(Booking.slot)
             )
             .order_by(Booking.start_time.asc())
@@ -381,9 +393,11 @@ async def show_my_bookings_by_service(callback: types.CallbackQuery, effective_u
                 TimeSlot.format.like(f"{svc_prefix}%")
             )
             .options(
-                selectinload(Booking.slot)
-                .selectinload(TimeSlot.trainer_profile)
-                .selectinload(TrainerProfile.user)
+                selectinload(Booking.slot).options(
+                    selectinload(TimeSlot.trainer_profile).options(
+                        selectinload(TrainerProfile.user)
+                    )
+                )
             )
             .order_by(Booking.start_time.asc())
         )

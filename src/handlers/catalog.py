@@ -544,12 +544,13 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
                 dist_text = f"\n🏙 Район: {trainer_profile.district}" if trainer_profile.district else ""
                 phone_text = f"\n📞 Телефон: {trainer_profile.phone}" if trainer_profile.phone else ""
 
+                price_online_text = f"\n💻 Онлайн: {trainer_profile.price_online}₽" if trainer_profile.price_online > 0 else ""
                 text = (
                     f"👤 **{user.full_name}**\n"
                     f"📍 Город: {trainer_profile.city}{dist_text}{phone_text}\n"
                     f"💪 Опыт: {trainer_profile.experience} лет\n"
                     f"🎯 Специализации: {specs_str}\n"
-                    f"💰 Разовое: {trainer_profile.price_single}₽\n"
+                    f"💰 Разовое: {trainer_profile.price_single}₽{price_online_text}\n"
                     f"💳 12 занятий: {trainer_profile.price_package}₽\n"
                     f"⭐ Рейтинг: {trainer_profile.rating:.1f}\n"
                     f"📝 Формат: {work_fmt_ru}"

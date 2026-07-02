@@ -171,7 +171,9 @@ async def process_service_selection(callback: types.CallbackQuery, state: FSMCon
     data = await state.get_data()
     async with SessionLocal() as session:
         stmt = select(TimeSlot).where(TimeSlot.id == data['slot_id']).options(
-            selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
+            selectinload(TimeSlot.trainer_profile).options(
+                selectinload(TrainerProfile.user)
+            )
         )
         slot = (await session.execute(stmt)).scalar_one_or_none()
 
@@ -216,7 +218,9 @@ async def process_format_selection(callback: types.CallbackQuery, state: FSMCont
     data = await state.get_data()
     async with SessionLocal() as session:
         stmt = select(TimeSlot).where(TimeSlot.id == data['slot_id']).options(
-            selectinload(TimeSlot.trainer_profile)
+            selectinload(TimeSlot.trainer_profile).options(
+                selectinload(TrainerProfile.user)
+            )
         )
         slot = (await session.execute(stmt)).scalar_one_or_none()
 
@@ -243,6 +247,7 @@ async def show_booking_confirmation(callback: types.CallbackQuery, state: FSMCon
 
     # Determine if we should use 'Услуга' label
     is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY
+
     is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in specs)
     is_service_based = is_beauty or is_specific_sport
 
@@ -323,7 +328,9 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             await session.flush() # Получаем ID
 
         stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(
-            selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
+            selectinload(TimeSlot.trainer_profile).options(
+                selectinload(TrainerProfile.user)
+            )
         )
         res = await session.execute(stmt)
         slot = res.scalar_one_or_none()
