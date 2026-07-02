@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 class ScheduleState(StatesGroup):
     choosing_date = State()
+    selecting_dates = State()
     choosing_time = State()
     choosing_duration = State()
     choosing_format = State()
@@ -841,21 +842,142 @@ async def book_time_submenu(callback: types.CallbackQuery, is_admin: bool = Fals
         await callback.message.edit_text(text, reply_markup=kb)
     await callback.answer()
 
+async def show_multi_date_picker(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    selected_dates = data.get("selected_dates", [])
+    block_type = data.get("block_type", "Бронирование")
+
+    moscow_tz = gettz('Europe/Moscow')
+    today = datetime.now(moscow_tz).date()
+
+    kb = []
+    # Show 30 days in rows of 3
+    row = []
+    for i in range(30):
+        d = today + timedelta(days=i)
+        d_iso = d.isoformat()
+
+        is_selected = d_iso in selected_dates
+        mark = "✅" if is_selected else ""
+        text = f"{mark}{d.strftime('%d.%m')}"
+
+        row.append(types.InlineKeyboardButton(text=text, callback_data=f"block_toggle_{d_iso}"))
+        if len(row) == 3:
+            kb.append(row)
+            row = []
+    if row:
+        kb.append(row)
+
+    kb.append([types.InlineKeyboardButton(text="🆗 ГОТОВО", callback_data="block_confirm")])
+    kb.append([types.InlineKeyboardButton(text="❌ Отмена", callback_data="sche_back")])
+
+    text = f"📅 **Выберите даты для режима '{block_type}':**\n\nНажмите на даты, чтобы отметить их, затем нажмите «Готово»."
+
+    if message.photo:
+        await message.edit_caption(caption=text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="Markdown")
+    else:
+        await message.edit_text(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="Markdown")
+
 @router.callback_query(F.data.in_(["sche_book_vacation", "sche_book_weekend"]))
 async def process_manual_block(callback: types.CallbackQuery, state: FSMContext):
     type_text = "Отпуск" if callback.data == "sche_book_vacation" else "Выходной"
-    await state.update_data(block_type=type_text)
-    await callback.message.answer(f"Введите дату или период для режима '{type_text}' (ДД.ММ.ГГГГ или ДД.ММ-ДД.ММ):")
-    await state.set_state("waiting_for_manual_block")
+    await state.update_data(block_type=type_text, selected_dates=[])
+    await state.set_state(ScheduleState.selecting_dates)
+    await show_multi_date_picker(callback.message, state)
     await callback.answer()
 
-@router.message(StateFilter("waiting_for_manual_block"))
-async def handle_manual_block_input(message: types.Message, state: FSMContext, effective_user_id: int = None):
-    # Mock implementation for vacation/weekend blocking
+@router.callback_query(F.data.startswith("block_toggle_"), ScheduleState.selecting_dates)
+async def toggle_block_date(callback: types.CallbackQuery, state: FSMContext):
+    date_iso = callback.data.replace("block_toggle_", "")
     data = await state.get_data()
+    selected = data.get("selected_dates", [])
+
+    if date_iso in selected:
+        selected.remove(date_iso)
+    else:
+        selected.append(date_iso)
+
+    await state.update_data(selected_dates=selected)
+    await show_multi_date_picker(callback.message, state)
+    await callback.answer()
+
+@router.callback_query(F.data == "block_confirm", ScheduleState.selecting_dates)
+async def confirm_manual_block(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
+    data = await state.get_data()
+    selected_dates = data.get("selected_dates", [])
     block_type = data.get("block_type", "Бронирование")
-    await message.answer(f"✅ Режим '{block_type}' на {message.text} установлен. Все слоты в этот период будут заблокированы.")
+    user_id = effective_user_id or callback.from_user.id
+
+    if not selected_dates:
+        await callback.answer("Выберите хотя бы одну дату!", show_alert=True)
+        return
+
+    async with SessionLocal() as session:
+        # Resolve profile
+        stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+        profile = (await session.execute(stmt_p)).scalar_one_or_none()
+        if not profile:
+            await callback.answer("Профиль не найден")
+            return
+
+        moscow_tz = gettz('Europe/Moscow')
+        booked_info = []
+
+        for d_str in selected_dates:
+            d = datetime.fromisoformat(d_str).date()
+
+            # Start and end of day in Moscow time
+            start_msk = datetime.combine(d, time.min).replace(tzinfo=moscow_tz)
+            end_msk = datetime.combine(d, time.max).replace(tzinfo=moscow_tz)
+
+            # Convert to UTC for DB queries
+            start_utc = start_msk.astimezone(UTC).replace(tzinfo=None)
+            end_utc = end_msk.astimezone(UTC).replace(tzinfo=None)
+
+            # 1. Check for booked slots
+            stmt_booked = select(TimeSlot).where(
+                TimeSlot.trainer_profile_id == profile.id,
+                TimeSlot.start_time >= start_utc,
+                TimeSlot.start_time <= end_utc,
+                TimeSlot.status == "booked"
+            )
+            res_booked = await session.execute(stmt_booked)
+            booked_slots = res_booked.scalars().all()
+            if booked_slots:
+                booked_info.append(f"• {d.strftime('%d.%m')}: {len(booked_slots)} зап.")
+
+            # 2. Delete all free and blocked slots for that day
+            stmt_del = delete(TimeSlot).where(
+                TimeSlot.trainer_profile_id == profile.id,
+                TimeSlot.start_time >= start_utc,
+                TimeSlot.start_time <= end_utc,
+                TimeSlot.status.in_(["free", "blocked"])
+            )
+            await session.execute(stmt_del)
+
+            # 3. Create a single dummy blocked slot to indicate the day is unavailable
+            # This helps prevent some auto-generation logic from seeing it as 'empty'
+            # though quick_gen already checks for overlaps.
+            block_slot = TimeSlot(
+                trainer_profile_id=profile.id,
+                start_time=start_utc,
+                end_time=start_utc + timedelta(minutes=1440), # Entire day
+                status="blocked",
+                format=block_type.lower()
+            )
+            session.add(block_slot)
+
+        await session.commit()
+
+    report = f"✅ Режим '{block_type}' установлен для {len(selected_dates)} дн."
+    if booked_info:
+        report += "\n\n⚠️ **Внимание!** На эти даты у вас есть записи клиентов:\n" + "\n".join(booked_info)
+        report += "\n\nПожалуйста, свяжитесь с клиентами для переноса."
+
+    await callback.message.answer(report, parse_mode="Markdown")
     await state.clear()
+    await show_schedule_menu(callback.message, effective_user_id=user_id)
+    await callback.answer()
 
 @router.callback_query(F.data == "sche_view_del")
 async def delete_slot_callback(callback: types.CallbackQuery, effective_user_id: int = None):
