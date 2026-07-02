@@ -152,6 +152,7 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
 
         for date_obj, day_slots in sorted(grouped.items()):
             kb_day = []
+            row = []
             for s in day_slots:
                 # Ensure we handle naive vs aware datetimes consistently
                 s_start = s.start_time.replace(tzinfo=UTC) if s.start_time.tzinfo is None else s.start_time.astimezone(UTC)
@@ -160,13 +161,30 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
                 status_icon = "🟢" if s.status == "free" else ("🔴" if s.status == "booked" else "⚪")
                 btn_text = f"{status_icon} {start_moscow.strftime('%H:%M')}"
 
+                # If slot is booked, we should probably still show it in a row, but maybe separate row if name is too long?
+                # For consistency with "3 columns", let's try to fit them.
+                # Actually, "Забронировать время" (multi-date picker) uses 3 columns because it's just dates.
+                # If slots have client names, 3 columns won't fit.
+
                 if s.status == "booked" and s.booking and s.booking.client:
+                    # For booked slots, always use a full-width button
+                    if row:
+                        kb_day.append(row)
+                        row = []
+
                     client_name = s.booking.client.full_name or "Клиент"
                     fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
                     fmt_ru = fmt_map.get(s.format, s.format)
                     btn_text += f" 👤 {client_name} ({fmt_ru})"
+                    kb_day.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"sche_slot_info_{s.id}")])
+                else:
+                    row.append(types.InlineKeyboardButton(text=btn_text, callback_data=f"sche_slot_info_{s.id}"))
+                    if len(row) == 3:
+                        kb_day.append(row)
+                        row = []
 
-                kb_day.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"sche_slot_info_{s.id}")])
+            if row:
+                kb_day.append(row)
 
             day_text = f"🗓 `{date_obj.strftime('%d.%m (%a)')}`"
             await callback.message.answer(day_text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb_day), parse_mode="Markdown")
@@ -1003,6 +1021,7 @@ async def delete_slot_callback(callback: types.CallbackQuery, effective_user_id:
             return
 
         kb = []
+        row = []
         moscow_tz = gettz('Europe/Moscow')
         for s in slots:
             # Convert UTC from DB to Moscow for display
@@ -1010,7 +1029,12 @@ async def delete_slot_callback(callback: types.CallbackQuery, effective_user_id:
             start_moscow = s_start.astimezone(moscow_tz)
 
             btn_text = f"❌ {start_moscow.strftime('%d.%m %H:%M')}"
-            kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"slot_del_conf_{s.id}")])
+            row.append(types.InlineKeyboardButton(text=btn_text, callback_data=f"slot_del_conf_{s.id}"))
+            if len(row) == 3:
+                kb.append(row)
+                row = []
+        if row:
+            kb.append(row)
 
         kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")])
         text = "Выберите слот для удаления:"
@@ -1130,7 +1154,13 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         elif slot.zoom_join_url:
             details += f"\n🔗 Zoom: {slot.zoom_join_url}"
 
-        await callback.answer(details, show_alert=True)
+        kb = types.InlineKeyboardMarkup(inline_keyboard=[
+            [types.InlineKeyboardButton(text="🗓 Забронировать время", callback_data="sche_view_book")],
+            [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_view")]
+        ])
+
+        await callback.message.edit_text(details, reply_markup=kb)
+        await callback.answer()
 
 @router.callback_query(F.data == "sche_back")
 async def sche_back(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
