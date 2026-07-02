@@ -19,13 +19,14 @@ def get_sphere_kb():
 def get_trainer_main_kb(is_admin: bool = False, has_online: bool = True):
     kb = [
         [KeyboardButton(text="Мой профиль"), KeyboardButton(text="Моё расписание")],
+        [KeyboardButton(text="Мои записи"), KeyboardButton(text="Мои клиенты")],
     ]
     if has_online:
         kb.append([KeyboardButton(text="🖥 Онлайн тренировка")])
 
     kb.extend([
-        [KeyboardButton(text="Мои клиенты"), KeyboardButton(text="Статистика")],
-        [KeyboardButton(text="Поддержка"), KeyboardButton(text="Инструкции")]
+        [KeyboardButton(text="Статистика"), KeyboardButton(text="Поддержка")],
+        [KeyboardButton(text="Инструкции")]
     ])
     if is_admin:
         kb.append([KeyboardButton(text="🛠 Админ")])
