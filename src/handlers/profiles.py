@@ -227,6 +227,55 @@ async def show_clients(event: types.Message | types.CallbackQuery, effective_use
         user_id = effective_user_id or event.from_user.id
         message = event
     async with SessionLocal() as session:
+        # Get professional profile
+        stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+        profile = (await session.execute(stmt_p)).scalar_one_or_none()
+        if not profile:
+            await message.answer("❌ Профиль профессионала не найден.")
+            return
+
+        # Show "My Clients" list for re-booking
+        stmt_clients = (
+            select(ClientProfile)
+            .join(Booking, Booking.client_id == ClientProfile.id)
+            .where(Booking.trainer_profile_id == profile.id)
+            .distinct()
+            .options(selectinload(ClientProfile.user))
+        )
+        res_clients = await session.execute(stmt_clients)
+        unique_clients = res_clients.scalars().all()
+
+        if unique_clients:
+            text_clients = "👥 **Ваши клиенты (для повторной записи):**"
+            kb_list = []
+            for c in unique_clients:
+                client_name = c.full_name or f"ID {c.id}"
+                kb_list.append([types.InlineKeyboardButton(
+                    text=f"Забронировать для {client_name}",
+                    callback_data=f"pro_book_client_{c.id}"
+                )])
+
+            await message.answer(text_clients, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb_list), parse_mode="Markdown")
+        else:
+            await message.answer("У вас пока нет базы клиентов.")
+
+@router.message(F.text == "Мои записи")
+@router.message(F.text == "/bookings")
+async def show_bookings_router(message: types.Message, effective_user_id: int = None):
+    user_id = effective_user_id or message.from_user.id
+    async with SessionLocal() as session:
+        user = await session.get(User, user_id)
+        if not user:
+            await message.answer("Вы не зарегистрированы.")
+            return
+
+        if user.role in PROFESSIONAL_ROLES:
+            await show_pro_bookings(message, user_id)
+        else:
+            await show_client_bookings_menu(message, user_id)
+
+async def show_pro_bookings(message: types.Message, user_id: int):
+    async with SessionLocal() as session:
         moscow_tz = gettz('Europe/Moscow')
 
         # Get professional profile
@@ -271,35 +320,10 @@ async def show_clients(event: types.Message | types.CallbackQuery, effective_use
                     f"✅ {start_moscow.strftime('%d.%m %H:%M')}\n"
                     f"👤 Клиент: {escape_md(client_name)}\n"
                     f"🏷 {term_format}: {escape_md(slot_format) or 'не указан'}\n"
-                    f"💰 Цена: {int(b.price)}₽\n"
+                    f"💰 Цена: {int(b.price or 0)}₽\n"
                     f"-------------------\n"
                 )
             await message.answer(text, parse_mode="Markdown")
-
-        # Now show "My Clients" list for re-booking
-        stmt_clients = (
-            select(ClientProfile)
-            .join(Booking, Booking.client_id == ClientProfile.id)
-            .where(Booking.trainer_profile_id == profile.id)
-            .distinct()
-            .options(selectinload(ClientProfile.user))
-        )
-        res_clients = await session.execute(stmt_clients)
-        unique_clients = res_clients.scalars().all()
-
-        if unique_clients:
-            text_clients = "👥 **Ваши клиенты (для повторной записи):**"
-            kb_list = []
-            for c in unique_clients:
-                client_name = c.full_name or f"ID {c.id}"
-                kb_list.append([types.InlineKeyboardButton(
-                    text=f"Забронировать для {client_name}",
-                    callback_data=f"pro_book_client_{c.id}"
-                )])
-
-            await message.answer(text_clients, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb_list), parse_mode="Markdown")
-        elif not bookings:
-            await message.answer("У вас пока нет базы клиентов.")
 
 @router.message(F.text == "💰 Финансы и выплаты")
 @router.message(F.text == "/earnings")
@@ -330,9 +354,7 @@ async def show_settings(message: types.Message):
 async def show_support(message: types.Message):
     await message.answer("Служба поддержки NewFit: @NewFitSupport")
 
-@router.message(F.text == "Мои записи")
-@router.message(F.text == "/bookings")
-async def show_my_bookings_menu(message: types.Message, effective_user_id: int = None):
+async def show_client_bookings_menu(message: types.Message, effective_user_id: int = None):
     user_id = effective_user_id or message.from_user.id
     async with SessionLocal() as session:
         # Получаем профиль клиента
