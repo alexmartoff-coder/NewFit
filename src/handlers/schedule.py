@@ -85,7 +85,11 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
                 TimeSlot.start_time >= now_utc,
                 TimeSlot.start_time <= end_view_utc
             )
-            .options(selectinload(TimeSlot.booking).selectinload(Booking.client))
+            .options(
+                selectinload(TimeSlot.booking).options(
+                    selectinload(Booking.client)
+                )
+            )
             .order_by(TimeSlot.start_time.asc())
         )
         res = await session.execute(stmt)
@@ -153,7 +157,7 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
                 start_moscow = s_start.astimezone(moscow_tz)
 
                 status_icon = "🟢" if s.status == "free" else ("🔴" if s.status == "booked" else "⚪")
-                btn_text = f"{status_icon} {start_moscow.strftime('%H:%M')}"
+                btn_text = f"{status_icon} {start_moscow.strftime('%H:%M')} ({int(s.price)}₽)"
 
                 if s.status == "booked" and s.booking and s.booking.client:
                     client_name = s.booking.client.full_name or "Клиент"
@@ -883,7 +887,7 @@ async def delete_slot_callback(callback: types.CallbackQuery, effective_user_id:
             s_start = s.start_time.replace(tzinfo=UTC) if s.start_time.tzinfo is None else s.start_time.astimezone(UTC)
             start_moscow = s_start.astimezone(moscow_tz)
 
-            btn_text = f"❌ {start_moscow.strftime('%d.%m %H:%M')}"
+            btn_text = f"❌ {start_moscow.strftime('%d.%m %H:%M')} ({int(s.price)}₽)"
             kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"slot_del_conf_{s.id}")])
 
         kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")])
@@ -950,7 +954,11 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         stmt = (
             select(TimeSlot)
             .where(TimeSlot.id == slot_id)
-            .options(selectinload(TimeSlot.booking).selectinload(Booking.client))
+            .options(
+                selectinload(TimeSlot.booking).options(
+                    selectinload(Booking.client)
+                )
+            )
         )
         res = await session.execute(stmt)
         slot = res.scalars().first()
