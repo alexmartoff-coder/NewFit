@@ -157,7 +157,7 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
                 start_moscow = s_start.astimezone(moscow_tz)
 
                 status_icon = "🟢" if s.status == "free" else ("🔴" if s.status == "booked" else "⚪")
-                btn_text = f"{status_icon} {start_moscow.strftime('%H:%M')} ({int(s.price)}₽)"
+                btn_text = f"{status_icon} {start_moscow.strftime('%H:%M')}"
 
                 if s.status == "booked" and s.booking and s.booking.client:
                     client_name = s.booking.client.full_name or "Клиент"
@@ -887,7 +887,7 @@ async def delete_slot_callback(callback: types.CallbackQuery, effective_user_id:
             s_start = s.start_time.replace(tzinfo=UTC) if s.start_time.tzinfo is None else s.start_time.astimezone(UTC)
             start_moscow = s_start.astimezone(moscow_tz)
 
-            btn_text = f"❌ {start_moscow.strftime('%d.%m %H:%M')} ({int(s.price)}₽)"
+            btn_text = f"❌ {start_moscow.strftime('%d.%m %H:%M')}"
             kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"slot_del_conf_{s.id}")])
 
         kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")])
@@ -955,6 +955,7 @@ async def view_slot_info_details(callback: types.CallbackQuery):
             select(TimeSlot)
             .where(TimeSlot.id == slot_id)
             .options(
+                selectinload(TimeSlot.trainer_profile),
                 selectinload(TimeSlot.booking).options(
                     selectinload(Booking.client)
                 )
@@ -980,14 +981,27 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         details = (
             f"⏰ {start_moscow.strftime('%d.%m %H:%M')}—{end_moscow.strftime('%H:%M')}\n"
             f"📊 {status_map.get(slot.status, slot.status)}\n"
-            f"💰 {int(slot.price)}₽ | {fmt_map.get(slot.format, slot.format)}"
+            f"📍 {fmt_map.get(slot.format, slot.format)}\n"
         )
 
+        # Display all profile prices
+        p = slot.trainer_profile
+        details += f"\n💰 Цены профиля:\n• Разовое: {int(p.price_single)}₽"
+        if p.price_online > 0:
+            details += f"\n• Онлайн: {int(p.price_online)}₽"
+        if p.price_package > 0:
+            details += f"\n• Пакет (12): {int(p.price_package)}₽"
+
+        if p.service_prices:
+            details += "\n\n🛠 Услуги:"
+            for s_name, s_price in p.service_prices.items():
+                details += f"\n• {s_name}: {int(s_price)}₽"
+
         if slot.max_clients > 1:
-            details += f"\n👥 До {slot.max_clients} чел."
+            details += f"\n\n👥 До {slot.max_clients} чел."
 
         if slot.status == "booked" and slot.booking and slot.booking.client:
-            details += f"\n👤 {slot.booking.client.full_name}"
+            details += f"\n👤 Клиент: {slot.booking.client.full_name}"
 
         if slot.online_platform == "telegram":
             details += "\n📱 Видео: Telegram"
