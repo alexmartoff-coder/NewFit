@@ -17,7 +17,10 @@ logger = logging.getLogger(__name__)
 
 @router.callback_query(F.data.startswith("pro_book_client_"))
 async def pro_start_booking(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
-    client_id = int(callback.data.split("_")[-1])
+    parts = callback.data.split("_")
+    client_id = int(parts[3])
+    slot_id = int(parts[4]) if len(parts) > 4 else None
+
     user_id = effective_user_id or callback.from_user.id
 
     async with SessionLocal() as session:
@@ -35,6 +38,34 @@ async def pro_start_booking(callback: types.CallbackQuery, state: FSMContext, is
             return
 
         await state.update_data(client_id=client_id, trainer_profile_id=profile.id, client_name=client.full_name)
+
+        if slot_id:
+            await state.update_data(slot_id=slot_id)
+            # Re-fetch slot for jumping
+            stmt_s = select(TimeSlot).where(TimeSlot.id == slot_id).options(
+                selectinload(TimeSlot.trainer_profile).options(
+                    selectinload(TrainerProfile.user),
+                    selectinload(TrainerProfile.specializations)
+                )
+            )
+            slot = (await session.execute(stmt_s)).scalar_one_or_none()
+            if slot and slot.status == "free":
+                # Jump straight to service selection
+                specs = slot.trainer_profile.specializations
+                if specs:
+                    await state.set_state(ProBookingSession.choosing_service)
+                    kb = []
+                    for spec in specs:
+                        kb.append([types.InlineKeyboardButton(text=spec.name, callback_data=f"pro_svc_{spec.name}")])
+                    kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="clients_list")])
+
+                    role = slot.trainer_profile.user.role
+                    term = "услугу" if role in [UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL] else "направление"
+                    await callback.message.edit_text(f"Выберите {term} для этой записи:", reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb))
+                    return
+                else:
+                    await proceed_to_format_or_confirm(callback, state, slot)
+                    return
 
         # Find available dates
         now = datetime.now()
@@ -149,6 +180,12 @@ async def pro_service_selected(callback: types.CallbackQuery, state: FSMContext)
             )
         )
         slot = (await session.execute(stmt)).scalar_one_or_none()
+
+        if slot and slot.trainer_profile.service_prices:
+            price = slot.trainer_profile.service_prices.get(service_name)
+            if price is not None:
+                await state.update_data(override_price=float(price))
+
         await proceed_to_format_or_confirm(callback, state, slot)
     await callback.answer()
 
@@ -169,8 +206,11 @@ async def proceed_to_format_or_confirm(callback: types.CallbackQuery, state: FSM
 
 @router.callback_query(F.data.startswith("pro_fmt_"), ProBookingSession.choosing_format)
 async def pro_format_selected(callback: types.CallbackQuery, state: FSMContext):
-    fmt = callback.data.split("_")[2]
-    await state.update_data(override_format=fmt)
+    fmt_choice = callback.data.split("_")[2]
+    fmt_map = {"OFFLINE": "OFFLINE", "ONLINE": "ONLINE"}
+    chosen_fmt = fmt_map.get(fmt_choice, "OFFLINE")
+    await state.update_data(override_format=chosen_fmt)
+
     data = await state.get_data()
     async with SessionLocal() as session:
         stmt = select(TimeSlot).where(TimeSlot.id == data['slot_id']).options(
@@ -179,6 +219,13 @@ async def pro_format_selected(callback: types.CallbackQuery, state: FSMContext):
             )
         )
         slot = (await session.execute(stmt)).scalar_one_or_none()
+
+        # If ONLINE chosen, check for specialist's online price
+        if chosen_fmt == "ONLINE" and slot and slot.trainer_profile.price_online > 0:
+            # Service price from Step 1 usually takes precedence if present
+            if 'override_price' not in data:
+                await state.update_data(override_price=slot.trainer_profile.price_online)
+
         await show_pro_booking_confirmation(callback, state, slot)
     await callback.answer()
 
@@ -207,12 +254,14 @@ async def show_pro_booking_confirmation(callback: types.CallbackQuery, state: FS
         fmt_ru_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
         display_format = fmt_ru_map.get(display_format, display_format)
 
+    display_price = data.get('override_price', slot.price)
+
     text = (
         f"❓ **Подтвердите запись клиента**\n\n"
         f"👤 Клиент: {data['client_name']}\n"
         f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
         f"🏷 {term_format}: {display_format}\n"
-        f"💰 Цена: {slot.price}₽"
+        f"💰 Цена: {int(display_price)}₽"
     )
 
     kb = [
@@ -265,11 +314,12 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext, 
             if not slot_format:
                 slot_format = slot.format
 
-            slot_price = slot.price
+            slot_price = data.get('override_price', slot.price)
 
             slot.status = "booked"
             slot.client_id = client_user_id
             slot.format = slot_format
+            slot.price = slot_price
 
             new_booking = Booking(
                 slot_id=slot_id,

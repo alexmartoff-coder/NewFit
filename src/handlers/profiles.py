@@ -12,6 +12,7 @@ from src.models.models import User, TrainerProfile, ClientProfile, UserRole, Boo
 from src.utils.db import SessionLocal
 from src.keyboards.common import get_trainer_main_kb, get_client_main_kb
 from src.keyboards.inline import add_admin_button
+from src.utils.text import escape_md
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -19,12 +20,6 @@ logger = logging.getLogger(__name__)
 class GoogleKeysState(StatesGroup):
     waiting_for_client_id = State()
     waiting_for_client_secret = State()
-
-def escape_md(text: str) -> str:
-    """Helper to escape underscores for MarkdownV1"""
-    if text is None:
-        return ""
-    return str(text).replace("_", "\\_").replace("*", "\\*").replace("[", "\\[").replace("`", "\\`")
 
 @router.message(F.text.in_(["/profile", "Мой профиль"]))
 async def show_profile(message: types.Message, is_admin: bool = False, effective_user_id: int = None):
@@ -247,12 +242,20 @@ async def show_clients(event: types.Message | types.CallbackQuery, effective_use
 
         if unique_clients:
             text_clients = "👥 **Ваши клиенты (для повторной записи):**"
+
+            data = await state.get_data()
+            slot_id = data.get('slot_id')
+
             kb_list = []
             for c in unique_clients:
                 client_name = c.full_name or f"ID {c.id}"
+                callback_data = f"pro_book_client_{c.id}"
+                if slot_id:
+                    callback_data += f"_{slot_id}"
+
                 kb_list.append([types.InlineKeyboardButton(
                     text=f"Забронировать для {client_name}",
-                    callback_data=f"pro_book_client_{c.id}"
+                    callback_data=callback_data
                 )])
 
             await message.answer(text_clients, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb_list), parse_mode="Markdown")
