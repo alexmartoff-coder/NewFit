@@ -13,6 +13,7 @@ import logging
 
 router = Router()
 logger = logging.getLogger(__name__)
+from src.utils.text import escape_md
 
 @router.callback_query(F.data.startswith("book_"))
 async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
@@ -48,11 +49,17 @@ async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_adm
             return
 
         kb = []
+        row = []
         for d in available_dates:
-            kb.append([types.InlineKeyboardButton(
+            row.append(types.InlineKeyboardButton(
                 text=d.strftime("%d.%m (%a)"),
                 callback_data=f"bdate_{d.isoformat()}"
-            )])
+            ))
+            if len(row) == 2:
+                kb.append(row)
+                row = []
+        if row:
+            kb.append(row)
         kb.append([types.InlineKeyboardButton(text="🔙 Назад в каталог", callback_data="filter_apply")])
 
     kb_markup = types.InlineKeyboardMarkup(inline_keyboard=kb)
@@ -90,6 +97,7 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
             return
 
         kb = []
+        row = []
         from dateutil.tz import gettz, UTC
         moscow_tz = gettz('Europe/Moscow')
 
@@ -101,8 +109,14 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
             start_str = s_start.astimezone(moscow_tz).strftime('%H:%M')
             end_str = s_end.astimezone(moscow_tz).strftime('%H:%M')
 
-            btn_text = f"{start_str} - {end_str}"
-            kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"slot_{s.id}")])
+            btn_text = f"{start_str}-{end_str}"
+            row.append(types.InlineKeyboardButton(text=btn_text, callback_data=f"slot_{s.id}"))
+            if len(row) == 2:
+                kb.append(row)
+                row = []
+
+        if row:
+            kb.append(row)
 
         kb.append([types.InlineKeyboardButton(text="🔙 К выбору даты", callback_data=f"book_{trainer_user_id}")])
         kb.append([types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="client_menu")])
@@ -147,8 +161,16 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
         if specs:
             await state.set_state(BookingSession.choosing_service)
             kb = []
+            row = []
             for s in specs:
-                kb.append([types.InlineKeyboardButton(text=s.name, callback_data=f"c_svc_{s.name}")])
+                # Callback data limit 64 bytes - truncate service name to 15 chars if needed
+                svc_short = s.name[:15]
+                row.append(types.InlineKeyboardButton(text=s.name, callback_data=f"c_svc_{svc_short}"))
+                if len(row) == 2:
+                    kb.append(row)
+                    row = []
+            if row:
+                kb.append(row)
             kb.append([types.InlineKeyboardButton(text="🔙 К выбору времени", callback_data=f"bdate_{slot.start_time.date().isoformat()}")])
 
             term = "услугу" if trainer_role in [UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL] else "направление"
@@ -165,10 +187,18 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
 
 @router.callback_query(F.data.startswith("c_svc_"), BookingSession.choosing_service)
 async def process_service_selection(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
-    svc_name = callback.data.replace("c_svc_", "")
-    await state.update_data(selected_service=svc_name)
+    svc_query = callback.data.replace("c_svc_", "")
 
     data = await state.get_data()
+    # Find full service name matching the prefix/shortened version
+    specs = data.get('specializations', [])
+    svc_name = svc_query
+    for s in specs:
+        if s.startswith(svc_query):
+            svc_name = s
+            break
+
+    await state.update_data(selected_service=svc_name)
     async with SessionLocal() as session:
         stmt = select(TimeSlot).where(TimeSlot.id == data['slot_id']).options(
             selectinload(TimeSlot.trainer_profile).options(
@@ -282,9 +312,9 @@ async def show_booking_confirmation(callback: types.CallbackQuery, state: FSMCon
     display_price = data.get('override_price', slot.price)
 
     text = (
-        f"📍 **Подтверждение записи**\n\n"
+        f"📍 *Подтверждение записи*\n\n"
         f"Время: `{start_moscow.strftime('%d.%m.%Y %H:%M')}` (МСК)\n"
-        f"{term_format}: `{display_format}`\n"
+        f"{term_format}: `{escape_md(display_format)}`\n"
         f"Цена: `{int(display_price)}₽`\n\n"
         f"Нажмите подтвердить для завершения записи."
     )
@@ -342,6 +372,8 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             slot_start = slot.start_time
             slot_end = slot.end_time
             slot_price = data.get('override_price', slot.price)
+            slot_online_platform = slot.online_platform
+            slot_zoom_join_url = slot.zoom_join_url
 
             # Build full slot format string (Service + Format)
             selected_svc = data.get('selected_service', '')
@@ -397,27 +429,38 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             except Exception as e:
                 logger.error(f"Failed to sync with Google Calendar for trainer {trainer_user_id}: {e}")
 
-            text = f"✅ **Запись успешно подтверждена!**\n\nВы успешно записаны {term_lesson}.\n📅 Мы пришлем вам напоминание за 24 и 2 часа до начала."
+            text = f"✅ *Запись успешно подтверждена!*\n\nВы успешно записаны {term_lesson}.\n📅 Мы пришлем вам напоминание за 24 и 2 часа до начала."
 
             if ("онлайн" in slot_format.lower() or "online" in slot_format.lower()):
-                if slot.online_platform == "telegram":
-                    text += "\n\n📱 **Формат:** Telegram Video\n**Инструкция:** Занятие будет проходить в этом чате по видеосвязи. Тренер свяжется с вами в назначенное время."
-                elif slot.zoom_join_url:
-                    text += f"\n\n🔗 **Ссылка на Zoom:** {slot.zoom_join_url}"
+                if slot_online_platform == "telegram":
+                    text += f"\n\n📱 *Формат:* Telegram Video\n*Инструкция:* Занятие будет проходить в этом чате по видеосвязи. Тренер свяжется с вами в назначенное время."
+                elif slot_zoom_join_url:
+                    text += f"\n\n🔗 *Ссылка на Zoom:* {escape_md(slot_zoom_join_url)}"
+                else:
+                    text += f"\n\n📱 *Формат:* Онлайн\n*Услуга:* {escape_md(slot_format)}"
 
             # Show main menu keyboard to client
             from src.keyboards.common import get_client_main_kb
             # After a successful booking, the user definitely has at least one specialist now
             kb = get_client_main_kb(has_specialists=True)
 
-            if callback.message.photo:
-                await callback.message.answer(text, reply_markup=kb, parse_mode="Markdown")
-            else:
+            # Cleanup confirmation screen
+            try:
+                await callback.message.delete()
+            except Exception:
                 try:
-                    await callback.message.edit_text(text, reply_markup=None, parse_mode="Markdown")
-                except exceptions.TelegramBadRequest:
+                    await callback.message.edit_reply_markup(reply_markup=None)
+                except Exception:
                     pass
-                await callback.message.answer("Воспользуйтесь меню ниже для навигации:", reply_markup=kb)
+
+            # Send final confirmation message
+            # Explicitly use bot.send_message for reliability after potential delete
+            await callback.bot.send_message(
+                chat_id=callback.message.chat.id,
+                text=text,
+                reply_markup=kb,
+                parse_mode="Markdown"
+            )
 
             # Notify professional
             try:
@@ -429,15 +472,15 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
                 start_moscow = s_start.astimezone(moscow_tz)
 
                 trainer_text = (
-                    f"🆕 **Новая запись!**\n\n"
-                    f"👤 Клиент: {client_name}\n"
+                    f"🆕 *Новая запись!*\n\n"
+                    f"👤 Клиент: {escape_md(client_name)}\n"
                     f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
-                    f"🏷 {term_format}: {slot_format}\n"
+                    f"🏷 {term_format}: {escape_md(slot_format)}\n"
                     f"💰 Цена: {slot_price}₽"
                 )
                 await callback.bot.send_message(trainer_user_id, trainer_text, parse_mode="Markdown")
             except Exception as e:
-                logger.error(f"Failed to notify professional {slot.trainer_profile.user_id}: {e}")
+                logger.error(f"Failed to notify professional {trainer_user_id}: {e}")
         else:
             text = "К сожалению, этот слот уже занят или недоступен."
             if callback.message.photo:
