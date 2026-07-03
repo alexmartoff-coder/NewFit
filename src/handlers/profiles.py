@@ -62,7 +62,9 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
                 kb = add_admin_button(kb, is_admin=is_admin)
                 await message.answer(text, reply_markup=kb, parse_mode="Markdown")
 
-            has_online = (profile.work_format in [WorkFormat.ONLINE, WorkFormat.HYBRID]) if profile else False
+            # Online training button is not for BEAUTY role
+            is_not_beauty = user.role != UserRole.BEAUTY
+            has_online = (profile.work_format in [WorkFormat.ONLINE, WorkFormat.HYBRID]) if (profile and is_not_beauty) else False
             kb_main = get_trainer_main_kb(is_admin=is_admin, has_online=has_online)
             await message.answer("Управление кабинетом:", reply_markup=kb_main)
 
@@ -358,39 +360,157 @@ async def show_support(message: types.Message):
     await message.answer("Служба поддержки NewFit: @NewFitSupport")
 
 async def show_client_bookings_menu(message: types.Message, effective_user_id: int = None):
-    user_id = effective_user_id or message.from_user.id
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="🏀 Спорт", callback_data="my_bookings_cat_sport")],
+        [types.InlineKeyboardButton(text="💅 Бьюти", callback_data="my_bookings_cat_beauty")]
+    ])
+    await message.answer("Выберите категорию услуг:", reply_markup=kb)
+
+@router.callback_query(F.data == "my_bookings_cat_sport")
+async def show_my_bookings_sport_types(callback: types.CallbackQuery):
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="💪 Фитнес", callback_data="my_bookings_sphere_TRAINER")],
+        [types.InlineKeyboardButton(text="🎾 Теннис", callback_data="my_bookings_sphere_TENNIS")],
+        [types.InlineKeyboardButton(text="🏸 Падл", callback_data="my_bookings_sphere_PADEL")],
+        [types.InlineKeyboardButton(text="🔙 Назад", callback_data="my_bookings_back")]
+    ])
+    await callback.message.edit_text("Выберите вид спорта:", reply_markup=kb)
+    await callback.answer()
+
+@router.callback_query(F.data == "my_bookings_back")
+async def show_my_bookings_back(callback: types.CallbackQuery):
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="🏀 Спорт", callback_data="my_bookings_cat_sport")],
+        [types.InlineKeyboardButton(text="💅 Бьюти", callback_data="my_bookings_cat_beauty")]
+    ])
+    await callback.message.edit_text("Выберите категорию услуг:", reply_markup=kb)
+    await callback.answer()
+
+@router.callback_query(F.data == "my_bookings_cat_beauty")
+@router.callback_query(F.data.startswith("my_bookings_sphere_"))
+async def show_my_bookings_specialists(callback: types.CallbackQuery, effective_user_id: int = None):
+    sphere = "BEAUTY" if callback.data == "my_bookings_cat_beauty" else callback.data.split("_")[3]
+    user_id = effective_user_id or callback.from_user.id
+
     async with SessionLocal() as session:
-        # Получаем профиль клиента
         cp_stmt = select(ClientProfile).where(ClientProfile.user_id == user_id)
         client_profile = (await session.execute(cp_stmt)).scalar_one_or_none()
 
         if not client_profile:
-            await message.answer("У вас пока нет запланированных занятий.")
+            await callback.answer("У вас пока нет записей.")
             return
 
-        # Fetch unique services (slot formats) from client's upcoming bookings
         now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        # Find specialists from this sphere that the client has upcoming bookings with
         stmt = (
-            select(TimeSlot.format)
-            .join(Booking, Booking.slot_id == TimeSlot.id)
-            .where(Booking.client_id == client_profile.id, Booking.start_time >= now_utc)
+            select(TrainerProfile, User)
+            .join(Booking, Booking.trainer_profile_id == TrainerProfile.id)
+            .join(User, TrainerProfile.user_id == User.id)
+            .where(
+                Booking.client_id == client_profile.id,
+                Booking.start_time >= now_utc,
+                User.role == UserRole(sphere)
+            )
             .distinct()
         )
-        res = await session.execute(stmt)
-        services = res.scalars().all()
 
-        if not services:
-            await message.answer("У вас пока нет запланированных занятий.")
+        res = await session.execute(stmt)
+        specialists = res.all()
+
+        if not specialists:
+            await callback.message.edit_text("У вас нет запланированных записей в этой категории.")
+            await callback.answer()
             return
 
         kb_list = []
-        for svc in services:
-            # Clean service name for display and callback
-            display_name = svc.split(' (')[0] if '(' in svc else svc
-            # Use shorter prefix to avoid Telegram 64-byte callback_data limit
-            kb_list.append([types.InlineKeyboardButton(text=display_name, callback_data=f"my_bookings_svc_{svc[:15]}")] )
+        for profile, user_data in specialists:
+            kb_list.append([types.InlineKeyboardButton(
+                text=user_data.full_name,
+                callback_data=f"my_bookings_pro_{profile.user_id}"
+            )])
+        kb_list.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="my_bookings_back")])
 
-        await message.answer("Выберите услугу для просмотра записей:", reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb_list))
+        await callback.message.edit_text("Выберите специалиста:", reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb_list))
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("my_bookings_pro_"))
+async def show_my_bookings_by_pro(callback: types.CallbackQuery, effective_user_id: int = None):
+    pro_user_id = int(callback.data.split("_")[3])
+    user_id = effective_user_id or callback.from_user.id
+
+    async with SessionLocal() as session:
+        moscow_tz = gettz('Europe/Moscow')
+        cp_stmt = select(ClientProfile).where(ClientProfile.user_id == user_id)
+        client_profile = (await session.execute(cp_stmt)).scalar_one_or_none()
+
+        if not client_profile:
+            await callback.answer("Профиль не найден")
+            return
+
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        stmt = (
+            select(Booking)
+            .join(TimeSlot)
+            .join(TrainerProfile, Booking.trainer_profile_id == TrainerProfile.id)
+            .where(
+                Booking.client_id == client_profile.id,
+                Booking.start_time >= now_utc,
+                TrainerProfile.user_id == pro_user_id
+            )
+            .options(
+                selectinload(Booking.slot).options(
+                    selectinload(TimeSlot.trainer_profile).options(
+                        selectinload(TrainerProfile.user)
+                    )
+                )
+            )
+            .order_by(Booking.start_time.asc())
+        )
+        res = await session.execute(stmt)
+        bookings = res.scalars().all()
+
+        if not bookings:
+            await callback.message.edit_text("Записи не найдены.")
+            return
+
+        trainer_name = bookings[0].slot.trainer_profile.user.full_name
+        await callback.message.edit_text(f"📅 **Ваши записи к {escape_md(trainer_name)}:**", parse_mode="Markdown")
+
+        fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
+        for b in bookings:
+            slot = b.slot
+            status_map = {"confirmed": "✅ Подтверждено", "pending": "⏳ Ожидает", "canceled": "❌ Отменено"}
+
+            # Dynamic labels
+            slot_format = slot.format or ""
+            is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY
+            is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in slot_format.split(", "))
+            term_format = "Услуга" if (is_beauty or is_specific_sport) else "Формат"
+
+            s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
+            start_moscow = s_start.astimezone(moscow_tz)
+
+            work_fmt_ru = fmt_map.get(slot_format.lower(), slot_format)
+
+            text = (
+                f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
+                f"🏷 {term_format}: {escape_md(work_fmt_ru)}\n"
+                f"📊 Статус: {status_map.get(b.status, b.status)}"
+            )
+
+            kb = None
+            if b.status == "confirmed" and b.start_time < now_utc:
+                review_stmt = select(Review).where(Review.booking_id == b.id)
+                review_res = await session.execute(review_stmt)
+                if not review_res.scalar_one_or_none():
+                    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                        [types.InlineKeyboardButton(text="⭐ Оставить отзыв", callback_data=f"leave_review_{b.id}")]
+                    ])
+
+            await callback.message.answer(text, reply_markup=kb, parse_mode="Markdown")
+    await callback.answer()
 
 @router.callback_query(F.data.startswith("my_bookings_svc_"))
 async def show_my_bookings_by_service(callback: types.CallbackQuery, effective_user_id: int = None):

@@ -12,14 +12,34 @@ from src.models.models import UserRole
 @router.message(F.text == "Мои специалисты")
 async def show_favorites_categories(message: types.Message, is_admin: bool = False):
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
-        [types.InlineKeyboardButton(text="💪 Фитнес", callback_data="fav_sphere_TRAINER")],
-        [types.InlineKeyboardButton(text="💅 Бьюти", callback_data="fav_sphere_BEAUTY")],
-        [types.InlineKeyboardButton(text="🎾 Теннис", callback_data="fav_sphere_TENNIS")],
-        [types.InlineKeyboardButton(text="🏸 Падл", callback_data="fav_sphere_PADEL")],
-        [types.InlineKeyboardButton(text="🌍 Все специалисты", callback_data="fav_sphere_ALL")]
+        [types.InlineKeyboardButton(text="🏀 Спорт", callback_data="fav_cat_sport")],
+        [types.InlineKeyboardButton(text="💅 Бьюти", callback_data="fav_sphere_BEAUTY")]
     ])
     kb = add_admin_button(kb, is_admin=is_admin)
     await message.answer("Выберите категорию специалистов:", reply_markup=kb)
+
+@router.callback_query(F.data == "fav_cat_sport")
+async def show_fav_sport_types(callback: types.CallbackQuery, is_admin: bool = False):
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="💪 Фитнес", callback_data="fav_sphere_TRAINER")],
+        [types.InlineKeyboardButton(text="🎾 Теннис", callback_data="fav_sphere_TENNIS")],
+        [types.InlineKeyboardButton(text="🏸 Падл", callback_data="fav_sphere_PADEL")],
+        [types.InlineKeyboardButton(text="🌍 Все специалисты", callback_data="fav_sphere_ALL")],
+        [types.InlineKeyboardButton(text="🔙 Назад", callback_data="fav_back")]
+    ])
+    kb = add_admin_button(kb, is_admin=is_admin)
+    await callback.message.edit_text("Выберите вид спорта:", reply_markup=kb)
+    await callback.answer()
+
+@router.callback_query(F.data == "fav_back")
+async def show_fav_back(callback: types.CallbackQuery, is_admin: bool = False):
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="🏀 Спорт", callback_data="fav_cat_sport")],
+        [types.InlineKeyboardButton(text="💅 Бьюти", callback_data="fav_sphere_BEAUTY")]
+    ])
+    kb = add_admin_button(kb, is_admin=is_admin)
+    await callback.message.edit_text("Выберите категорию специалистов:", reply_markup=kb)
+    await callback.answer()
 
 @router.callback_query(F.data.startswith("fav_sphere_"))
 async def show_favorites(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
