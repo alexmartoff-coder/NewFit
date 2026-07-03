@@ -1180,7 +1180,7 @@ async def sche_assign_client_start(callback: types.CallbackQuery, state: FSMCont
     slot_id = int(callback.data.split("_")[-1])
     await state.set_state(ProBookingSession.choosing_date) # ProBookingSession start state
     await state.update_data(slot_id=slot_id)
-    await show_clients(callback, effective_user_id=effective_user_id)
+    await show_clients(callback, state=state, effective_user_id=effective_user_id)
 
 # --- Catch-all handlers for state consistency ---
 @router.message(ScheduleState.choosing_duration)
