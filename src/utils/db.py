@@ -224,6 +224,7 @@ async def init_db(engine):
                     ALTER TABLE reviews ADD CONSTRAINT reviews_client_id_fkey
                     FOREIGN KEY (client_id) REFERENCES client_profiles(id) ON DELETE CASCADE;
 
+                    -- Reviews
                     ALTER TABLE reviews ADD CONSTRAINT reviews_booking_id_fkey
                     FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE;
 
@@ -283,7 +284,7 @@ async def init_db(engine):
                 try:
                     await conn.execute(text("""
                         UPDATE trainer_profiles
-                        SET phone = regexp_replace(phone, '\D', '', 'g')
+                        SET phone = regexp_replace(phone, '\\\\D', '', 'g')
                         WHERE phone IS NOT NULL AND phone != '';
                     """))
                 except Exception as e:
@@ -374,7 +375,10 @@ async def init_db(engine):
                     )
                     if res.rowcount > 0:
                         count += 1
-            logger.info(f"Specializations sync complete. Added {count} new entries.")
+                logger.info(f"Specializations sync complete. Added {count} new entries.")
+        except Exception as e:
+            logger.warning(f"Error syncing specializations: {e}")
+
         print("✅ Все таблицы базы данных проверены/созданы и исправлены.")
     except Exception as e:
         print(f"⚠️ Ошибка при инициализации БД: {e}")
