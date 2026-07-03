@@ -8,6 +8,7 @@ from aiogram import Bot
 import asyncio
 from src.utils.db import SessionLocal
 from dateutil.tz import gettz, UTC
+from src.utils.text import escape_md
 
 logger = logging.getLogger(__name__)
 
