@@ -214,7 +214,7 @@ async def show_online_training(message: types.Message, effective_user_id: int = 
 @router.message(F.text == "Мои клиенты")
 @router.message(F.text == "/clients")
 @router.callback_query(F.data == "clients_list")
-async def show_clients(event: types.Message | types.CallbackQuery, effective_user_id: int = None):
+async def show_clients(event: types.Message | types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
     if isinstance(event, types.CallbackQuery):
         user_id = effective_user_id or event.from_user.id
         message = event.message
