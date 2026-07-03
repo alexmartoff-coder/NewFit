@@ -1154,10 +1154,15 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         elif slot.zoom_join_url:
             details += f"\n🔗 Zoom: {slot.zoom_join_url}"
 
-        kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        kb_list = []
+        if slot.status == "free":
+            kb_list.append([types.InlineKeyboardButton(text="👤 Записать клиента", callback_data=f"sche_assign_client_{slot.id}")])
+
+        kb_list.extend([
             [types.InlineKeyboardButton(text="🗓 Забронировать время", callback_data="sche_view_book")],
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_view")]
         ])
+        kb = types.InlineKeyboardMarkup(inline_keyboard=kb_list)
 
         await callback.message.edit_text(details, reply_markup=kb)
         await callback.answer()
@@ -1166,6 +1171,16 @@ async def view_slot_info_details(callback: types.CallbackQuery):
 async def sche_back(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
     await show_schedule_menu(callback.message, is_admin=is_admin, effective_user_id=effective_user_id)
     await callback.answer()
+
+from src.states.pro_booking import ProBookingSession
+from src.handlers.profiles import show_clients
+
+@router.callback_query(F.data.startswith("sche_assign_client_"))
+async def sche_assign_client_start(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
+    slot_id = int(callback.data.split("_")[-1])
+    await state.set_state(ProBookingSession.choosing_date) # ProBookingSession start state
+    await state.update_data(slot_id=slot_id)
+    await show_clients(callback, effective_user_id=effective_user_id)
 
 # --- Catch-all handlers for state consistency ---
 @router.message(ScheduleState.choosing_duration)
