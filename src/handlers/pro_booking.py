@@ -55,8 +55,8 @@ async def pro_start_booking(callback: types.CallbackQuery, state: FSMContext, is
                 if specs:
                     await state.set_state(ProBookingSession.choosing_service)
                     kb = []
-                    for spec in specs:
-                        kb.append([types.InlineKeyboardButton(text=spec.name, callback_data=f"pro_svc_{spec.name}")])
+                    for i, spec in enumerate(specs):
+                        kb.append([types.InlineKeyboardButton(text=spec.name, callback_data=f"pro_svc_{i}")])
                     kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="clients_list")])
 
                     role = slot.trainer_profile.user.role
@@ -155,8 +155,8 @@ async def pro_slot_selected(callback: types.CallbackQuery, state: FSMContext):
         if specs:
             await state.set_state(ProBookingSession.choosing_service)
             kb = []
-            for spec in specs:
-                kb.append([types.InlineKeyboardButton(text=spec.name, callback_data=f"pro_svc_{spec.name}")])
+            for i, spec in enumerate(specs):
+                kb.append([types.InlineKeyboardButton(text=spec.name, callback_data=f"pro_svc_{i}")])
             kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data=f"pro_bdate_{slot.start_time.date().isoformat()}")])
 
             role = slot.trainer_profile.user.role
@@ -169,10 +169,36 @@ async def pro_slot_selected(callback: types.CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("pro_svc_"), ProBookingSession.choosing_service)
 async def pro_service_selected(callback: types.CallbackQuery, state: FSMContext):
-    service_name = callback.data.replace("pro_svc_", "")
-    await state.update_data(selected_service=service_name)
+    try:
+        idx = int(callback.data.replace("pro_svc_", ""))
+    except ValueError:
+        await callback.answer("Неверный формат данных.")
+        return
 
     data = await state.get_data()
+    async with SessionLocal() as session:
+        # We need the specs of this trainer.
+        # Actually we can get them from the slot or state if we stored them.
+        # Let's re-fetch the slot to be safe and accurate with indices.
+        stmt = select(TimeSlot).where(TimeSlot.id == data['slot_id']).options(
+            selectinload(TimeSlot.trainer_profile).options(
+                selectinload(TrainerProfile.specializations)
+            )
+        )
+        slot = (await session.execute(stmt)).scalar_one_or_none()
+
+        if not slot:
+            await callback.answer("Слот не найден.")
+            return
+
+        specs = slot.trainer_profile.specializations
+        if 0 <= idx < len(specs):
+            service_name = specs[idx].name
+            await state.update_data(selected_service=service_name)
+        else:
+            await callback.answer("Услуга не найдена.")
+            return
+
     async with SessionLocal() as session:
         stmt = select(TimeSlot).where(TimeSlot.id == data['slot_id']).options(
             selectinload(TimeSlot.trainer_profile).options(

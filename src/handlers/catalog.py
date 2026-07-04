@@ -140,7 +140,7 @@ async def process_phone_search(message: types.Message, state: FSMContext):
         # Use regexp_replace on DB side for even more robust search
         # We search for the suffix to handle 7/8 interchangeable starts
         stmt = select(TrainerProfile, User).join(User).where(
-            func.regexp_replace(TrainerProfile.phone, '\D', '', 'g').like(f"%{search_phone}%")
+            func.regexp_replace(TrainerProfile.phone, r'\D', '', 'g').like(f"%{search_phone}%")
         ).options(selectinload(TrainerProfile.specializations))
         res = await session.execute(stmt)
         professionals = res.all()
@@ -452,7 +452,7 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
         filters = [TrainerProfile.status == "approved"]
 
         if 'phone_search' in data:
-            filters.append(func.regexp_replace(TrainerProfile.phone, '\D', '', 'g').like(f"%{data['phone_search']}%"))
+            filters.append(func.regexp_replace(TrainerProfile.phone, r'\D', '', 'g').like(f"%{data['phone_search']}%"))
         if 'username_search' in data:
             filters.append(func.lower(User.username).like(f"%{data['username_search'].lower()}%"))
         if 'name_search' in data:

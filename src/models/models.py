@@ -11,9 +11,9 @@ class UserRole(str, Enum):
     TRAINER = "TRAINER"
     CLIENT = "CLIENT"
     ADMIN = "ADMIN"
-    BEAUTY = "BEAUTY"
-    TENNIS = "TENNIS"
-    PADEL = "PADEL"
+    BEAUTY = "beauty"
+    TENNIS = "tennis"
+    PADEL = "padel"
 
 PROFESSIONAL_ROLES = [UserRole.TRAINER, UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL]
 

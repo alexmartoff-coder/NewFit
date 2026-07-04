@@ -105,9 +105,15 @@ async def init_db(engine):
             async with engine.begin() as conn:
                 # Исправляем Enum UserRole
                 try:
-                    await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'BEAUTY'"))
-                    await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'TENNIS'"))
-                    await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'PADEL'"))
+                    # Add lowercase values as requested
+                    await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'beauty'"))
+                    await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'tennis'"))
+                    await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'padel'"))
+
+                    # Optional: migrate existing uppercase to lowercase for consistency
+                    await conn.execute(text("UPDATE users SET role = 'beauty' WHERE role = 'BEAUTY'"))
+                    await conn.execute(text("UPDATE users SET role = 'tennis' WHERE role = 'TENNIS'"))
+                    await conn.execute(text("UPDATE users SET role = 'padel' WHERE role = 'PADEL'"))
                 except Exception as e:
                     logger.warning(f"Could not add roles to userrole enum: {e}")
 
@@ -282,9 +288,10 @@ async def init_db(engine):
 
                 # Normalize existing phone numbers in trainer_profiles
                 try:
-                    await conn.execute(text("""
+                    # Using a raw string for the SQL statement to avoid escape sequence issues
+                    await conn.execute(text(r"""
                         UPDATE trainer_profiles
-                        SET phone = regexp_replace(phone, '\\\\D', '', 'g')
+                        SET phone = regexp_replace(phone, '\D', '', 'g')
                         WHERE phone IS NOT NULL AND phone != '';
                     """))
                 except Exception as e:

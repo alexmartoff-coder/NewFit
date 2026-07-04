@@ -63,8 +63,15 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
                 await message.answer(text, reply_markup=kb, parse_mode="Markdown")
 
             # Online training button is not for BEAUTY role
-            is_not_beauty = user.role != UserRole.BEAUTY
-            has_online = (profile.work_format in [WorkFormat.ONLINE, WorkFormat.HYBRID]) if (profile and is_not_beauty) else False
+            # Ensure robust Enum comparison
+            is_not_beauty = str(user.role) != UserRole.BEAUTY.value
+
+            has_online = False
+            if profile and is_not_beauty:
+                work_fmt = str(profile.work_format)
+                if any(fmt in work_fmt for fmt in ["ONLINE", "HYBRID"]):
+                    has_online = True
+
             kb_main = get_trainer_main_kb(is_admin=is_admin, has_online=has_online)
             await message.answer("Управление кабинетом:", reply_markup=kb_main)
 
@@ -410,7 +417,7 @@ async def show_my_bookings_specialists(callback: types.CallbackQuery, effective_
             .where(
                 Booking.client_id == client_profile.id,
                 Booking.start_time >= now_utc,
-                User.role == UserRole(sphere)
+                User.role == UserRole[sphere.upper()]
             )
             .distinct()
         )
