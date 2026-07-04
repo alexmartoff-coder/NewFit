@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, types
 from src.utils.config import settings
 from src.handlers import start, trainer_onboarding, client_onboarding, catalog, profiles, booking, pro_booking, subscriptions, admin, schedule, favorites, reviews
 from src.utils.db import init_db, engine
@@ -19,6 +19,14 @@ async def main():
 
     # Initialize bot and dispatcher
     bot = Bot(token=settings.BOT_TOKEN)
+
+    # Explicitly register commands for visibility
+    await bot.set_my_commands([
+        types.BotCommand(command="start", description="Запустить бота"),
+        types.BotCommand(command="menu", description="Главное меню"),
+        types.BotCommand(command="profile", description="Мой профиль"),
+        types.BotCommand(command="schedule", description="Расписание (для Профи)"),
+    ])
     dp = Dispatcher()
 
     # Register middleware

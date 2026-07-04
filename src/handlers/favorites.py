@@ -13,7 +13,7 @@ from src.models.models import UserRole
 async def show_favorites_categories(message: types.Message, is_admin: bool = False):
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="🏀 Спорт", callback_data="fav_cat_sport")],
-        [types.InlineKeyboardButton(text="💅 Бьюти", callback_data="fav_sphere_BEAUTY")]
+        [types.InlineKeyboardButton(text="💅 Бьюти", callback_data="fav_sphere_beauty")]
     ])
     kb = add_admin_button(kb, is_admin=is_admin)
     await message.answer("Выберите категорию специалистов:", reply_markup=kb)
@@ -22,8 +22,8 @@ async def show_favorites_categories(message: types.Message, is_admin: bool = Fal
 async def show_fav_sport_types(callback: types.CallbackQuery, is_admin: bool = False):
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="💪 Фитнес", callback_data="fav_sphere_TRAINER")],
-        [types.InlineKeyboardButton(text="🎾 Теннис", callback_data="fav_sphere_TENNIS")],
-        [types.InlineKeyboardButton(text="🏸 Падл", callback_data="fav_sphere_PADEL")],
+        [types.InlineKeyboardButton(text="🎾 Теннис", callback_data="fav_sphere_tennis")],
+        [types.InlineKeyboardButton(text="🏸 Падл", callback_data="fav_sphere_padel")],
         [types.InlineKeyboardButton(text="🌍 Все специалисты", callback_data="fav_sphere_ALL")],
         [types.InlineKeyboardButton(text="🔙 Назад", callback_data="fav_back")]
     ])
@@ -35,7 +35,7 @@ async def show_fav_sport_types(callback: types.CallbackQuery, is_admin: bool = F
 async def show_fav_back(callback: types.CallbackQuery, is_admin: bool = False):
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="🏀 Спорт", callback_data="fav_cat_sport")],
-        [types.InlineKeyboardButton(text="💅 Бьюти", callback_data="fav_sphere_BEAUTY")]
+        [types.InlineKeyboardButton(text="💅 Бьюти", callback_data="fav_sphere_beauty")]
     ])
     kb = add_admin_button(kb, is_admin=is_admin)
     await callback.message.edit_text("Выберите категорию специалистов:", reply_markup=kb)
@@ -65,7 +65,8 @@ async def show_favorites(callback: types.CallbackQuery, is_admin: bool = False, 
         )
 
         if sphere != "ALL":
-            stmt = stmt.where(User.role == UserRole(sphere))
+            # Values are mixed case now.
+            stmt = stmt.where(User.role == sphere)
 
         stmt = stmt.distinct(TrainerProfile.id).options(selectinload(TrainerProfile.specializations))
 

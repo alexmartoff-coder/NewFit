@@ -162,10 +162,9 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
             await state.set_state(BookingSession.choosing_service)
             kb = []
             row = []
-            for s in specs:
-                # Callback data limit 64 bytes - truncate service name to 15 chars if needed
-                svc_short = s.name[:15]
-                row.append(types.InlineKeyboardButton(text=s.name, callback_data=f"c_svc_{svc_short}"))
+            for i, s in enumerate(specs):
+                # Use index to avoid callback data length issues
+                row.append(types.InlineKeyboardButton(text=s.name, callback_data=f"c_svc_{i}"))
                 if len(row) == 2:
                     kb.append(row)
                     row = []
@@ -187,18 +186,22 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
 
 @router.callback_query(F.data.startswith("c_svc_"), BookingSession.choosing_service)
 async def process_service_selection(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
-    svc_query = callback.data.replace("c_svc_", "")
+    try:
+        idx = int(callback.data.replace("c_svc_", ""))
+    except ValueError:
+        await callback.answer("Неверный формат данных.")
+        return
 
     data = await state.get_data()
-    # Find full service name matching the prefix/shortened version
     specs = data.get('specializations', [])
-    svc_name = svc_query
-    for s in specs:
-        if s.startswith(svc_query):
-            svc_name = s
-            break
 
-    await state.update_data(selected_service=svc_name)
+    if 0 <= idx < len(specs):
+        svc_name = specs[idx]
+        await state.update_data(selected_service=svc_name)
+    else:
+        await callback.answer("Услуга не найдена.")
+        return
+
     async with SessionLocal() as session:
         stmt = select(TimeSlot).where(TimeSlot.id == data['slot_id']).options(
             selectinload(TimeSlot.trainer_profile).options(

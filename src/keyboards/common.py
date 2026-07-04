@@ -16,12 +16,12 @@ def get_sphere_kb():
     ]
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, one_time_keyboard=True)
 
-def get_trainer_main_kb(is_admin: bool = False, has_online: bool = True):
+def get_trainer_main_kb(is_admin: bool = False, has_online: bool = False):
     kb = [
         [KeyboardButton(text="Мой профиль"), KeyboardButton(text="Моё расписание")],
         [KeyboardButton(text="Мои записи"), KeyboardButton(text="Мои клиенты")],
     ]
-    if has_online:
+    if has_online is True:
         kb.append([KeyboardButton(text="🖥 Онлайн тренировка")])
 
     kb.extend([
@@ -60,7 +60,9 @@ def get_spec_kb(selected_specs: list = None, role: str = "TRAINER"):
     if selected_specs is None:
         selected_specs = []
 
-    if role == "BEAUTY":
+    role_str = str(role).upper()
+
+    if role_str == "BEAUTY":
         specs = [
             ("Маникюр", "spec_manicure"),
             ("Педикюр", "spec_pedicure"),
@@ -71,7 +73,7 @@ def get_spec_kb(selected_specs: list = None, role: str = "TRAINER"):
             ("Макияж", "spec_makeup"),
             ("Другое", "spec_other"),
         ]
-    elif role == "TENNIS":
+    elif role_str == "TENNIS":
         specs = [
             ("Индивидуальные тренировки", "spec_indiv"),
             ("Групповые занятия", "spec_group"),
@@ -80,7 +82,7 @@ def get_spec_kb(selected_specs: list = None, role: str = "TRAINER"):
             ("Спарринг", "spec_sparr"),
             ("Другое", "spec_other"),
         ]
-    elif role == "PADEL":
+    elif role_str == "PADEL":
         specs = [
             ("Индивидуальные тренировки", "spec_indiv"),
             ("Групповые занятия", "spec_group"),

@@ -575,9 +575,32 @@ async def quick_gen_start(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @router.callback_query(F.data.startswith("gen_p_"), GenerateSlotsState.choosing_period)
-async def quick_gen_period(callback: types.CallbackQuery, state: FSMContext):
+async def quick_gen_period(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
     period = int(callback.data.split("_")[2])
     await state.update_data(period=period)
+    user_id = effective_user_id or callback.from_user.id
+
+    async with SessionLocal() as session:
+        from src.models.models import User, UserRole
+        user = await session.get(User, user_id)
+
+        # For Beauty, skip format selection and jump to step selection
+        if user and str(user.role) == UserRole.BEAUTY.value:
+            await state.update_data(gen_format="OFFLINE")
+
+            kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                [types.InlineKeyboardButton(text="60 минут", callback_data="gen_s_60")],
+                [types.InlineKeyboardButton(text="90 минут", callback_data="gen_s_90")],
+                [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_quick_gen")]
+            ])
+            text = "Выберите шаг между слотами:"
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=text, reply_markup=kb)
+            else:
+                await callback.message.edit_text(text, reply_markup=kb)
+            await state.set_state(GenerateSlotsState.choosing_step)
+            await callback.answer()
+            return
 
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="Оффлайн", callback_data="gen_f_OFFLINE")],
