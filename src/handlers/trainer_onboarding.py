@@ -71,20 +71,21 @@ async def provider_sphere_chosen(message: types.Message, state: FSMContext, is_a
         "большой теннис": UserRole.TENNIS,
         "падл": UserRole.PADEL
     }
+    # Use lowercase string for FSM storage to prevent serialization issues
     role = role_map.get(message.text.lower(), UserRole.TRAINER)
-    await state.update_data(role=role)
+    await state.update_data(role=role.value)
 
     await state.set_state(TrainerOnboarding.specialization)
-    kb = get_spec_kb(role=role)
+    kb = get_spec_kb(role=role.value)
     kb = add_admin_button(kb, is_admin=is_admin)
 
     step_texts = {
-        UserRole.BEAUTY: "Шаг 5: Выберите услуги, которые вы предоставляете:",
-        UserRole.TENNIS: "Шаг 5: Выберите ваши специализации в теннисе:",
-        UserRole.PADEL: "Шаг 5: Выберите ваши специализации в падле:",
-        UserRole.TRAINER: "Шаг 5: Выберите ваши основные направления в фитнесе:"
+        UserRole.BEAUTY.value: "Шаг 5: Выберите услуги, которые вы предоставляете:",
+        UserRole.TENNIS.value: "Шаг 5: Выберите ваши специализации в теннисе:",
+        UserRole.PADEL.value: "Шаг 5: Выберите ваши специализации в падле:",
+        UserRole.TRAINER.value: "Шаг 5: Выберите ваши основные направления в фитнесе:"
     }
-    text = step_texts.get(role, step_texts[UserRole.TRAINER])
+    text = step_texts.get(role.value, step_texts[UserRole.TRAINER.value])
     await message.answer(text, reply_markup=kb)
 
 @router.callback_query(F.data.startswith("spec_"), TrainerOnboarding.specialization)
@@ -145,7 +146,7 @@ async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext
             specs.append(spec)
         await state.update_data(specializations=specs)
 
-        kb = get_spec_kb(selected_specs=specs, role=data.get('role', UserRole.TRAINER.name))
+        kb = get_spec_kb(selected_specs=specs, role=data.get('role', UserRole.TRAINER.value))
         await callback.message.edit_reply_markup(reply_markup=add_admin_button(kb, is_admin=is_admin))
 
     await callback.answer()
@@ -290,7 +291,7 @@ async def process_price_services(message: types.Message, state: FSMContext):
             await state.update_data(remaining_specs=remaining_specs, service_prices=service_prices)
             next_spec = remaining_specs[0]
             role = data.get('role')
-            term_price = "услугу" if role == UserRole.BEAUTY or str(role).upper() == UserRole.BEAUTY.name else "направление"
+            term_price = "услугу" if role == UserRole.BEAUTY.value else "направление"
             await message.answer(f"Укажите цену за {term_price} «{next_spec}» (в ₽):")
         else:
             first_price = list(service_prices.values())[0] if service_prices else 0
