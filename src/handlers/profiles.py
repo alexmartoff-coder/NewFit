@@ -239,11 +239,17 @@ async def show_clients(event: types.Message | types.CallbackQuery, state: FSMCon
             return
 
         # Show "My Clients" list for re-booking
-        stmt_clients = (
-            select(ClientProfile)
+        # Avoid DISTINCT on ClientProfile which has city/status etc.
+        # (Though no JSON here, it's safer to follow same pattern)
+        client_ids_subquery = (
+            select(ClientProfile.id)
             .join(Booking, Booking.client_id == ClientProfile.id)
             .where(Booking.trainer_profile_id == profile.id)
-            .distinct()
+        )
+
+        stmt_clients = (
+            select(ClientProfile)
+            .where(ClientProfile.id.in_(client_ids_subquery))
             .options(selectinload(ClientProfile.user))
         )
         res_clients = await session.execute(stmt_clients)
@@ -410,8 +416,9 @@ async def show_my_bookings_specialists(callback: types.CallbackQuery, effective_
         now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
 
         # Find specialists from this sphere that the client has upcoming bookings with
-        stmt = (
-            select(TrainerProfile, User)
+        # Avoid DISTINCT on objects with JSON columns
+        pro_ids_subquery = (
+            select(TrainerProfile.id)
             .join(Booking, Booking.trainer_profile_id == TrainerProfile.id)
             .join(User, TrainerProfile.user_id == User.id)
             .where(
@@ -419,7 +426,12 @@ async def show_my_bookings_specialists(callback: types.CallbackQuery, effective_
                 Booking.end_time >= now_utc,
                 User.role == UserRole[sphere.upper()]
             )
-            .distinct()
+        )
+
+        stmt = (
+            select(TrainerProfile, User)
+            .join(User, TrainerProfile.user_id == User.id)
+            .where(TrainerProfile.id.in_(pro_ids_subquery))
         )
 
         res = await session.execute(stmt)

@@ -57,18 +57,23 @@ async def show_favorites(callback: types.CallbackQuery, is_admin: bool = False, 
             return
 
         # 2. Find unique trainers from bookings
-        stmt = (
-            select(TrainerProfile, User)
+        # Avoid DISTINCT on objects with JSON columns
+        pro_ids_subquery = (
+            select(TrainerProfile.id)
             .join(Booking, Booking.trainer_profile_id == TrainerProfile.id)
             .join(User, TrainerProfile.user_id == User.id)
             .where(Booking.client_id == client_profile.id)
         )
 
         if sphere != "ALL":
-            # Values are mixed case now.
-            stmt = stmt.where(User.role == sphere)
+            pro_ids_subquery = pro_ids_subquery.where(User.role == sphere)
 
-        stmt = stmt.distinct(TrainerProfile.id).options(selectinload(TrainerProfile.specializations))
+        stmt = (
+            select(TrainerProfile, User)
+            .join(User, TrainerProfile.user_id == User.id)
+            .where(TrainerProfile.id.in_(pro_ids_subquery))
+            .options(selectinload(TrainerProfile.specializations))
+        )
 
         res = await session.execute(stmt)
         specialists = res.all()
