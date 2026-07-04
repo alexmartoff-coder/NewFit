@@ -190,12 +190,12 @@ async def show_sphere_specializations(event: types.CallbackQuery | types.Message
     from src.keyboards.common import get_spec_kb
     data = await state.get_data()
     role_map = {
-        "fitness": "TRAINER",
-        "beauty": "BEAUTY",
+        "fitness": UserRole.TRAINER.name,
+        "beauty": UserRole.BEAUTY.name,
         "tennis": "TENNIS",
         "padel": "PADEL"
     }
-    role = role_map.get(cat_type, "TRAINER")
+    role = role_map.get(cat_type, UserRole.TRAINER.name)
     kb = get_spec_kb(role=role)
     kb = add_admin_button(kb, is_admin=is_admin)
 
@@ -346,12 +346,12 @@ async def process_filter_spec_callback(callback: types.CallbackQuery, state: FSM
         from src.keyboards.common import get_spec_kb
         cat_type = data.get('catalog_type')
         role_map = {
-            "fitness": "TRAINER",
-            "beauty": "BEAUTY",
+            "fitness": UserRole.TRAINER.name,
+            "beauty": UserRole.BEAUTY.name,
             "tennis": "TENNIS",
             "padel": "PADEL"
         }
-        role = role_map.get(cat_type, "TRAINER")
+        role = role_map.get(cat_type, UserRole.TRAINER.name)
         kb = get_spec_kb(selected_specs=specs, role=role)
         kb = add_admin_button(kb, is_admin=is_admin)
         await callback.message.edit_reply_markup(reply_markup=kb)

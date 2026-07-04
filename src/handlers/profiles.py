@@ -396,7 +396,7 @@ async def show_my_bookings_back(callback: types.CallbackQuery):
 @router.callback_query(F.data == "my_bookings_cat_beauty")
 @router.callback_query(F.data.startswith("my_bookings_sphere_"))
 async def show_my_bookings_specialists(callback: types.CallbackQuery, effective_user_id: int = None):
-    sphere = "BEAUTY" if callback.data == "my_bookings_cat_beauty" else callback.data.split("_")[3]
+    sphere = UserRole.BEAUTY.name if callback.data == "my_bookings_cat_beauty" else callback.data.split("_")[3]
     user_id = effective_user_id or callback.from_user.id
 
     async with SessionLocal() as session:
@@ -416,7 +416,7 @@ async def show_my_bookings_specialists(callback: types.CallbackQuery, effective_
             .join(User, TrainerProfile.user_id == User.id)
             .where(
                 Booking.client_id == client_profile.id,
-                Booking.start_time >= now_utc,
+                Booking.end_time >= now_utc,
                 User.role == UserRole[sphere.upper()]
             )
             .distinct()
@@ -463,7 +463,7 @@ async def show_my_bookings_by_pro(callback: types.CallbackQuery, effective_user_
             .join(TrainerProfile, Booking.trainer_profile_id == TrainerProfile.id)
             .where(
                 Booking.client_id == client_profile.id,
-                Booking.start_time >= now_utc,
+                Booking.end_time >= now_utc,
                 TrainerProfile.user_id == pro_user_id
             )
             .options(

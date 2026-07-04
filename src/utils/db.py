@@ -109,11 +109,17 @@ async def init_db(engine):
                     await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'beauty'"))
                     await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'tennis'"))
                     await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'padel'"))
+                    await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'trainer'"))
+                    await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'client'"))
+                    await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'admin'"))
 
                     # Optional: migrate existing uppercase to lowercase for consistency
                     await conn.execute(text("UPDATE users SET role = 'beauty' WHERE role = 'BEAUTY'"))
                     await conn.execute(text("UPDATE users SET role = 'tennis' WHERE role = 'TENNIS'"))
                     await conn.execute(text("UPDATE users SET role = 'padel' WHERE role = 'PADEL'"))
+                    await conn.execute(text("UPDATE users SET role = 'trainer' WHERE role = 'TRAINER'"))
+                    await conn.execute(text("UPDATE users SET role = 'client' WHERE role = 'CLIENT'"))
+                    await conn.execute(text("UPDATE users SET role = 'admin' WHERE role = 'ADMIN'"))
                 except Exception as e:
                     logger.warning(f"Could not add roles to userrole enum: {e}")
 
@@ -343,6 +349,18 @@ async def init_db(engine):
                     try:
                         await conn.execute(text("ALTER TABLE bookings ALTER COLUMN is_online DROP NOT NULL"))
                     except Exception: pass
+
+                    # Sync start_time and end_time to bookings from time_slots if missing
+                    try:
+                        await conn.execute(text("""
+                            UPDATE bookings b SET
+                                start_time = s.start_time,
+                                end_time = s.end_time
+                            FROM time_slots s
+                            WHERE b.slot_id = s.id AND (b.start_time IS NULL OR b.end_time IS NULL)
+                        """))
+                    except Exception as e:
+                        logger.warning(f"Could not sync booking times: {e}")
 
                 except Exception as e:
                     logger.error(f"Data migration error: {e}")

@@ -8,9 +8,9 @@ class Base(DeclarativeBase):
     pass
 
 class UserRole(str, Enum):
-    TRAINER = "TRAINER"
-    CLIENT = "CLIENT"
-    ADMIN = "ADMIN"
+    TRAINER = "trainer"
+    CLIENT = "client"
+    ADMIN = "admin"
     BEAUTY = "beauty"
     TENNIS = "tennis"
     PADEL = "padel"

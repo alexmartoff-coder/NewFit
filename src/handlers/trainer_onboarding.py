@@ -145,7 +145,7 @@ async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext
             specs.append(spec)
         await state.update_data(specializations=specs)
 
-        kb = get_spec_kb(selected_specs=specs, role=data.get('role', 'TRAINER'))
+        kb = get_spec_kb(selected_specs=specs, role=data.get('role', UserRole.TRAINER.name))
         await callback.message.edit_reply_markup(reply_markup=add_admin_button(kb, is_admin=is_admin))
 
     await callback.answer()
@@ -199,7 +199,7 @@ async def process_experience(message: types.Message, state: FSMContext, is_admin
         await state.update_data(experience=exp)
         data = await state.get_data()
         role = data.get('role')
-        if isinstance(role, str): role = UserRole(role.upper())
+        if isinstance(role, str): role = UserRole(role.lower())
 
         if role in [UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL]:
             await state.update_data(work_format=WorkFormat.OFFLINE)
@@ -290,7 +290,7 @@ async def process_price_services(message: types.Message, state: FSMContext):
             await state.update_data(remaining_specs=remaining_specs, service_prices=service_prices)
             next_spec = remaining_specs[0]
             role = data.get('role')
-            term_price = "услугу" if role == UserRole.BEAUTY or str(role).upper() == "BEAUTY" else "направление"
+            term_price = "услугу" if role == UserRole.BEAUTY or str(role).upper() == UserRole.BEAUTY.name else "направление"
             await message.answer(f"Укажите цену за {term_price} «{next_spec}» (в ₽):")
         else:
             first_price = list(service_prices.values())[0] if service_prices else 0
@@ -399,7 +399,7 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
             await state.update_data(experience=profile.experience)
             data = await state.get_data()
             role = data.get('role')
-            if isinstance(role, str): role = UserRole(role.upper())
+            if isinstance(role, str): role = UserRole(role.lower())
 
             if role in [UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL]:
                 await state.update_data(work_format=WorkFormat.OFFLINE)
@@ -483,7 +483,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
             user = res.scalar_one_or_none()
 
             role = data.get('role', UserRole.TRAINER)
-            if isinstance(role, str): role = UserRole(role.upper())
+            if isinstance(role, str): role = UserRole(role.lower())
 
             if not user:
                 user = User(id=user_id, username=username, full_name=data.get('full_name', 'Не указано'), role=role)
