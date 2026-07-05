@@ -9,7 +9,6 @@ from sqlalchemy import select, func
 router = Router()
 
 @router.message(CommandStart())
-@router.message(F.text == "/menu")
 async def cmd_start(message: types.Message, is_admin: bool = False, effective_user_id: int = None):
     async with SessionLocal() as session:
         user = await session.get(User, effective_user_id)
@@ -61,14 +60,9 @@ async def cmd_start(message: types.Message, is_admin: bool = False, effective_us
 
     await message.answer(
         "Добро пожаловать в NewFit — экосистему для фитнеса будущего! 🔥\n\n"
-        "Здесь мастера находят клиентов, а клиенты — лучших мастеров.\n\n"
         "Выберите свою роль:",
         reply_markup=reply_markup
     )
-
-    if is_admin:
-        from src.keyboards.inline import add_admin_button
-        await message.answer("🛠 Панель управления (только для админов):", reply_markup=add_admin_button(is_admin=True))
 
 @router.message(F.text == "🛠 Админ")
 async def admin_button_handler(message: types.Message, is_admin: bool = False):

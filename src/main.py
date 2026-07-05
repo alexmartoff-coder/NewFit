@@ -20,12 +20,9 @@ async def main():
     # Initialize bot and dispatcher
     bot = Bot(token=settings.BOT_TOKEN)
 
-    # Explicitly register commands for visibility
+    # Explicitly register only start command for first launch visibility
     await bot.set_my_commands([
         types.BotCommand(command="start", description="Запустить бота"),
-        types.BotCommand(command="menu", description="Главное меню"),
-        types.BotCommand(command="profile", description="Мой профиль"),
-        types.BotCommand(command="schedule", description="Расписание (для Профи)"),
     ])
     dp = Dispatcher()
 
