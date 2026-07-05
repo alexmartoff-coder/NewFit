@@ -82,13 +82,13 @@ async def provider_sphere_chosen(event: types.Message | types.CallbackQuery, sta
         role = role_map.get(sphere_choice, UserRole.TRAINER)
         message = event.message
     else:
-        role_map = {
+        role_map_txt = {
             "фитнес": UserRole.TRAINER,
             "бьюти": UserRole.BEAUTY,
             "большой теннис": UserRole.TENNIS,
             "падл": UserRole.PADEL
         }
-        role = role_map.get(event.text.lower(), UserRole.TRAINER)
+        role = role_map_txt.get(event.text.lower(), UserRole.TRAINER)
         message = event
 
     # Store role as a string to ensure consistent serialization
