@@ -1147,30 +1147,46 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         status_map = {"free": "Свободен 🟢", "booked": "Забронирован 🔴", "blocked": "Заблокирован ⚪"}
         fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
 
-        # Clean details for Alert (no Markdown, max 200 chars)
+        # Popover-style details (using message edit as requested for buttons)
         status_text = status_map.get(slot.status, slot.status)
         fmt_text = fmt_map.get(slot.format, slot.format)
 
         details = (
-            f"⏰ {start_moscow.strftime('%d.%m %H:%M')}-{end_moscow.strftime('%H:%M')}\n"
-            f"Статус: {status_text}\n"
-            f"Формат: {fmt_text}"
+            f"⏰ *{start_moscow.strftime('%d.%m %H:%M')}—{end_moscow.strftime('%H:%M')}*\n"
+            f"📊 {status_text}\n"
+            f"📍 {fmt_text}\n"
         )
+
+        p = slot.trainer_profile
+        details += f"\n💰 Цены профиля:\n• Разовое: {int(p.price_single)}₽"
+        if p.price_online > 0:
+            details += f"\n• Онлайн: {int(p.price_online)}₽"
+
+        if p.service_prices:
+            details += "\n\n🛠 Услуги:"
+            for s_name, s_price in p.service_prices.items():
+                details += f"\n• {s_name}: {int(s_price)}₽"
 
         if slot.status == "booked" and slot.booking and slot.booking.client:
             details += f"\n👤 Клиент: {slot.booking.client.full_name}"
-        else:
-            p = slot.trainer_profile
-            details += f"\n💰 Цена: {int(p.price_single)}₽"
-            if p.price_online > 0:
-                details += f" (онлайн: {int(p.price_online)}₽)"
 
         if slot.online_platform == "telegram":
             details += "\n📱 Видео: Telegram"
         elif slot.zoom_join_url:
-            details += f"\n🔗 Zoom есть"
+            details += f"\n🔗 Zoom: {slot.zoom_join_url}"
 
-        await callback.answer(details[:200], show_alert=True)
+        kb_list = []
+        if slot.status == "free":
+            kb_list.append([types.InlineKeyboardButton(text="👤 Записать клиента", callback_data=f"sche_assign_client_{slot.id}")])
+
+        kb_list.extend([
+            [types.InlineKeyboardButton(text="🗓 Забронировать время", callback_data="sche_view_book")],
+            [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_view")]
+        ])
+        kb = types.InlineKeyboardMarkup(inline_keyboard=kb_list)
+
+        await callback.message.edit_text(details, reply_markup=kb, parse_mode="Markdown")
+        await callback.answer()
 
 @router.callback_query(F.data == "sche_back")
 async def sche_back(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
