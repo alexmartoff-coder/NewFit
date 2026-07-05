@@ -8,6 +8,7 @@ from src.states.client_onboarding import ClientOnboarding
 
 router = Router()
 
+@router.callback_query(F.data == "role_client")
 @router.message(F.text == "Клиент")
 @router.callback_query(F.data == "client_menu")
 async def client_start(event: types.Message | types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
