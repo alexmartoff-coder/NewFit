@@ -15,13 +15,18 @@ logger = logging.getLogger(__name__)
 # --- STEP 1: Handled in start.py (Role selection) ---
 
 # --- STEP 2: City Selection ---
+@router.callback_query(F.data == "role_trainer")
 @router.message(F.text == "Профи")
-async def provider_role_chosen(message: types.Message, state: FSMContext):
+async def provider_role_chosen(event: types.Message | types.CallbackQuery, state: FSMContext):
     await state.set_state(TrainerOnboarding.city)
-    await message.answer(
-        "Шаг 2: Выберите ваш город или введите его:",
-        reply_markup=get_city_kb()
-    )
+    text = "Шаг 2: Выберите ваш город или введите его:"
+    kb = get_city_kb()
+
+    if isinstance(event, types.Message):
+        await event.answer(text, reply_markup=kb)
+    else:
+        await event.message.answer(text, reply_markup=kb)
+        await event.answer()
 
 # --- STEP 3: District Selection ---
 @router.message(TrainerOnboarding.city)
@@ -63,28 +68,43 @@ async def process_district(message: types.Message, state: FSMContext):
     )
 
 # --- STEP 5: Services / Specializations ---
+@router.callback_query(F.data.startswith("sphere_"), TrainerOnboarding.sphere)
 @router.message(TrainerOnboarding.sphere, F.text.in_(["Фитнес", "Бьюти", "Большой теннис", "Падл"]))
-async def provider_sphere_chosen(message: types.Message, state: FSMContext, is_admin: bool = False):
-    role_map = {
-        "фитнес": UserRole.TRAINER,
-        "бьюти": UserRole.BEAUTY,
-        "большой теннис": UserRole.TENNIS,
-        "падл": UserRole.PADEL
-    }
-    role = role_map.get(message.text.lower(), UserRole.TRAINER)
-    await state.update_data(role=role)
+async def provider_sphere_chosen(event: types.Message | types.CallbackQuery, state: FSMContext, is_admin: bool = False):
+    if isinstance(event, types.CallbackQuery):
+        sphere_choice = event.data.split("_")[1]
+        role_map = {
+            "trainer": UserRole.TRAINER,
+            "beauty": UserRole.BEAUTY,
+            "tennis": UserRole.TENNIS,
+            "padel": UserRole.PADEL
+        }
+        role = role_map.get(sphere_choice, UserRole.TRAINER)
+        message = event.message
+    else:
+        role_map = {
+            "фитнес": UserRole.TRAINER,
+            "бьюти": UserRole.BEAUTY,
+            "большой теннис": UserRole.TENNIS,
+            "падл": UserRole.PADEL
+        }
+        role = role_map.get(event.text.lower(), UserRole.TRAINER)
+        message = event
+
+    # Store role as a string to ensure consistent serialization
+    await state.update_data(role=role.value)
 
     await state.set_state(TrainerOnboarding.specialization)
-    kb = get_spec_kb(role=role)
+    kb = get_spec_kb(role=role.value)
     kb = add_admin_button(kb, is_admin=is_admin)
 
     step_texts = {
-        UserRole.BEAUTY: "Шаг 5: Выберите услуги, которые вы предоставляете:",
-        UserRole.TENNIS: "Шаг 5: Выберите ваши специализации в теннисе:",
-        UserRole.PADEL: "Шаг 5: Выберите ваши специализации в падле:",
-        UserRole.TRAINER: "Шаг 5: Выберите ваши основные направления в фитнесе:"
+        UserRole.BEAUTY.value: "Шаг 5: Выберите услуги, которые вы предоставляете:",
+        UserRole.TENNIS.value: "Шаг 5: Выберите ваши специализации в теннисе:",
+        UserRole.PADEL.value: "Шаг 5: Выберите ваши специализации в падле:",
+        UserRole.TRAINER.value: "Шаг 5: Выберите ваши основные направления в фитнесе:"
     }
-    text = step_texts.get(role, step_texts[UserRole.TRAINER])
+    text = step_texts.get(role.value, step_texts[UserRole.TRAINER.value])
     await message.answer(text, reply_markup=kb)
 
 @router.callback_query(F.data.startswith("spec_"), TrainerOnboarding.specialization)
@@ -145,7 +165,9 @@ async def process_spec_callback(callback: types.CallbackQuery, state: FSMContext
             specs.append(spec)
         await state.update_data(specializations=specs)
 
-        kb = get_spec_kb(selected_specs=specs, role=data.get('role', UserRole.TRAINER.name))
+        # Get role from state and ensure it's handled robustly
+        current_role = data.get('role', UserRole.TRAINER.value)
+        kb = get_spec_kb(selected_specs=specs, role=current_role)
         await callback.message.edit_reply_markup(reply_markup=add_admin_button(kb, is_admin=is_admin))
 
     await callback.answer()

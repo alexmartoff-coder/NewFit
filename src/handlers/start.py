@@ -58,11 +58,25 @@ async def cmd_start(message: types.Message, is_admin: bool = False, effective_us
 
     reply_markup = get_role_kb(is_admin=is_admin)
 
+    # Hard-remove any existing reply keyboard
     await message.answer(
         "Добро пожаловать в NewFit — экосистему для фитнеса будущего! 🔥\n\n"
         "Выберите свою роль:",
+        reply_markup=types.ReplyKeyboardRemove()
+    )
+
+    await message.answer(
+        "Пожалуйста, выберите вашу роль для продолжения:",
         reply_markup=reply_markup
     )
+
+@router.callback_query(F.data == "learn_more")
+async def learn_more_callback(callback: types.CallbackQuery):
+    await callback.message.answer(
+        "NewFit — это единая экосистема для фитнес-мастеров и клиентов в Telegram.\n"
+        "Мы помогаем мастерам автоматизировать запись, а клиентам — быстро находить профессионалов."
+    )
+    await callback.answer()
 
 @router.message(F.text == "🛠 Админ")
 async def admin_button_handler(message: types.Message, is_admin: bool = False):

@@ -2,19 +2,22 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 
 def get_role_kb(is_admin: bool = False):
     kb = [
-        [KeyboardButton(text="Профи"), KeyboardButton(text="Клиент")],
-        [KeyboardButton(text="❓ Узнать больше о NewFit")]
+        [InlineKeyboardButton(text="Профи", callback_data="role_trainer"),
+         InlineKeyboardButton(text="Клиент", callback_data="role_client")],
+        [InlineKeyboardButton(text="❓ Узнать больше о NewFit", callback_data="learn_more")]
     ]
     if is_admin:
-        kb.append([KeyboardButton(text="🛠 Админ")])
-    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, one_time_keyboard=True)
+        kb.append([InlineKeyboardButton(text="🛠 Админ", callback_data="admin_panel")])
+    return InlineKeyboardMarkup(inline_keyboard=kb)
 
 def get_sphere_kb():
     kb = [
-        [KeyboardButton(text="Фитнес"), KeyboardButton(text="Бьюти")],
-        [KeyboardButton(text="Большой теннис"), KeyboardButton(text="Падл")]
+        [InlineKeyboardButton(text="Фитнес", callback_data="sphere_trainer"),
+         InlineKeyboardButton(text="Бьюти", callback_data="sphere_beauty")],
+        [InlineKeyboardButton(text="Большой теннис", callback_data="sphere_tennis"),
+         InlineKeyboardButton(text="Падл", callback_data="sphere_padel")]
     ]
-    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, one_time_keyboard=True)
+    return InlineKeyboardMarkup(inline_keyboard=kb)
 
 def get_trainer_main_kb(is_admin: bool = False, has_online: bool = False):
     kb = [
@@ -56,13 +59,30 @@ def get_format_kb():
         ]
     )
 
-def get_spec_kb(selected_specs: list = None, role: str = "TRAINER"):
+def get_spec_kb(selected_specs: list = None, role: str = "trainer"):
     if selected_specs is None:
         selected_specs = []
 
-    role_str = str(role).upper()
+    # Extremely robust role normalization to lowercase string
+    if hasattr(role, 'value'):
+        r = str(role.value).lower()
+    else:
+        r = str(role).lower()
 
-    if role_str == "BEAUTY":
+    if "userrole." in r:
+        r = r.replace("userrole.", "")
+
+    # Handle Russian labels if they were passed by mistake
+    if r in ["бьюти", "beauty"]:
+        r = "beauty"
+    elif r in ["теннис", "большой теннис", "tennis"]:
+        r = "tennis"
+    elif r in ["падл", "padel"]:
+        r = "padel"
+    elif r in ["фитнес", "trainer", "fitness"]:
+        r = "trainer"
+
+    if r == "beauty":
         specs = [
             ("Маникюр", "spec_manicure"),
             ("Педикюр", "spec_pedicure"),
@@ -73,7 +93,7 @@ def get_spec_kb(selected_specs: list = None, role: str = "TRAINER"):
             ("Макияж", "spec_makeup"),
             ("Другое", "spec_other"),
         ]
-    elif role_str == "TENNIS":
+    elif r == "tennis":
         specs = [
             ("Индивидуальные тренировки", "spec_indiv"),
             ("Групповые занятия", "spec_group"),
@@ -82,7 +102,7 @@ def get_spec_kb(selected_specs: list = None, role: str = "TRAINER"):
             ("Спарринг", "spec_sparr"),
             ("Другое", "spec_other"),
         ]
-    elif role_str == "PADEL":
+    elif r == "padel":
         specs = [
             ("Индивидуальные тренировки", "spec_indiv"),
             ("Групповые занятия", "spec_group"),
