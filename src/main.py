@@ -20,10 +20,6 @@ async def main():
     # Initialize bot and dispatcher
     bot = Bot(token=settings.BOT_TOKEN)
 
-    # Explicitly register only start command for first launch visibility
-    await bot.set_my_commands([
-        types.BotCommand(command="start", description="Запустить бота"),
-    ])
     dp = Dispatcher()
 
     # Register middleware

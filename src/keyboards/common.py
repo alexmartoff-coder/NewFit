@@ -1,5 +1,12 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
+def get_launch_kb():
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="🚀 Запустить бота")]],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )
+
 def get_role_kb(is_admin: bool = False):
     kb = [
         [InlineKeyboardButton(text="Профи", callback_data="role_trainer"),
