@@ -5,6 +5,7 @@ from sqlalchemy import select, delete, and_
 from src.models.models import User, TimeSlot, TrainerSchedule, ScheduleTemplate, WorkFormat, Booking
 from src.utils.db import SessionLocal
 from src.keyboards.inline import add_admin_button
+from src.utils.text import escape_md
 from datetime import datetime, timedelta, time
 import logging
 import pytz
@@ -1165,15 +1166,15 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         if p.service_prices:
             details += "\n\n🛠 Услуги:"
             for s_name, s_price in p.service_prices.items():
-                details += f"\n• {s_name}: {int(s_price)}₽"
+                details += f"\n• {escape_md(s_name)}: {int(s_price)}₽"
 
         if slot.status == "booked" and slot.booking and slot.booking.client:
-            details += f"\n👤 Клиент: {slot.booking.client.full_name}"
+            details += f"\n👤 Клиент: {escape_md(slot.booking.client.full_name)}"
 
         if slot.online_platform == "telegram":
             details += "\n📱 Видео: Telegram"
         elif slot.zoom_join_url:
-            details += f"\n🔗 Zoom: {slot.zoom_join_url}"
+            details += f"\n🔗 Zoom: {escape_md(slot.zoom_join_url)}"
 
         kb_list = []
         if slot.status == "free":
