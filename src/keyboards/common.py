@@ -60,7 +60,13 @@ def get_spec_kb(selected_specs: list = None, role: str = "TRAINER"):
     if selected_specs is None:
         selected_specs = []
 
-    role_str = str(role).upper()
+    if hasattr(role, 'value'):
+        role_str = str(role.value).upper()
+    else:
+        role_str = str(role).upper()
+
+    if "USERROLE." in role_str:
+        role_str = role_str.replace("USERROLE.", "")
 
     if role_str == "BEAUTY":
         specs = [
