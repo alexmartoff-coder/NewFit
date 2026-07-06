@@ -141,8 +141,10 @@ async def process_add_admin(message: Message, state: FSMContext):
 @router.callback_query(F.data == "admin_list")
 async def list_admins(callback: CallbackQuery):
     async with SessionLocal() as session:
-        admins = await session.execute(select(Admin))
-        admins = admins.scalars().all()
+        # Join with User to get full_name
+        stmt = select(Admin, User).join(User, Admin.user_id == User.id)
+        res = await session.execute(stmt)
+        admins = res.all()
 
     if not admins:
         text = "📭 Список администраторов пуст."
@@ -153,8 +155,9 @@ async def list_admins(callback: CallbackQuery):
         return
 
     text = "📋 **Список администраторов и тестировщиков:**\n\n"
-    for admin in admins:
-        text += f"• `{admin.user_id}` — {admin.role}\n"
+    for admin, user in admins:
+        name = user.full_name or "Без имени"
+        text += f"• `{admin.user_id}` — {name} ({admin.role})\n"
 
     if callback.message.photo:
         await callback.message.edit_caption(caption=text, parse_mode="Markdown")
