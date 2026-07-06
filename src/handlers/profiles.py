@@ -36,7 +36,6 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
             profile = res.scalar_one_or_none()
 
             if profile:
-                specs = ", ".join([s.name for s in profile.specializations]) or "не указаны"
                 fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
                 work_fmt = profile.work_format.value if hasattr(profile.work_format, 'value') else str(profile.work_format)
                 work_fmt_ru = fmt_map.get(work_fmt.upper(), work_fmt.lower())
@@ -48,16 +47,22 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
                     f"📞 Телефон: {escape_md(profile.phone) or 'не указан'}\n"
                     f"📍 Город: {escape_md(profile.city)}\n"
                     f"💪 Опыт: {profile.experience} лет\n"
-                    f"🎯 Специализации: {escape_md(specs)}\n"
-                    f"💰 Цена (разовое): {profile.price_single}₽\n"
-                    f"💰 Цена (онлайн): {profile.price_online}₽\n"
-                    f"💳 Цена (пакет 12): {profile.price_package}₽\n"
                 )
 
                 if profile.service_prices:
-                    text += "\n🛠 **Услуги и цены:**\n"
+                    term = "Услуги" if user.role == UserRole.BEAUTY else "Направления"
+                    text += f"\n🛠 **{term} и цены:**\n"
                     for svc, price in profile.service_prices.items():
                         text += f"• {escape_md(svc)}: {int(price)}₽\n"
+                else:
+                    specs = ", ".join([s.name for s in profile.specializations]) or "не указаны"
+                    text += f"🎯 Специализации: {escape_md(specs)}\n"
+
+                text += (
+                    f"\n💰 Цена (разовое): {profile.price_single}₽\n"
+                    f"💰 Цена (онлайн): {profile.price_online}₽\n"
+                    f"💳 Цена (пакет 12): {profile.price_package}₽\n"
+                )
 
                 text += (
                     f"⭐ Рейтинг: {profile.rating:.1f}\n"
