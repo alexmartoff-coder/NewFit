@@ -94,16 +94,21 @@ async def show_favorites(callback: types.CallbackQuery, is_admin: bool = False, 
         await callback.message.answer(f"Ваши специалисты по {sphere_names.get(sphere, '')} ({len(specialists)}):")
 
         for profile, user_data in specialists:
-            specs_str = ", ".join([s.name for s in profile.specializations]) or "не указаны"
-
             text = (
-                f"👤 **{user_data.full_name}**\n"
-                f"📞 Телефон: {profile.phone or 'не указан'}\n"
-                f"📍 {profile.city}"
-                f"{f', {profile.district}' if profile.district else ''}\n"
-                f"🎯 {specs_str}\n"
-                f"⭐ Рейтинг: {profile.rating:.1f}"
+                f"👤 **{escape_md(user_data.full_name)}**\n"
+                f"📞 Телефон: {escape_md(profile.phone) or 'не указан'}\n"
+                f"📍 {escape_md(profile.city)}"
+                f"{f', {escape_md(profile.district)}' if profile.district else ''}\n"
             )
+
+            if profile.service_prices:
+                term = "Услуги" if user_data.role == UserRole.BEAUTY else "Направления"
+                text += f"🛠 **{term}:** " + ", ".join([escape_md(svc) for svc in profile.service_prices.keys()]) + "\n"
+            else:
+                specs_str = ", ".join([s.name for s in profile.specializations]) or "не указаны"
+                text += f"🎯 {escape_md(specs_str)}\n"
+
+            text += f"⭐ Рейтинг: {profile.rating:.1f}"
 
             kb = types.InlineKeyboardMarkup(inline_keyboard=[
                 [types.InlineKeyboardButton(text="📅 Записаться повторно", callback_data=f"book_{profile.user_id}")]

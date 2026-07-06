@@ -535,25 +535,34 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
         else:
             fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
             for trainer_profile, user in professionals:
-                # Capture current specializations for this profile to pass to booking state
-                current_profile_specs = [s.name for s in trainer_profile.specializations]
-                specs_str = ", ".join(current_profile_specs) or "не указаны"
                 work_fmt = trainer_profile.work_format.value if hasattr(trainer_profile.work_format, 'value') else str(trainer_profile.work_format)
                 work_fmt_ru = fmt_map.get(work_fmt, work_fmt.lower())
 
-                dist_text = f"\n🏙 Район: {trainer_profile.district}" if trainer_profile.district else ""
-                phone_text = f"\n📞 Телефон: {trainer_profile.phone}" if trainer_profile.phone else ""
+                dist_text = f"\n🏙 Район: {escape_md(trainer_profile.district)}" if trainer_profile.district else ""
+                phone_text = f"\n📞 Телефон: {escape_md(trainer_profile.phone)}" if trainer_profile.phone else ""
 
-                price_online_text = f"\n💻 Онлайн: {trainer_profile.price_online}₽" if trainer_profile.price_online > 0 else ""
                 text = (
-                    f"👤 **{user.full_name}**\n"
-                    f"📍 Город: {trainer_profile.city}{dist_text}{phone_text}\n"
+                    f"👤 **{escape_md(user.full_name)}**\n"
+                    f"📍 Город: {escape_md(trainer_profile.city)}{dist_text}{phone_text}\n"
                     f"💪 Опыт: {trainer_profile.experience} лет\n"
-                    f"🎯 Специализации: {specs_str}\n"
-                    f"💰 Разовое: {trainer_profile.price_single}₽{price_online_text}\n"
-                    f"💳 12 занятий: {trainer_profile.price_package}₽\n"
+                )
+
+                if trainer_profile.service_prices:
+                    term = "Услуги" if user.role == UserRole.BEAUTY else "Направления"
+                    text += f"\n🛠 **{term} и цены:**\n"
+                    for svc, price in trainer_profile.service_prices.items():
+                        text += f"• {escape_md(svc)}: {int(price)}₽\n"
+                else:
+                    current_profile_specs = [s.name for s in trainer_profile.specializations]
+                    specs_str = ", ".join(current_profile_specs) or "не указаны"
+                    text += f"🎯 Специализации: {escape_md(specs_str)}\n"
+
+                price_online_text = f"\n💻 Онлайн: {int(trainer_profile.price_online)}₽" if trainer_profile.price_online > 0 else ""
+                text += (
+                    f"\n💰 Разовое: {int(trainer_profile.price_single)}₽{price_online_text}\n"
+                    f"💳 12 занятий: {int(trainer_profile.price_package)}₽\n"
                     f"⭐ Рейтинг: {trainer_profile.rating:.1f}\n"
-                    f"📝 Формат: {work_fmt_ru}"
+                    f"📝 Формат: {escape_md(work_fmt_ru)}"
                 )
                 kb = types.InlineKeyboardMarkup(
                     inline_keyboard=[
