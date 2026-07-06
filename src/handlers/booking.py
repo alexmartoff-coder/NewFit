@@ -223,13 +223,6 @@ async def process_service_selection(callback: types.CallbackQuery, state: FSMCon
             if price_found is not None:
                 await state.update_data(override_price=float(price_found))
 
-        # Show specialized message with confirmed price
-        display_price = price_found if price_found is not None else slot.price
-        await callback.message.edit_text(
-            f"Выбрана услуга: **{escape_md(svc_name)}**\nЦена: `{int(display_price)}₽`\n\nПродолжаем...",
-            parse_mode="Markdown"
-        )
-
         await proceed_to_format_selection_or_confirm(callback, state, slot, is_admin)
     await callback.answer()
 
