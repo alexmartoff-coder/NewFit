@@ -7,6 +7,7 @@ from src.keyboards.catalog import get_filter_kb, get_price_filter_kb, get_catalo
 from src.keyboards.inline import add_admin_button
 from src.keyboards.common import get_district_kb
 from src.states.catalog import CatalogFilter
+from src.utils.text import escape_md
 
 router = Router()
 
