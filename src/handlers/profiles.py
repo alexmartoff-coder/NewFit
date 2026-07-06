@@ -52,6 +52,14 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
                     f"💰 Цена (разовое): {profile.price_single}₽\n"
                     f"💰 Цена (онлайн): {profile.price_online}₽\n"
                     f"💳 Цена (пакет 12): {profile.price_package}₽\n"
+                )
+
+                if profile.service_prices:
+                    text += "\n🛠 **Услуги и цены:**\n"
+                    for svc, price in profile.service_prices.items():
+                        text += f"• {escape_md(svc)}: {int(price)}₽\n"
+
+                text += (
                     f"⭐ Рейтинг: {profile.rating:.1f}\n"
                     f"🏷 Формат: {escape_md(work_fmt_ru)}\n"
                     f"🔗 Ссылка: {escape_md(profile.online_meeting_link) if profile.online_meeting_link else 'не указана'}\n"
