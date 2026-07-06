@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from src.models.models import User, TrainerProfile, ClientProfile, UserRole, Booking, TimeSlot
 from src.utils.db import SessionLocal
+from src.utils.text import escape_md
 from src.states.pro_booking import ProBookingSession
 from src.keyboards.inline import add_admin_button
 
