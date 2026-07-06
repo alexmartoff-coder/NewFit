@@ -61,7 +61,17 @@ async def pro_start_booking(callback: types.CallbackQuery, state: FSMContext, is
 
                     role = slot.trainer_profile.user.role
                     term = "услугу" if role in [UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL] else "направление"
-                    await callback.message.edit_text(f"Выберите {term} для этой записи:", reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb))
+
+                    price_text = f"Цена: `{int(slot.price)}₽`"
+                    if slot.trainer_profile.service_prices:
+                        min_price = min(slot.trainer_profile.service_prices.values())
+                        price_text = f"Цена: от `{int(min_price)}₽`"
+
+                    await callback.message.edit_text(
+                        f"Клиент: **{escape_md(client.full_name)}**\n{price_text}\n\nВыберите {term} для этой записи:",
+                        reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
+                        parse_mode="Markdown"
+                    )
                     return
                 else:
                     await proceed_to_format_or_confirm(callback, state, slot)
@@ -161,7 +171,17 @@ async def pro_slot_selected(callback: types.CallbackQuery, state: FSMContext):
 
             role = slot.trainer_profile.user.role
             term = "услугу" if role in [UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL] else "направление"
-            await callback.message.edit_text(f"Выберите {term} для этой записи:", reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb))
+
+            price_text = f"Цена: `{int(slot.price)}₽`"
+            if slot.trainer_profile.service_prices:
+                min_price = min(slot.trainer_profile.service_prices.values())
+                price_text = f"Цена: от `{int(min_price)}₽`"
+
+            await callback.message.edit_text(
+                f"{price_text}\n\nВыберите {term} для этой записи:",
+                reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
+                parse_mode="Markdown"
+            )
             return
 
         await proceed_to_format_or_confirm(callback, state, slot)
@@ -207,10 +227,17 @@ async def pro_service_selected(callback: types.CallbackQuery, state: FSMContext)
         )
         slot = (await session.execute(stmt)).scalar_one_or_none()
 
+        price_found = None
         if slot and slot.trainer_profile.service_prices:
-            price = slot.trainer_profile.service_prices.get(service_name)
-            if price is not None:
-                await state.update_data(override_price=float(price))
+            price_found = slot.trainer_profile.service_prices.get(service_name)
+            if price_found is not None:
+                await state.update_data(override_price=float(price_found))
+
+        display_price = price_found if price_found is not None else slot.price
+        await callback.message.edit_text(
+            f"Выбрана услуга: **{escape_md(service_name)}**\nЦена: `{int(display_price)}₽`\n\nПродолжаем...",
+            parse_mode="Markdown"
+        )
 
         await proceed_to_format_or_confirm(callback, state, slot)
     await callback.answer()
