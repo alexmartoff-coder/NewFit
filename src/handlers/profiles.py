@@ -514,6 +514,7 @@ async def show_my_bookings_by_pro(callback: types.CallbackQuery, effective_user_
             work_fmt_ru = fmt_map.get(slot_format.lower(), slot_format)
 
             text = (
+                f"👤 Мастер: {escape_md(trainer_name)}\n"
                 f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
                 f"🏷 {term_format}: {escape_md(work_fmt_ru)}\n"
                 f"📊 Статус: {status_map.get(b.status, b.status)}"

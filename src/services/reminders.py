@@ -100,24 +100,32 @@ class ReminderService:
                             if trainer_data:
                                 trainer_name = trainer_data[1].full_name
 
+                            client_name = booking.client.full_name or "Клиент"
+
                             # Terminology based on type
                             time_text = "24 часа" if r.reminder_type == "24h" else ("2 часа" if r.reminder_type == "2h" else "10 минут")
 
                             # Convert start time to Moscow for message
                             s_start = booking.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
 
+                            is_for_client = (r.user_id == booking.client.user_id)
+                            if is_for_client:
+                                recipient_msg = f"До вашей записи к {escape_md(trainer_name)} осталось {time_text}."
+                            else:
+                                recipient_msg = f"До вашей записи клиента {escape_md(client_name)} осталось {time_text}."
+
                             msg = (
                                 f"🔔 **Напоминание о записи!**\n\n"
-                                f"До вашей записи к {trainer_name} осталось {time_text}.\n"
+                                f"{recipient_msg}\n"
                                 f"📅 Время: `{s_start.strftime('%d.%m %H:%M')}` (МСК)\n"
-                                f"🏷 Услуга: `{booking.slot.format}`"
+                                f"🏷 Услуга: `{escape_md(booking.slot.format)}`"
                             )
 
                             kb = None
                             if r.reminder_type == "review":
                                 msg = (
                                     f"⭐ **Как прошло занятие?**\n\n"
-                                    f"Ваше занятие с {trainer_name} завершилось. "
+                                    f"Ваше занятие с {escape_md(trainer_name)} завершилось. "
                                     f"Пожалуйста, оставьте отзыв, это поможет другим пользователям!"
                                 )
                                 kb = types.InlineKeyboardMarkup(inline_keyboard=[
