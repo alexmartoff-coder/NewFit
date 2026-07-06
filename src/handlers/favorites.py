@@ -103,10 +103,19 @@ async def show_favorites(callback: types.CallbackQuery, is_admin: bool = False, 
 
             if profile.service_prices:
                 term = "Услуги" if user_data.role == UserRole.BEAUTY else "Направления"
-                text += f"🛠 **{term}:** " + ", ".join([escape_md(svc) for svc in profile.service_prices.keys()]) + "\n"
+                text += f"🛠 **{term} и цены:**\n"
+                for svc, price in profile.service_prices.items():
+                    text += f"• {escape_md(svc)}: {int(price)}₽\n"
+
+                if profile.price_package > 0:
+                    text += f"💳 Цена (пакет 12): {int(profile.price_package)}₽\n"
             else:
                 specs_str = ", ".join([s.name for s in profile.specializations]) or "не указаны"
-                text += f"🎯 {escape_md(specs_str)}\n"
+                text += f"🎯 Специализации: {escape_md(specs_str)}\n"
+                text += (
+                    f"💰 Разовое: {int(profile.price_single)}₽\n"
+                    f"💳 12 занятий: {int(profile.price_package)}₽\n"
+                )
 
             text += f"⭐ Рейтинг: {profile.rating:.1f}"
 

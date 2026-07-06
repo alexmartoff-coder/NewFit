@@ -173,8 +173,14 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
             kb.append([types.InlineKeyboardButton(text="🔙 К выбору времени", callback_data=f"bdate_{slot.start_time.date().isoformat()}")])
 
             term = "услугу" if trainer_role in [UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL] else "направление"
-            # At this stage we show the base price from the slot
-            text = f"Цена: `{int(slot.price)}₽`\n\nВыберите {term} для записи:"
+
+            # Use "from X" price if services have individual pricing
+            price_text = f"Цена: `{int(slot.price)}₽`"
+            if slot.trainer_profile.service_prices:
+                min_price = min(slot.trainer_profile.service_prices.values())
+                price_text = f"Цена: от `{int(min_price)}₽`"
+
+            text = f"{price_text}\n\nВыберите {term} для записи:"
             if callback.message.photo:
                 await callback.message.edit_caption(caption=text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="Markdown")
             else:
@@ -211,10 +217,18 @@ async def process_service_selection(callback: types.CallbackQuery, state: FSMCon
         slot = (await session.execute(stmt)).scalar_one_or_none()
 
         # Look up price for the selected service
+        price_found = None
         if slot and slot.trainer_profile.service_prices:
-            price = slot.trainer_profile.service_prices.get(svc_name)
-            if price is not None:
-                await state.update_data(override_price=float(price))
+            price_found = slot.trainer_profile.service_prices.get(svc_name)
+            if price_found is not None:
+                await state.update_data(override_price=float(price_found))
+
+        # Show specialized message with confirmed price
+        display_price = price_found if price_found is not None else slot.price
+        await callback.message.edit_text(
+            f"Выбрана услуга: **{escape_md(svc_name)}**\nЦена: `{int(display_price)}₽`\n\nПродолжаем...",
+            parse_mode="Markdown"
+        )
 
         await proceed_to_format_selection_or_confirm(callback, state, slot, is_admin)
     await callback.answer()
