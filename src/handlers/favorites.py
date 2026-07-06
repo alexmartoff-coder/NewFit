@@ -4,6 +4,7 @@ from sqlalchemy.orm import selectinload
 from src.models.models import User, ClientProfile, TrainerProfile, Booking
 from src.utils.db import SessionLocal
 from src.keyboards.inline import add_admin_button
+from src.utils.text import escape_md
 
 router = Router()
 
