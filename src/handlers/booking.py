@@ -130,7 +130,7 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
             await callback.message.edit_text(text, reply_markup=kb_markup)
     await callback.answer()
 
-@router.callback_query(F.data.startswith("slot_"))
+@router.callback_query(F.data.startswith("slot_") & ~F.data.startswith("slot_confirm_"))
 async def process_slot_selection(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     # This handler now shows a detailed preview of the slot
     slot_id = int(callback.data.split("_")[1])
