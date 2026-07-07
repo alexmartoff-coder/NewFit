@@ -132,7 +132,60 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
 
 @router.callback_query(F.data.startswith("slot_"))
 async def process_slot_selection(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
+    # This handler now shows a detailed preview of the slot
     slot_id = int(callback.data.split("_")[1])
+
+    async with SessionLocal() as session:
+        # Load slot and trainer
+        stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(
+            selectinload(TimeSlot.trainer_profile).options(
+                selectinload(TrainerProfile.user)
+            )
+        )
+        res = await session.execute(stmt)
+        slot = res.scalar_one_or_none()
+
+        if not slot or slot.status != "free":
+            text = "Этот слот уже занят или недоступен. Выберите другой."
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=text)
+            else:
+                await callback.message.edit_text(text)
+            return
+
+        from dateutil.tz import gettz, UTC
+        moscow_tz = gettz('Europe/Moscow')
+        s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
+        s_end = slot.end_time.replace(tzinfo=UTC) if slot.end_time.tzinfo is None else slot.end_time.astimezone(UTC)
+        start_moscow = s_start.astimezone(moscow_tz)
+        end_moscow = s_end.astimezone(moscow_tz)
+
+        fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
+        fmt_text = fmt_map.get(slot.format, slot.format)
+
+        details = (
+            f"⏰ *{start_moscow.strftime('%d.%m %H:%M')}—{end_moscow.strftime('%H:%M')}*\n"
+            f"📍 {fmt_text}\n"
+            f"💰 Цена: {int(slot.price)}₽\n"
+        )
+        if slot.trainer_profile and slot.trainer_profile.user:
+            details += f"👤 Мастер: {escape_md(slot.trainer_profile.user.full_name)}\n"
+
+        kb = types.InlineKeyboardMarkup(inline_keyboard=[
+            [types.InlineKeyboardButton(text="✅ Записаться на это время", callback_data=f"slot_confirm_{slot.id}")],
+            [types.InlineKeyboardButton(text="🔙 Назад", callback_data=f"bdate_{slot.start_time.date().isoformat()}")]
+        ])
+
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=details, reply_markup=kb, parse_mode="Markdown")
+        else:
+            await callback.message.edit_text(text=details, reply_markup=kb, parse_mode="Markdown")
+
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("slot_confirm_"))
+async def process_slot_selection_confirmed(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
+    slot_id = int(callback.data.split("_")[2])
 
     async with SessionLocal() as session:
         # Load slot and trainer role + specializations
@@ -146,11 +199,8 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
         slot = res.scalar_one_or_none()
 
         if not slot or slot.status != "free":
-            text = "Этот слот уже занят или недоступен. Выберите другой."
-            if callback.message.photo:
-                await callback.message.edit_caption(caption=text)
-            else:
-                await callback.message.edit_text(text)
+            text = "Этот слот уже занят или недоступен."
+            await callback.message.answer(text)
             return
 
         await state.update_data(slot_id=slot_id, start_time=slot.start_time.isoformat())

@@ -1121,7 +1121,7 @@ async def view_slot_info_details(callback: types.CallbackQuery):
             select(TimeSlot)
             .where(TimeSlot.id == slot_id)
             .options(
-                selectinload(TimeSlot.trainer_profile),
+                selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user),
                 selectinload(TimeSlot.booking).options(
                     selectinload(Booking.client)
                 )
@@ -1144,37 +1144,28 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         status_map = {"free": "Свободен 🟢", "booked": "Забронирован 🔴", "blocked": "Заблокирован ⚪"}
         fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
 
-        # Popover-style details (using message edit as requested for buttons)
+        # Popover-style details
         status_text = status_map.get(slot.status, slot.status)
         fmt_text = fmt_map.get(slot.format, slot.format)
 
         details = (
-            f"⏰ *{start_moscow.strftime('%d.%m %H:%M')}—{end_moscow.strftime('%H:%M')}*\n"
+            f"⏰ {start_moscow.strftime('%d.%m %H:%M')}—{end_moscow.strftime('%H:%M')}\n"
             f"📊 {status_text}\n"
             f"📍 {fmt_text}\n"
+            f"• Разовое: {int(slot.price)}₽\n"
         )
 
-        p = slot.trainer_profile
-        details += f"\n💰 Цены профиля:\n• Разовое: {int(p.price_single)}₽"
-        if p.price_online > 0:
-            details += f"\n• Онлайн: {int(p.price_online)}₽"
-
-        if p.service_prices:
-            details += "\n\n🛠 Услуги:"
-            for s_name, s_price in p.service_prices.items():
-                details += f"\n• {escape_md(s_name)}: {int(s_price)}₽"
-
         if slot.status == "booked" and slot.booking and slot.booking.client:
-            details += f"\n👤 Клиент: {escape_md(slot.booking.client.full_name)}"
+            details += f"👤 Клиент: {escape_md(slot.booking.client.full_name)}\n"
 
         if slot.online_platform == "telegram":
-            details += "\n📱 Видео: Telegram"
+            details += "📱 Видео: Telegram\n"
         elif slot.zoom_join_url:
-            details += f"\n🔗 Zoom: {escape_md(slot.zoom_join_url)}"
+            details += f"🔗 Zoom: {escape_md(slot.zoom_join_url)}\n"
 
         kb_list = []
         if slot.status == "free":
-            kb_list.append([types.InlineKeyboardButton(text="👤 Записать клиента", callback_data=f"sche_assign_client_{slot.id}")])
+            kb_list.append([types.InlineKeyboardButton(text="✅ Записаться на это время", callback_data=f"sche_assign_client_{slot.id}")])
 
         kb_list.extend([
             [types.InlineKeyboardButton(text="🗓 Забронировать время", callback_data="sche_view_book")],
