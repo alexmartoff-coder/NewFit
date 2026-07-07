@@ -104,7 +104,7 @@ async def pro_start_booking(callback: types.CallbackQuery, state: FSMContext, is
         kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="clients_list")]) # To be handled by show_clients
 
     await state.set_state(ProBookingSession.choosing_date)
-    await callback.message.edit_text(f"Выберите дату для записи клиента {client.full_name}:", reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb))
+    await callback.message.edit_text(f"Клиент: **{escape_md(client.full_name)}**\n\nВыберите дату для записи:", reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data.startswith("pro_bdate_"), ProBookingSession.choosing_date)
@@ -140,11 +140,12 @@ async def pro_date_selected(callback: types.CallbackQuery, state: FSMContext):
         kb.append([types.InlineKeyboardButton(text="🔙 К выбору даты", callback_data=f"pro_book_client_{data['client_id']}")])
 
         await state.set_state(ProBookingSession.choosing_slot)
-        await callback.message.edit_text(f"Выберите время на {selected_date.strftime('%d.%m')}:", reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb))
+        await callback.message.edit_text(f"Клиент: **{escape_md(data['client_name'])}**\n\nВыберите время на {selected_date.strftime('%d.%m')}:", reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data.startswith("pro_slot_"), ProBookingSession.choosing_slot)
 async def pro_slot_selected(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
     slot_id = int(callback.data.split("_")[-1])
     async with SessionLocal() as session:
         stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(
@@ -179,7 +180,7 @@ async def pro_slot_selected(callback: types.CallbackQuery, state: FSMContext):
                 price_text = f"Цена: от `{int(min_price)}₽`"
 
             await callback.message.edit_text(
-                f"{price_text}\n\nВыберите {term} для этой записи:",
+                f"Клиент: **{escape_md(data['client_name'])}**\n{price_text}\n\nВыберите {term} для этой записи:",
                 reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
                 parse_mode="Markdown"
             )

@@ -65,10 +65,16 @@ async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_adm
     kb_markup = types.InlineKeyboardMarkup(inline_keyboard=kb)
     kb_markup = add_admin_button(kb_markup, is_admin=is_admin)
 
+    # Resolve professional name for the header
+    async with SessionLocal() as session:
+        trainer_user = await session.get(User, trainer_user_id)
+        trainer_name = trainer_user.full_name if trainer_user else "Мастер"
+
+    text = f"Мастер: {escape_md(trainer_name)}\n\nВыберите дату для записи:"
     if callback.message.photo:
-        await callback.message.edit_caption(caption="Выберите дату для записи:", reply_markup=kb_markup)
+        await callback.message.edit_caption(caption=text, reply_markup=kb_markup)
     else:
-        await callback.message.edit_text("Выберите дату для записи:", reply_markup=kb_markup)
+        await callback.message.edit_text(text, reply_markup=kb_markup)
     await callback.answer()
 
 @router.callback_query(F.data.startswith("bdate_"))
@@ -123,7 +129,11 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
         kb_markup = types.InlineKeyboardMarkup(inline_keyboard=kb)
         kb_markup = add_admin_button(kb_markup, is_admin=is_admin)
 
-        text = f"Свободные слоты на {selected_date.strftime('%d.%m')}:"
+        # Resolve professional name for the header
+        trainer_user = await session.get(User, trainer_user_id)
+        trainer_name = trainer_user.full_name if trainer_user else "Мастер"
+
+        text = f"Мастер: {escape_md(trainer_name)}\n\nСвободные слоты на {selected_date.strftime('%d.%m')}:"
         if callback.message.photo:
             await callback.message.edit_caption(caption=text, reply_markup=kb_markup)
         else:
@@ -203,7 +213,9 @@ async def process_slot_selection_confirmed(callback: types.CallbackQuery, state:
             await callback.message.answer(text)
             return
 
-        await state.update_data(slot_id=slot_id, start_time=slot.start_time.isoformat())
+        # Store specialist's services in state for terminology/format fix later
+        spec_names = [s.name for s in slot.trainer_profile.specializations]
+        await state.update_data(slot_id=slot_id, start_time=slot.start_time.isoformat(), specializations=spec_names)
 
         # Step 1: Choose Service (if applicable)
         trainer_role = slot.trainer_profile.user.role
@@ -230,7 +242,8 @@ async def process_slot_selection_confirmed(callback: types.CallbackQuery, state:
                 min_price = min(slot.trainer_profile.service_prices.values())
                 price_text = f"Цена: от `{int(min_price)}₽`"
 
-            text = f"{price_text}\n\nВыберите {term} для записи:"
+            trainer_name = slot.trainer_profile.user.full_name
+            text = f"Мастер: {escape_md(trainer_name)}\n{price_text}\n\nВыберите {term} для записи:"
             if callback.message.photo:
                 await callback.message.edit_caption(caption=text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="Markdown")
             else:
@@ -289,7 +302,8 @@ async def proceed_to_format_selection_or_confirm(callback: types.CallbackQuery, 
 
         data = await state.get_data()
         current_price = data.get('override_price', slot.price)
-        text = f"Цена: `{int(current_price)}₽`\n\nЭтот специалист проводит занятия и оффлайн, и онлайн. Выберите удобный вам формат:"
+        trainer_name = slot.trainer_profile.user.full_name
+        text = f"Мастер: {escape_md(trainer_name)}\nЦена: `{int(current_price)}₽`\n\nЭтот специалист проводит занятия и оффлайн, и онлайн. Выберите удобный вам формат:"
         if callback.message.photo:
             await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
         else:
@@ -371,11 +385,13 @@ async def show_booking_confirmation(callback: types.CallbackQuery, state: FSMCon
 
     display_price = data.get('override_price', slot.price)
 
+    trainer_name = slot.trainer_profile.user.full_name
     text = (
         f"📍 *Подтверждение записи*\n\n"
-        f"Время: `{start_moscow.strftime('%d.%m.%Y %H:%M')}` (МСК)\n"
-        f"{term_format}: `{escape_md(display_format)}`\n"
-        f"Цена: `{int(display_price)}₽`\n\n"
+        f"👤 Мастер: {escape_md(trainer_name)}\n"
+        f"⏰ Время: `{start_moscow.strftime('%d.%m.%Y %H:%M')}` (МСК)\n"
+        f"🏷 {term_format}: `{escape_md(display_format)}`\n"
+        f"💰 Цена: `{int(display_price)}₽`\n\n"
         f"Нажмите подтвердить для завершения записи."
     )
     if callback.message.photo:
@@ -489,7 +505,7 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             except Exception as e:
                 logger.error(f"Failed to sync with Google Calendar for trainer {trainer_user_id}: {e}")
 
-            text = f"✅ *Запись успешно подтверждена!*\n\nВы успешно записаны {term_lesson}.\n📅 Мы пришлем вам напоминание за 24 и 2 часа до начала."
+            text = f"✅ *Запись успешно подтверждена!*\n\nВы успешно записаны {term_lesson} к мастеру {escape_md(trainer_name)}.\n📅 Мы пришлем вам напоминание за 24 и 2 часа до начала."
 
             if ("онлайн" in slot_format.lower() or "online" in slot_format.lower()):
                 if slot_online_platform == "telegram":
