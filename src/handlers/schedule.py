@@ -1148,11 +1148,14 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         status_text = status_map.get(slot.status, slot.status)
         fmt_text = fmt_map.get(slot.format, slot.format)
 
+        trainer_name = slot.trainer_profile.user.full_name
         details = (
+            f"🗓 **Детали слота**\n\n"
+            f"👤 Мастер: {escape_md(trainer_name)}\n"
             f"⏰ {start_moscow.strftime('%d.%m %H:%M')}—{end_moscow.strftime('%H:%M')}\n"
             f"📊 {status_text}\n"
             f"📍 {fmt_text}\n"
-            f"• Разовое: {int(slot.price)}₽\n"
+            f"💰 Цена: {int(slot.price)}₽\n"
         )
 
         if slot.status == "booked" and slot.booking and slot.booking.client:
