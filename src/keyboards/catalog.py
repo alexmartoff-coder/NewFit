@@ -3,11 +3,11 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 def get_filter_kb():
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="📍 Город", callback_data="filter_city")],
-            [InlineKeyboardButton(text="💪 Специализация", callback_data="filter_spec")],
-            [InlineKeyboardButton(text="💰 Цена", callback_data="filter_price")],
-            [InlineKeyboardButton(text="❌ Сбросить", callback_data="filter_reset")],
-            [InlineKeyboardButton(text="✅ Показать", callback_data="filter_apply")]
+            [InlineKeyboardButton(text="📍 Город/район", callback_data="filter_city")],
+            [InlineKeyboardButton(text="📞 Телефон", callback_data="search_by_phone")],
+            [InlineKeyboardButton(text="🔍 Никнейм", callback_data="search_by_username")],
+            [InlineKeyboardButton(text="👤 ФИО", callback_data="search_by_name")],
+            [InlineKeyboardButton(text="🔙 Назад к выбору услуги", callback_data="cat_back_to_start")]
         ]
     )
 

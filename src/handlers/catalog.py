@@ -1,4 +1,4 @@
-from aiogram import Router, types, F
+from aiogram import Router, types, F, exceptions
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import select, and_, func
 from src.models.models import TrainerProfile, User, Specialization, UserRole
@@ -24,6 +24,19 @@ async def start_catalog(message: types.Message, state: FSMContext):
     ])
     await message.answer("Какая сфера услуг вас интересует?", reply_markup=kb)
 
+@router.callback_query(F.data == "cat_back_to_start")
+async def cat_back_to_start(callback: types.CallbackQuery, state: FSMContext):
+    await state.clear()
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="Фитнес", callback_data="cat_start_fitness")],
+        [types.InlineKeyboardButton(text="Бьюти", callback_data="cat_start_beauty")],
+        [types.InlineKeyboardButton(text="Большой теннис", callback_data="cat_start_tennis")],
+        [types.InlineKeyboardButton(text="Падл", callback_data="cat_start_padel")],
+        [types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="client_menu")]
+    ])
+    await callback.message.edit_text("Какая сфера услуг вас интересует?", reply_markup=kb)
+    await callback.answer()
+
 @router.callback_query(F.data.startswith("cat_start_"))
 async def process_catalog_sphere_start(callback: types.CallbackQuery, state: FSMContext):
     cat_type = callback.data.split("_")[2]
@@ -34,7 +47,7 @@ async def process_catalog_sphere_start(callback: types.CallbackQuery, state: FSM
         [types.InlineKeyboardButton(text="📞 Поиск по номеру телефона", callback_data="search_by_phone")],
         [types.InlineKeyboardButton(text="🔍 Поиск по Nickname ТГ", callback_data="search_by_username")],
         [types.InlineKeyboardButton(text="👤 Поиск по ФИО", callback_data="search_by_name")],
-        [types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="client_menu")]
+        [types.InlineKeyboardButton(text="🔙 Назад к выбору услуги", callback_data="cat_back_to_start")]
     ])
 
     type_names = {"fitness": "Фитнес", "beauty": "Бьюти", "tennis": "Большой теннис", "padel": "Падл"}
@@ -525,12 +538,15 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
 
         if not professionals:
             kb = get_filter_kb()
-            text = "❌ К сожалению, профессионалов по вашему запросу не найдено.\n\nПопробуйте изменить город или сбросить фильтры."
+            text = "❌ К сожалению, профессионалов по вашему запросу не найдено.\n\nПопробуйте изменить параметры поиска."
             if callback:
                 if message.photo:
                     await message.edit_caption(caption=text, reply_markup=kb)
                 else:
-                    await message.edit_text(text, reply_markup=kb)
+                    try:
+                        await message.edit_text(text, reply_markup=kb)
+                    except exceptions.TelegramBadRequest:
+                        await message.answer(text, reply_markup=kb)
             else:
                 await message.answer(text, reply_markup=kb)
         else:
