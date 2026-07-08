@@ -288,7 +288,14 @@ async def show_clients(event: types.Message | types.CallbackQuery, state: FSMCon
                     callback_data=callback_data
                 )])
 
-            await message.answer(text_clients, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb_list), parse_mode="Markdown")
+            kb = types.InlineKeyboardMarkup(inline_keyboard=kb_list)
+            if isinstance(event, types.CallbackQuery):
+                if message.photo:
+                    await message.edit_caption(caption=text_clients, reply_markup=kb, parse_mode="Markdown")
+                else:
+                    await message.edit_text(text=text_clients, reply_markup=kb, parse_mode="Markdown")
+            else:
+                await message.answer(text_clients, reply_markup=kb, parse_mode="Markdown")
         else:
             await message.answer("У вас пока нет базы клиентов.")
 

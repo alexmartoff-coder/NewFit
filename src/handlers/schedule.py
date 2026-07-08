@@ -1148,18 +1148,18 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         status_text = status_map.get(slot.status, slot.status)
         fmt_text = fmt_map.get(slot.format, slot.format)
 
-        trainer_name = slot.trainer_profile.user.full_name
         details = (
-            f"🗓 **Детали слота**\n\n"
-            f"👤 Мастер: {escape_md(trainer_name)}\n"
             f"⏰ {start_moscow.strftime('%d.%m %H:%M')}—{end_moscow.strftime('%H:%M')}\n"
             f"📊 {status_text}\n"
             f"📍 {fmt_text}\n"
-            f"💰 Цена: {int(slot.price)}₽\n"
+            f"• Разовое: {int(slot.price)}₽\n"
         )
 
         if slot.status == "booked" and slot.booking and slot.booking.client:
             details += f"👤 Клиент: {escape_md(slot.booking.client.full_name)}\n"
+        else:
+            trainer_name = slot.trainer_profile.user.full_name
+            details += f"👤 Мастер: {escape_md(trainer_name)}\n"
 
         if slot.online_platform == "telegram":
             details += "📱 Видео: Telegram\n"
@@ -1168,15 +1168,18 @@ async def view_slot_info_details(callback: types.CallbackQuery):
 
         kb_list = []
         if slot.status == "free":
-            kb_list.append([types.InlineKeyboardButton(text="✅ Записаться на это время", callback_data=f"sche_assign_client_{slot.id}")])
+            kb_list.append([types.InlineKeyboardButton(text="✅ Забронировать время", callback_data=f"sche_assign_client_{slot.id}")])
 
         kb_list.extend([
-            [types.InlineKeyboardButton(text="🗓 Забронировать время", callback_data="sche_view_book")],
+            [types.InlineKeyboardButton(text="🗓 Другие действия", callback_data="sche_view_book")],
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_view")]
         ])
         kb = types.InlineKeyboardMarkup(inline_keyboard=kb_list)
 
-        await callback.message.edit_text(details, reply_markup=kb, parse_mode="Markdown")
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=details, reply_markup=kb, parse_mode="Markdown")
+        else:
+            await callback.message.edit_text(details, reply_markup=kb, parse_mode="Markdown")
         await callback.answer()
 
 @router.callback_query(F.data == "none")
