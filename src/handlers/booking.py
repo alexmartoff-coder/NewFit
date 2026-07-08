@@ -174,15 +174,14 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
         fmt_text = fmt_map.get(slot.format, slot.format)
 
         details = (
-            f"⏰ *{start_moscow.strftime('%d.%m %H:%M')}—{end_moscow.strftime('%H:%M')}*\n"
+            f"👤 Мастер: {escape_md(slot.trainer_profile.user.full_name)}\n"
+            f"⏰ {start_moscow.strftime('%d.%m %H:%M')}—{end_moscow.strftime('%H:%M')}\n"
             f"📍 {fmt_text}\n"
             f"💰 Цена: {int(slot.price)}₽\n"
         )
-        if slot.trainer_profile and slot.trainer_profile.user:
-            details += f"👤 Мастер: {escape_md(slot.trainer_profile.user.full_name)}\n"
 
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="✅ Забронировать время", callback_data=f"slot_confirm_{slot.id}")],
+            [types.InlineKeyboardButton(text="✅ Забронировать", callback_data=f"slot_confirm_{slot.id}")],
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data=f"bdate_{slot.start_time.date().isoformat()}")]
         ])
 

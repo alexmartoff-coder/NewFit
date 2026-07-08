@@ -541,14 +541,14 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
             text = "❌ К сожалению, профессионалов по вашему запросу не найдено.\n\nПопробуйте изменить параметры поиска."
             if callback:
                 if message.photo:
-                    await message.edit_caption(caption=text, reply_markup=kb)
+                    await message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
                 else:
                     try:
-                        await message.edit_text(text, reply_markup=kb)
+                        await message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
                     except exceptions.TelegramBadRequest:
-                        await message.answer(text, reply_markup=kb)
+                        await message.answer(text, reply_markup=kb, parse_mode="Markdown")
             else:
-                await message.answer(text, reply_markup=kb)
+                await message.answer(text, reply_markup=kb, parse_mode="Markdown")
         else:
             fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
             for trainer_profile, user in professionals:
@@ -599,9 +599,9 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
                 # Note: We'll actually handle this in start_booking by checking the specialist's profile directly
                 # but we can also store the 'intended' specialization here.
                 if trainer_profile.photo_url:
-                    await message.answer_photo(trainer_profile.photo_url, caption=text, reply_markup=kb)
+                    await message.answer_photo(trainer_profile.photo_url, caption=text, reply_markup=kb, parse_mode="Markdown")
                 else:
-                    await message.answer(text, reply_markup=kb)
+                    await message.answer(text, reply_markup=kb, parse_mode="Markdown")
 
             # Pagination buttons
             pagination_buttons = []
