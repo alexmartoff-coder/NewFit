@@ -68,11 +68,12 @@ async def pro_start_booking(callback: types.CallbackQuery, state: FSMContext, is
                         min_price = min(slot.trainer_profile.service_prices.values())
                         price_text = f"Цена: от `{int(min_price)}₽`"
 
-                    await callback.message.edit_text(
-                        f"Клиент: **{escape_md(client.full_name)}**\n{price_text}\n\nВыберите {term} для этой записи:",
-                        reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
-                        parse_mode="Markdown"
-                    )
+                    text = f"Клиент: **{escape_md(client.full_name)}**\n{price_text}\n\nВыберите {term} для этой записи:"
+                    kb_markup = types.InlineKeyboardMarkup(inline_keyboard=kb)
+                    if callback.message.photo:
+                        await callback.message.edit_caption(caption=text, reply_markup=kb_markup, parse_mode="Markdown")
+                    else:
+                        await callback.message.edit_text(text, reply_markup=kb_markup, parse_mode="Markdown")
                     return
                 else:
                     await proceed_to_format_or_confirm(callback, state, slot)

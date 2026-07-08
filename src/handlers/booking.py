@@ -182,7 +182,7 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
             details += f"👤 Мастер: {escape_md(slot.trainer_profile.user.full_name)}\n"
 
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="✅ Записаться на это время", callback_data=f"slot_confirm_{slot.id}")],
+            [types.InlineKeyboardButton(text="✅ Забронировать время", callback_data=f"slot_confirm_{slot.id}")],
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data=f"bdate_{slot.start_time.date().isoformat()}")]
         ])
 
@@ -444,6 +444,7 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
         if slot and slot.status == "free":
             # Pre-fetch all necessary attributes before commit to avoid MissingGreenlet
             client_name = client_profile.full_name
+            trainer_name = slot.trainer_profile.user.full_name
             trainer_user_id = slot.trainer_profile.user_id
             slot_start = slot.start_time
             slot_end = slot.end_time
