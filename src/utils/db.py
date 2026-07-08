@@ -102,26 +102,30 @@ async def init_db(engine):
         # 3. Применяем исправление схемы (только для PostgreSQL)
         if "postgresql" in str(engine.url).lower():
             logger.info("Applying PostgreSQL schema fixes...")
-            async with engine.begin() as conn:
-                # Исправляем Enum UserRole
-                try:
-                    # Add lowercase values as requested
-                    await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'beauty'"))
-                    await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'tennis'"))
-                    await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'padel'"))
-                    await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'trainer'"))
-                    await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'client'"))
-                    await conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'admin'"))
 
-                    # Optional: migrate existing uppercase to lowercase for consistency
+            # ALTER TYPE ... ADD VALUE cannot run in a transaction
+            try:
+                async with engine.connect() as conn:
+                    # Add lowercase values as requested
+                    for val in ['beauty', 'tennis', 'padel', 'trainer', 'client', 'admin']:
+                        try:
+                            await conn.execute(text(f"ALTER TYPE userrole ADD VALUE IF NOT EXISTS '{val}'"))
+                            await conn.commit()
+                        except Exception:
+                            pass
+            except Exception as e:
+                logger.warning(f"Could not add roles to userrole enum: {e}")
+
+            async with engine.begin() as conn:
+                # Optional: migrate existing uppercase to lowercase for consistency
+                try:
                     await conn.execute(text("UPDATE users SET role = 'beauty' WHERE role = 'BEAUTY'"))
                     await conn.execute(text("UPDATE users SET role = 'tennis' WHERE role = 'TENNIS'"))
                     await conn.execute(text("UPDATE users SET role = 'padel' WHERE role = 'PADEL'"))
                     await conn.execute(text("UPDATE users SET role = 'trainer' WHERE role = 'TRAINER'"))
                     await conn.execute(text("UPDATE users SET role = 'client' WHERE role = 'CLIENT'"))
                     await conn.execute(text("UPDATE users SET role = 'admin' WHERE role = 'ADMIN'"))
-                except Exception as e:
-                    logger.warning(f"Could not add roles to userrole enum: {e}")
+                except Exception: pass
 
                 # Вспомогательная функция для добавления колонки (local to this block)
                 async def add_column_safe_local(c, table, col_name, col_type):

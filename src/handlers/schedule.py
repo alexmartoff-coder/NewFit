@@ -38,7 +38,7 @@ class TemplateState(StatesGroup):
 
 @router.message(F.text == "Моё расписание")
 @router.message(F.text == "/schedule")
-async def show_schedule_menu(message: types.Message, is_admin: bool = False, effective_user_id: int = None):
+async def show_schedule_menu(message: types.Message, is_admin: bool = False, effective_user_id: int = None, callback: types.CallbackQuery = None):
     kb = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [types.InlineKeyboardButton(text="Посмотреть слоты", callback_data="sche_view")],
@@ -47,7 +47,14 @@ async def show_schedule_menu(message: types.Message, is_admin: bool = False, eff
         ]
     )
     kb = add_admin_button(kb, is_admin=is_admin)
-    await message.answer("Управление вашим расписанием:", reply_markup=kb)
+    text = "Управление вашим расписанием:"
+    if callback:
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=text, reply_markup=kb)
+        else:
+            await callback.message.edit_text(text, reply_markup=kb)
+    else:
+        await message.answer(text, reply_markup=kb)
 
 from src.models.models import TrainerProfile
 
@@ -1152,7 +1159,7 @@ async def view_slot_info_details(callback: types.CallbackQuery):
             f"⏰ {start_moscow.strftime('%d.%m %H:%M')}—{end_moscow.strftime('%H:%M')}\n"
             f"📊 {status_text}\n"
             f"📍 {fmt_text}\n"
-            f"• Разовое: {int(slot.price)}₽\n"
+            f"💰 Цена: {int(slot.price)}₽\n"
         )
 
         if slot.status == "booked" and slot.booking and slot.booking.client:
@@ -1168,10 +1175,9 @@ async def view_slot_info_details(callback: types.CallbackQuery):
 
         kb_list = []
         if slot.status == "free":
-            kb_list.append([types.InlineKeyboardButton(text="✅ Забронировать время", callback_data=f"sche_assign_client_{slot.id}")])
+            kb_list.append([types.InlineKeyboardButton(text="✅ Забронировать", callback_data=f"sche_assign_client_{slot.id}")])
 
         kb_list.extend([
-            [types.InlineKeyboardButton(text="🗓 Другие действия", callback_data="sche_view_book")],
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_view")]
         ])
         kb = types.InlineKeyboardMarkup(inline_keyboard=kb_list)
@@ -1188,7 +1194,7 @@ async def none_callback(callback: types.CallbackQuery):
 
 @router.callback_query(F.data == "sche_back")
 async def sche_back(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
-    await show_schedule_menu(callback.message, is_admin=is_admin, effective_user_id=effective_user_id)
+    await show_schedule_menu(callback.message, is_admin=is_admin, effective_user_id=effective_user_id, callback=callback)
     await callback.answer()
 
 from src.states.pro_booking import ProBookingSession
