@@ -8,6 +8,15 @@ class Base(DeclarativeBase):
     pass
 
 class UserRole(str, Enum):
+    # Primary members (lowercase to match DB values)
+    trainer = "trainer"
+    client = "client"
+    admin = "admin"
+    beauty = "beauty"
+    tennis = "tennis"
+    padel = "padel"
+
+    # Aliases for code compatibility
     TRAINER = "trainer"
     CLIENT = "client"
     ADMIN = "admin"
