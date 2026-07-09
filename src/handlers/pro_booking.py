@@ -347,11 +347,12 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext, 
         client_profile = await session.get(ClientProfile, client_id, options=[selectinload(ClientProfile.user)])
 
         if slot and slot.status == "free" and client_profile:
-            # Pre-fetch needed values
+            # Pre-fetch needed values BEFORE commit/flush to avoid MissingGreenlet
             trainer_name = slot.trainer_profile.user.full_name
             client_user_id = client_profile.user_id
             client_full_name = client_profile.full_name
             slot_start_time = slot.start_time
+            slot_end_time = slot.end_time
             slot_zoom_url = slot.zoom_join_url
             slot_online_platform = slot.online_platform
 
@@ -381,8 +382,8 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext, 
                 slot_id=slot_id,
                 trainer_profile_id=slot.trainer_profile_id,
                 client_id=client_id,
-                start_time=slot.start_time,
-                end_time=slot.end_time,
+                start_time=slot_start_time,
+                end_time=slot_end_time,
                 status="confirmed",
                 price=slot_price,
                 paid=False
@@ -390,17 +391,19 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext, 
             session.add(new_booking)
             await session.flush()
 
+            booking_id = new_booking.id # Save ID for post-commit tasks
+
             # Setup reminders
             from src.services.reminders import ReminderService
             is_online = ("онлайн" in slot_format.lower() or "online" in slot_format.lower())
-            await ReminderService.schedule_reminders(session, new_booking.id, client_user_id, pro_user_id, slot_start_time, slot.end_time, is_online=is_online)
+            await ReminderService.schedule_reminders(session, booking_id, client_user_id, pro_user_id, slot_start_time, slot_end_time, is_online=is_online)
 
             await session.commit()
 
             # Sync to Google Calendar
             try:
                 from src.services.calendar import CalendarService
-                await CalendarService.add_event_to_google(pro_user_id, new_booking.id)
+                await CalendarService.add_event_to_google(pro_user_id, booking_id)
             except Exception as e:
                 logger.error(f"Failed to sync with Google Calendar for trainer {pro_user_id}: {e}")
 
