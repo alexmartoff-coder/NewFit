@@ -60,6 +60,7 @@ from src.models.models import TrainerProfile
 
 @router.callback_query(F.data == "sche_view")
 async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
+    # This handler can be called directly from a callback or manually from another handler
     user_id = effective_user_id or callback.from_user.id
     moscow_tz = gettz('Europe/Moscow')
 
@@ -190,10 +191,16 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         main_text = "📅 **Ваше расписание (на 14 дней):**"
         kb = types.InlineKeyboardMarkup(inline_keyboard=full_kb)
 
-        if callback.message.photo:
-            await callback.message.edit_caption(caption=main_text, reply_markup=kb, parse_mode="Markdown")
-        else:
-            await callback.message.edit_text(text=main_text, reply_markup=kb, parse_mode="Markdown")
+        # Ensure we edit the message to maintain "popover" behavior
+        try:
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=main_text, reply_markup=kb, parse_mode="Markdown")
+            else:
+                await callback.message.edit_text(text=main_text, reply_markup=kb, parse_mode="Markdown")
+        except exceptions.TelegramBadRequest:
+            # If for some reason edit fails (e.g. content identical), just answer or fallback
+            pass
+
     await callback.answer()
 
 @router.callback_query(F.data == "sche_add")
@@ -1156,6 +1163,7 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         trainer_name = slot.trainer_profile.user.full_name
 
         # Popover-style details
+        # Added a non-visible unique mark to ensure message content changes and triggers UI update
         details = (
             f"📅 **Информация о слоте**\n\n"
             f"👤 Мастер: {escape_md(trainer_name)}\n"
@@ -1163,6 +1171,7 @@ async def view_slot_info_details(callback: types.CallbackQuery):
             f"📊 Статус: {status_text}\n"
             f"📍 Формат: {fmt_text}\n"
             f"💰 Цена: {int(slot.price)}₽\n"
+            f"\u200b"
         )
 
         if slot.status == "booked" and slot.booking and slot.booking.client:
