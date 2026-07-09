@@ -1,4 +1,4 @@
-from aiogram import Router, F, types
+from aiogram import Router, F, types, exceptions
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from sqlalchemy import select, delete, and_
@@ -1121,6 +1121,7 @@ async def process_config_duration(message: types.Message, state: FSMContext, eff
 
 @router.callback_query(F.data.startswith("view_slot_"))
 async def view_slot_info_details(callback: types.CallbackQuery):
+    # This handler provides a detailed interactive popover for a specific slot
     slot_id = int(callback.data.split("_")[2])
     async with SessionLocal() as session:
         from sqlalchemy.orm import selectinload
@@ -1144,29 +1145,28 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         moscow_tz = gettz('Europe/Moscow')
         s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
         s_end = slot.end_time.replace(tzinfo=UTC) if slot.end_time.tzinfo is None else slot.end_time.astimezone(UTC)
-
         start_moscow = s_start.astimezone(moscow_tz)
         end_moscow = s_end.astimezone(moscow_tz)
 
         status_map = {"free": "Свободен 🟢", "booked": "Забронирован 🔴", "blocked": "Заблокирован ⚪"}
         fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
 
-        # Popover-style details
         status_text = status_map.get(slot.status, slot.status)
         fmt_text = fmt_map.get(slot.format, slot.format)
+        trainer_name = slot.trainer_profile.user.full_name
 
+        # Popover-style details
         details = (
-            f"⏰ {start_moscow.strftime('%d.%m %H:%M')}—{end_moscow.strftime('%H:%M')}\n"
-            f"📊 {status_text}\n"
-            f"📍 {fmt_text}\n"
+            f"📅 **Информация о слоте**\n\n"
+            f"👤 Мастер: {escape_md(trainer_name)}\n"
+            f"⏰ Время: `{start_moscow.strftime('%d.%m %H:%M')} — {end_moscow.strftime('%H:%M')}`\n"
+            f"📊 Статус: {status_text}\n"
+            f"📍 Формат: {fmt_text}\n"
             f"💰 Цена: {int(slot.price)}₽\n"
         )
 
         if slot.status == "booked" and slot.booking and slot.booking.client:
             details += f"👤 Клиент: {escape_md(slot.booking.client.full_name)}\n"
-        else:
-            trainer_name = slot.trainer_profile.user.full_name
-            details += f"👤 Мастер: {escape_md(trainer_name)}\n"
 
         if slot.online_platform == "telegram":
             details += "📱 Видео: Telegram\n"
@@ -1182,10 +1182,16 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         ])
         kb = types.InlineKeyboardMarkup(inline_keyboard=kb_list)
 
-        if callback.message.photo:
-            await callback.message.edit_caption(caption=details, reply_markup=kb, parse_mode="Markdown")
-        else:
-            await callback.message.edit_text(details, reply_markup=kb, parse_mode="Markdown")
+        # Restore the "popover" behavior by editing the message
+        try:
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=details, reply_markup=kb, parse_mode="Markdown")
+            else:
+                await callback.message.edit_text(details, reply_markup=kb, parse_mode="Markdown")
+        except exceptions.TelegramBadRequest:
+            # Fallback if message cannot be edited (though unlikely here)
+            await callback.message.answer(details, reply_markup=kb, parse_mode="Markdown")
+
         await callback.answer()
 
 @router.callback_query(F.data == "none")

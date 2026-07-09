@@ -1,6 +1,6 @@
 import pytest
 import pytest_asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from src.models.models import Base, User, UserRole, TrainerProfile, ClientProfile, WorkFormat, TimeSlot, Booking
 
@@ -43,7 +43,7 @@ async def test_create_booking_with_times(db_session):
     await db_session.commit()
 
     # Setup slot
-    start_time = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=1)
+    start_time = datetime.utcnow() + timedelta(hours=1)
     end_time = start_time + timedelta(hours=1)
     slot = TimeSlot(
         trainer_profile_id=profile.id,
