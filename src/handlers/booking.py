@@ -8,7 +8,7 @@ from src.utils.db import SessionLocal
 from src.keyboards.inline import add_admin_button
 from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 
 router = Router()
@@ -32,7 +32,7 @@ async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_adm
         specs = [s.name for s in profile.specializations]
         await state.update_data(trainer_profile_id=trainer_profile_id, trainer_user_id=trainer_user_id, specializations=specs)
 
-        now = datetime.now()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         end_view = now + timedelta(days=14)
         stmt = select(TimeSlot.start_time).where(
             TimeSlot.trainer_profile_id == trainer_profile_id,
