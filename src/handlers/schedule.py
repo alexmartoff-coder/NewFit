@@ -1193,7 +1193,13 @@ async def view_slot_info_details(callback: types.CallbackQuery):
 
         kb_list = []
         if slot.status == "free":
-            kb_list.append([types.InlineKeyboardButton(text="✅ Забронировать время", callback_data=f"sche_assign_client_{slot.id}")])
+            # Show full management suite for free slots as requested
+            kb_list.append([types.InlineKeyboardButton(text="👤 Оформить на клиента", callback_data=f"sche_assign_client_{slot.id}")])
+            kb_list.append([
+                types.InlineKeyboardButton(text="🏖 Отпуск", callback_data="sche_book_vacation"),
+                types.InlineKeyboardButton(text="🗓 Выходной", callback_data="sche_book_weekend")
+            ])
+            kb_list.append([types.InlineKeyboardButton(text="🗑 Удалить этот слот", callback_data=f"slot_del_conf_{slot.id}")])
 
         kb_list.extend([
             [types.InlineKeyboardButton(text="🔙 Назад к списку", callback_data="sche_view")]
