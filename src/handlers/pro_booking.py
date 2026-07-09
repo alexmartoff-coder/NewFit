@@ -80,7 +80,7 @@ async def pro_start_booking(callback: types.CallbackQuery, state: FSMContext, is
                     return
 
         # Find available dates
-        now = datetime.now()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         end_view = now + timedelta(days=30)
         stmt = select(TimeSlot.start_time).where(
             TimeSlot.trainer_profile_id == profile.id,
