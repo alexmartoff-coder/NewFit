@@ -1128,8 +1128,17 @@ async def process_config_duration(message: types.Message, state: FSMContext, eff
 
 @router.callback_query(F.data.startswith("view_slot_"))
 async def view_slot_info_details(callback: types.CallbackQuery):
-    # This handler provides a detailed interactive popover for a specific slot
-    slot_id = int(callback.data.split("_")[2])
+    """
+    Restores the interactive popover behavior for time slots.
+    Edits the current message to show details instead of sending a new one.
+    """
+    # Callback format: view_slot_{id}
+    try:
+        slot_id = int(callback.data.split("_")[2])
+    except (IndexError, ValueError):
+        await callback.answer("Ошибка в данных слота.")
+        return
+
     async with SessionLocal() as session:
         from sqlalchemy.orm import selectinload
         stmt = (
@@ -1149,11 +1158,10 @@ async def view_slot_info_details(callback: types.CallbackQuery):
             await callback.answer("Слот не найден.")
             return
 
+        # Time formatting
         moscow_tz = gettz('Europe/Moscow')
-        s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
-        s_end = slot.end_time.replace(tzinfo=UTC) if slot.end_time.tzinfo is None else slot.end_time.astimezone(UTC)
-        start_moscow = s_start.astimezone(moscow_tz)
-        end_moscow = s_end.astimezone(moscow_tz)
+        s_start = slot.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
+        s_end = slot.end_time.replace(tzinfo=UTC).astimezone(moscow_tz)
 
         status_map = {"free": "Свободен 🟢", "booked": "Забронирован 🔴", "blocked": "Заблокирован ⚪"}
         fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
@@ -1162,44 +1170,45 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         fmt_text = fmt_map.get(slot.format, slot.format)
         trainer_name = slot.trainer_profile.user.full_name
 
-        # Popover-style details
-        # Added a non-visible unique mark to ensure message content changes and triggers UI update
+        # Construct popover message - Header is critical for avoiding "message not modified"
         details = (
-            f"📅 **Информация о слоте**\n\n"
-            f"👤 Мастер: {escape_md(trainer_name)}\n"
-            f"⏰ Время: `{start_moscow.strftime('%d.%m %H:%M')} — {end_moscow.strftime('%H:%M')}`\n"
-            f"📊 Статус: {status_text}\n"
-            f"📍 Формат: {fmt_text}\n"
-            f"💰 Цена: {int(slot.price)}₽\n"
-            f"\u200b"
+            f"🔎 *ПРОСМОТР СЛОТА*\n"
+            f"━━━━━━━━━━━━━━━━━━\n\n"
+            f"👤 *Мастер:* {escape_md(trainer_name)}\n"
+            f"📅 *Дата:* {s_start.strftime('%d.%m.%Y')}\n"
+            f"⏰ *Время:* `{s_start.strftime('%H:%M')} — {s_end.strftime('%H:%M')}` (МСК)\n"
+            f"📊 *Статус:* {status_text}\n"
+            f"📍 *Формат:* {fmt_text}\n"
+            f"💰 *Цена:* {int(slot.price)}₽\n\n"
+            f"━━━━━━━━━━━━━━━━━━"
         )
 
         if slot.status == "booked" and slot.booking and slot.booking.client:
-            details += f"👤 Клиент: {escape_md(slot.booking.client.full_name)}\n"
+            details += f"👤 *Клиент:* {escape_md(slot.booking.client.full_name)}\n"
 
         if slot.online_platform == "telegram":
-            details += "📱 Видео: Telegram\n"
+            details += "📱 *Видео:* Telegram\n"
         elif slot.zoom_join_url:
-            details += f"🔗 Zoom: {escape_md(slot.zoom_join_url)}\n"
+            details += f"🔗 *Zoom:* {escape_md(slot.zoom_join_url)}\n"
 
         kb_list = []
         if slot.status == "free":
-            kb_list.append([types.InlineKeyboardButton(text="✅ Забронировать", callback_data=f"sche_assign_client_{slot.id}")])
+            kb_list.append([types.InlineKeyboardButton(text="✅ Забронировать время", callback_data=f"sche_assign_client_{slot.id}")])
 
         kb_list.extend([
-            [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_view")]
+            [types.InlineKeyboardButton(text="🔙 Назад к списку", callback_data="sche_view")]
         ])
         kb = types.InlineKeyboardMarkup(inline_keyboard=kb_list)
 
-        # Restore the "popover" behavior by editing the message
+        # STRICT POPOVER BEHAVIOR: Always edit, never send new message
         try:
             if callback.message.photo:
                 await callback.message.edit_caption(caption=details, reply_markup=kb, parse_mode="Markdown")
             else:
-                await callback.message.edit_text(details, reply_markup=kb, parse_mode="Markdown")
+                await callback.message.edit_text(text=details, reply_markup=kb, parse_mode="Markdown")
         except exceptions.TelegramBadRequest:
-            # Fallback if message cannot be edited (though unlikely here)
-            await callback.message.answer(details, reply_markup=kb, parse_mode="Markdown")
+            # If edit fails (e.g. content identical), just ignore to avoid redundant messages
+            pass
 
         await callback.answer()
 
