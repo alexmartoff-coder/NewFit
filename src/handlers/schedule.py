@@ -175,9 +175,9 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
                     fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
                     fmt_ru = fmt_map.get(s.format, s.format)
                     btn_text += f" 👤 {client_name} ({fmt_ru})"
-                    full_kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"sche_slot_info_{s.id}")])
+                    full_kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"view_slot_{s.id}")])
                 else:
-                    row.append(types.InlineKeyboardButton(text=btn_text, callback_data=f"sche_slot_info_{s.id}"))
+                    row.append(types.InlineKeyboardButton(text=btn_text, callback_data=f"view_slot_{s.id}"))
                     if len(row) == 3:
                         full_kb.append(row)
                         row = []
@@ -1119,9 +1119,9 @@ async def process_config_duration(message: types.Message, state: FSMContext, eff
     except ValueError:
         await message.answer("Введите число.")
 
-@router.callback_query(F.data.startswith("sche_slot_info_"))
+@router.callback_query(F.data.startswith("view_slot_"))
 async def view_slot_info_details(callback: types.CallbackQuery):
-    slot_id = int(callback.data.split("_")[3])
+    slot_id = int(callback.data.split("_")[2])
     async with SessionLocal() as session:
         from sqlalchemy.orm import selectinload
         stmt = (
