@@ -44,15 +44,21 @@ async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_adm
         available_dates = sorted(list(set(dt.date() for dt in res.scalars().all())))
 
         if not available_dates:
-            await callback.message.answer("К сожалению, у этого профессионала нет свободных слотов на ближайшее время.")
+            text = "К сожалению, у этого профессионала нет свободных слотов на ближайшее время."
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=text)
+            else:
+                await callback.message.edit_text(text)
             await callback.answer()
             return
 
+        days_ru = {0: "Пн", 1: "Вт", 2: "Ср", 3: "Чт", 4: "Пт", 5: "Сб", 6: "Вс"}
         kb = []
         row = []
         for d in available_dates:
+            day_name = days_ru.get(d.weekday(), "")
             row.append(types.InlineKeyboardButton(
-                text=d.strftime("%d.%m (%a)"),
+                text=f"{d.strftime('%d.%m')} ({day_name})",
                 callback_data=f"bdate_{d.isoformat()}"
             ))
             if len(row) == 2:
@@ -98,7 +104,11 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
         slots = res.scalars().all()
 
         if not slots:
-            await callback.message.answer("На этот день нет свободных слотов. Выберите другую дату.")
+            text = "На этот день нет свободных слотов. Выберите другую дату."
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=text)
+            else:
+                await callback.message.edit_text(text)
             await callback.answer()
             return
 
@@ -117,7 +127,7 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
 
             btn_text = f"{start_str}-{end_str}"
             row.append(types.InlineKeyboardButton(text=btn_text, callback_data=f"slot_{s.id}"))
-            if len(row) == 2:
+            if len(row) == 3:
                 kb.append(row)
                 row = []
 
@@ -209,7 +219,7 @@ async def process_slot_selection_confirmed(callback: types.CallbackQuery, state:
 
         if not slot or slot.status != "free":
             text = "Этот слот уже занят или недоступен."
-            await callback.message.answer(text)
+            await callback.answer(text, show_alert=True)
             return
 
         # Store specialist's services in state for terminology/format fix later
