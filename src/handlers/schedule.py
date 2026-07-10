@@ -1183,37 +1183,51 @@ async def view_slot_info_details(callback: types.CallbackQuery):
             f"━━━━━━━━━━━━━━━━━━"
         )
 
-        if slot.status == "booked" and slot.booking and slot.booking.client:
-            details += f"👤 *Клиент:* {escape_md(slot.booking.client.full_name)}\n"
+        if slot.status == "booked":
+            # For booked slots, use a native Telegram Alert (Modal) to avoid any feed scrolling
+            # This is the "popover on top of the feed" behavior requested
+            client_name = slot.booking.client.full_name if (slot.booking and slot.booking.client) else "Клиент"
 
+            alert_text = (
+                f"🔴 ЗАБРОНИРОВАНО\n"
+                f"━━━━━━━━━━━━━━\n"
+                f"👤 Клиент: {client_name}\n"
+                f"📅 Дата: {s_start.strftime('%d.%m.%Y')}\n"
+                f"⏰ Время: {s_start.strftime('%H:%M')} — {s_end.strftime('%H:%M')}\n"
+                f"📍 Формат: {fmt_text}\n"
+                f"💰 Цена: {int(slot.price)}₽"
+            )
+            if slot.online_platform == "telegram":
+                alert_text += "\n📱 Видео: Telegram"
+            elif slot.zoom_join_url:
+                alert_text += f"\n🔗 Zoom: {slot.zoom_join_url}"
+
+            await callback.answer(alert_text, show_alert=True)
+            return
+
+        # For free slots, we use the editable card (popover) because it has action buttons
         if slot.online_platform == "telegram":
             details += "📱 *Видео:* Telegram\n"
         elif slot.zoom_join_url:
             details += f"🔗 *Zoom:* {escape_md(slot.zoom_join_url)}\n"
 
-        kb_list = []
-        if slot.status == "free":
-            # Show full management suite for free slots as requested
-            kb_list.append([types.InlineKeyboardButton(text="👤 Оформить на клиента", callback_data=f"sche_assign_client_{slot.id}")])
-            kb_list.append([
+        kb_list = [
+            [types.InlineKeyboardButton(text="👤 Оформить на клиента", callback_data=f"sche_assign_client_{slot.id}")],
+            [
                 types.InlineKeyboardButton(text="🏖 Отпуск", callback_data="sche_book_vacation"),
                 types.InlineKeyboardButton(text="🗓 Выходной", callback_data="sche_book_weekend")
-            ])
-            kb_list.append([types.InlineKeyboardButton(text="🗑 Удалить этот слот", callback_data=f"slot_del_conf_{slot.id}")])
-
-        kb_list.extend([
+            ],
+            [types.InlineKeyboardButton(text="🗑 Удалить этот слот", callback_data=f"slot_del_conf_{slot.id}")],
             [types.InlineKeyboardButton(text="🔙 Назад к списку", callback_data="sche_view")]
-        ])
+        ]
         kb = types.InlineKeyboardMarkup(inline_keyboard=kb_list)
 
-        # STRICT POPOVER BEHAVIOR: Always edit, never send new message
         try:
             if callback.message.photo:
                 await callback.message.edit_caption(caption=details, reply_markup=kb, parse_mode="Markdown")
             else:
                 await callback.message.edit_text(text=details, reply_markup=kb, parse_mode="Markdown")
         except exceptions.TelegramBadRequest:
-            # If edit fails (e.g. content identical), just ignore to avoid redundant messages
             pass
 
         await callback.answer()
