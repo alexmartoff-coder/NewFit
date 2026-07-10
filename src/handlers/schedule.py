@@ -80,8 +80,8 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
             return
 
         now_utc = datetime.now(UTC).replace(tzinfo=None)
-        # Fetch slots for the next 14 days
-        end_view_utc = now_utc + timedelta(days=14)
+        # Fetch slots for the next 30 days to match replenishment/generation
+        end_view_utc = now_utc + timedelta(days=30)
 
         # Group by date for better summary
         from collections import defaultdict
@@ -153,10 +153,14 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
             start_moscow = s.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
             grouped[start_moscow.date()].append(s)
 
+        # Russian day names map
+        days_ru = {0: "Пн", 1: "Вт", 2: "Ср", 3: "Чт", 4: "Пт", 5: "Сб", 6: "Вс"}
+
         full_kb = []
         for date_obj, day_slots in sorted(grouped.items()):
-            # Day separator
-            full_kb.append([types.InlineKeyboardButton(text=f"🗓 {date_obj.strftime('%d.%m (%a)')}", callback_data="none")])
+            # Day separator with Russian day name
+            day_name = days_ru.get(date_obj.weekday(), "")
+            full_kb.append([types.InlineKeyboardButton(text=f"🗓 {date_obj.strftime('%d.%m')} ({day_name})", callback_data="none")])
 
             row = []
             for s in day_slots:
@@ -188,7 +192,7 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         full_kb.append([types.InlineKeyboardButton(text="🗓 Забронировать время", callback_data="sche_view_book")])
         full_kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")])
 
-        main_text = "📅 **Ваше расписание (на 14 дней):**"
+        main_text = "📅 **Ваше расписание (на 30 дней):**"
         kb = types.InlineKeyboardMarkup(inline_keyboard=full_kb)
 
         # Ensure we edit the message to maintain "popover" behavior
