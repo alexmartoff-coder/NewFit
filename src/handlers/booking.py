@@ -32,16 +32,29 @@ async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_adm
         specs = [s.name for s in profile.specializations]
         await state.update_data(trainer_profile_id=trainer_profile_id, trainer_user_id=trainer_user_id, specializations=specs)
 
-        now = datetime.now()
-        end_view = now + timedelta(days=14)
+        from dateutil.tz import gettz, UTC
+        moscow_tz = gettz('Europe/Moscow')
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        end_view_utc = now_utc + timedelta(days=30)
+
         stmt = select(TimeSlot.start_time).where(
             TimeSlot.trainer_profile_id == trainer_profile_id,
             TimeSlot.status == "free",
-            TimeSlot.start_time >= now,
-            TimeSlot.start_time <= end_view
-        )
+            TimeSlot.start_time >= now_utc,
+            TimeSlot.start_time <= end_view_utc
+        ).order_by(TimeSlot.start_time.asc())
         res = await session.execute(stmt)
-        available_dates = sorted(list(set(dt.date() for dt in res.scalars().all())))
+
+        # Extract unique dates in Moscow time
+        available_dates = []
+        seen_dates = set()
+        for ts_start in res.scalars():
+            # ts_start is naive UTC from DB
+            dt_msk = ts_start.replace(tzinfo=UTC).astimezone(moscow_tz)
+            date_msk = dt_msk.date()
+            if date_msk not in seen_dates:
+                available_dates.append(date_msk)
+                seen_dates.add(date_msk)
 
         if not available_dates:
             text = "К сожалению, у этого профессионала нет свободных слотов на ближайшее время."
@@ -91,14 +104,21 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
     trainer_user_id = data['trainer_user_id']
 
     async with SessionLocal() as session:
-        start_dt = datetime.combine(selected_date, datetime.min.time())
-        end_dt = datetime.combine(selected_date, datetime.max.time())
+        from dateutil.tz import gettz, UTC
+        moscow_tz = gettz('Europe/Moscow')
+
+        # Convert Moscow date range to UTC for DB query
+        start_msk = datetime.combine(selected_date, datetime.min.time()).replace(tzinfo=moscow_tz)
+        end_msk = datetime.combine(selected_date, datetime.max.time()).replace(tzinfo=moscow_tz)
+
+        start_utc = start_msk.astimezone(UTC).replace(tzinfo=None)
+        end_utc = end_msk.astimezone(UTC).replace(tzinfo=None)
 
         stmt = select(TimeSlot).where(
             TimeSlot.trainer_profile_id == trainer_profile_id,
             TimeSlot.status == "free",
-            TimeSlot.start_time >= start_dt,
-            TimeSlot.start_time <= end_dt
+            TimeSlot.start_time >= start_utc,
+            TimeSlot.start_time <= end_utc
         ).order_by(TimeSlot.start_time.asc())
         res = await session.execute(stmt)
         slots = res.scalars().all()
@@ -251,8 +271,18 @@ async def process_slot_selection_confirmed(callback: types.CallbackQuery, state:
                 min_price = min(slot.trainer_profile.service_prices.values())
                 price_text = f"Цена: от `{int(min_price)}₽`"
 
+            from dateutil.tz import gettz, UTC
+            moscow_tz = gettz('Europe/Moscow')
+            s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
+            start_moscow = s_start.astimezone(moscow_tz)
+
             trainer_name = slot.trainer_profile.user.full_name
-            text = f"Мастер: {escape_md(trainer_name)}\n{price_text}\n\nВыберите {term} для записи:"
+            text = (
+                f"👤 Мастер: {escape_md(trainer_name)}\n"
+                f"⏰ Время: `{start_moscow.strftime('%d.%m %H:%M')}`\n"
+                f"{price_text}\n\n"
+                f"Выберите {term} для записи:"
+            )
             if callback.message.photo:
                 await callback.message.edit_caption(caption=text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="Markdown")
             else:
@@ -309,10 +339,20 @@ async def proceed_to_format_selection_or_confirm(callback: types.CallbackQuery, 
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data=f"slot_{slot.id}")]
         ])
 
+        from dateutil.tz import gettz, UTC
+        moscow_tz = gettz('Europe/Moscow')
+        s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
+        start_moscow = s_start.astimezone(moscow_tz)
+
         data = await state.get_data()
         current_price = data.get('override_price', slot.price)
         trainer_name = slot.trainer_profile.user.full_name
-        text = f"Мастер: {escape_md(trainer_name)}\nЦена: `{int(current_price)}₽`\n\nЭтот специалист проводит занятия и оффлайн, и онлайн. Выберите удобный вам формат:"
+        text = (
+            f"👤 Мастер: {escape_md(trainer_name)}\n"
+            f"⏰ Время: `{start_moscow.strftime('%d.%m %H:%M')}`\n"
+            f"💰 Цена: `{int(current_price)}₽`\n\n"
+            f"Этот специалист проводит занятия и оффлайн, и онлайн. Выберите удобный вам формат:"
+        )
         if callback.message.photo:
             await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
         else:
