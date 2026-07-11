@@ -29,13 +29,13 @@ async def pro_start_booking(callback: types.CallbackQuery, state: FSMContext, is
         stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
         profile = (await session.execute(stmt_p)).scalar_one_or_none()
         if not profile:
-            await callback.answer("Профиль не найден")
+            await callback.answer("Профиль не найден", show_alert=True)
             return
 
         # Get client profile to show name
         client = await session.get(ClientProfile, client_id)
         if not client:
-            await callback.answer("Клиент не найден")
+            await callback.answer("Клиент не найден", show_alert=True)
             return
 
         await state.update_data(client_id=client_id, trainer_profile_id=profile.id, client_name=client.full_name)
@@ -68,7 +68,17 @@ async def pro_start_booking(callback: types.CallbackQuery, state: FSMContext, is
                         min_price = min(slot.trainer_profile.service_prices.values())
                         price_text = f"Цена: от `{int(min_price)}₽`"
 
-                    text = f"Клиент: **{escape_md(client.full_name)}**\n{price_text}\n\nВыберите {term} для этой записи:"
+                    from dateutil.tz import gettz, UTC
+                    moscow_tz = gettz('Europe/Moscow')
+                    s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
+                    start_moscow = s_start.astimezone(moscow_tz)
+
+                    text = (
+                        f"👤 Клиент: **{escape_md(client.full_name)}**\n"
+                        f"⏰ Время: `{start_moscow.strftime('%d.%m %H:%M')}`\n"
+                        f"{price_text}\n\n"
+                        f"Выберите {term} для этой записи:"
+                    )
                     kb_markup = types.InlineKeyboardMarkup(inline_keyboard=kb)
                     if callback.message.photo:
                         await callback.message.edit_caption(caption=text, reply_markup=kb_markup, parse_mode="Markdown")
@@ -80,32 +90,62 @@ async def pro_start_booking(callback: types.CallbackQuery, state: FSMContext, is
                     return
 
         # Find available dates
-        now = datetime.now()
-        end_view = now + timedelta(days=30)
+        from dateutil.tz import gettz, UTC
+        moscow_tz = gettz('Europe/Moscow')
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        end_view_utc = now_utc + timedelta(days=30)
+
         stmt = select(TimeSlot.start_time).where(
             TimeSlot.trainer_profile_id == profile.id,
             TimeSlot.status == "free",
-            TimeSlot.start_time >= now,
-            TimeSlot.start_time <= end_view
-        )
+            TimeSlot.start_time >= now_utc,
+            TimeSlot.start_time <= end_view_utc
+        ).order_by(TimeSlot.start_time.asc())
         res = await session.execute(stmt)
-        available_dates = sorted(list(set(dt.date() for dt in res.scalars().all())))
+
+        # Extract unique dates in Moscow time
+        available_dates = []
+        seen_dates = set()
+        for ts_start in res.scalars():
+            # ts_start is naive UTC from DB
+            dt_msk = ts_start.replace(tzinfo=UTC).astimezone(moscow_tz)
+            date_msk = dt_msk.date()
+            if date_msk not in seen_dates:
+                available_dates.append(date_msk)
+                seen_dates.add(date_msk)
 
         if not available_dates:
-            await callback.message.answer("У вас нет свободных слотов в расписании. Сначала добавьте слоты.")
+            text = "У вас нет свободных слотов в расписании. Сначала добавьте слоты."
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=text)
+            else:
+                await callback.message.edit_text(text)
             await callback.answer()
             return
 
+        days_ru = {0: "Пн", 1: "Вт", 2: "Ср", 3: "Чт", 4: "Пт", 5: "Сб", 6: "Вс"}
         kb = []
+        row = []
         for d in available_dates:
-            kb.append([types.InlineKeyboardButton(
-                text=d.strftime("%d.%m (%a)"),
+            day_name = days_ru.get(d.weekday(), "")
+            row.append(types.InlineKeyboardButton(
+                text=f"{d.strftime('%d.%m')} ({day_name})",
                 callback_data=f"pro_bdate_{d.isoformat()}"
-            )])
+            ))
+            if len(row) == 2:
+                kb.append(row)
+                row = []
+        if row:
+            kb.append(row)
         kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="clients_list")]) # To be handled by show_clients
 
     await state.set_state(ProBookingSession.choosing_date)
-    await callback.message.edit_text(f"Клиент: **{escape_md(client.full_name)}**\n\nВыберите дату для записи:", reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="Markdown")
+    text = f"Клиент: **{escape_md(client.full_name)}**\n\nВыберите дату для записи:"
+    kb_markup = types.InlineKeyboardMarkup(inline_keyboard=kb)
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb_markup, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text, reply_markup=kb_markup, parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data.startswith("pro_bdate_"), ProBookingSession.choosing_date)
@@ -115,33 +155,51 @@ async def pro_date_selected(callback: types.CallbackQuery, state: FSMContext):
     trainer_profile_id = data['trainer_profile_id']
 
     async with SessionLocal() as session:
-        start_dt = datetime.combine(selected_date, datetime.min.time())
-        end_dt = datetime.combine(selected_date, datetime.max.time())
+        from dateutil.tz import gettz, UTC
+        moscow_tz = gettz('Europe/Moscow')
+
+        # Convert Moscow date range to UTC for DB query
+        start_msk = datetime.combine(selected_date, datetime.min.time()).replace(tzinfo=moscow_tz)
+        end_msk = datetime.combine(selected_date, datetime.max.time()).replace(tzinfo=moscow_tz)
+
+        start_utc = start_msk.astimezone(UTC).replace(tzinfo=None)
+        end_utc = end_msk.astimezone(UTC).replace(tzinfo=None)
 
         stmt = select(TimeSlot).where(
             TimeSlot.trainer_profile_id == trainer_profile_id,
             TimeSlot.status == "free",
-            TimeSlot.start_time >= start_dt,
-            TimeSlot.start_time <= end_dt
+            TimeSlot.start_time >= start_utc,
+            TimeSlot.start_time <= end_utc
         ).order_by(TimeSlot.start_time.asc())
         res = await session.execute(stmt)
         slots = res.scalars().all()
 
         if not slots:
-            await callback.answer("На этот день нет свободных слотов")
+            await callback.answer("На этот день нет свободных слотов", show_alert=True)
             return
 
         kb = []
+        row = []
         moscow_tz = gettz('Europe/Moscow')
         for s in slots:
             s_start = s.start_time.replace(tzinfo=UTC) if s.start_time.tzinfo is None else s.start_time.astimezone(UTC)
             start_str = s_start.astimezone(moscow_tz).strftime('%H:%M')
-            kb.append([types.InlineKeyboardButton(text=f"{start_str}", callback_data=f"pro_slot_{s.id}")])
+            row.append(types.InlineKeyboardButton(text=f"{start_str}", callback_data=f"pro_slot_{s.id}"))
+            if len(row) == 3:
+                kb.append(row)
+                row = []
+        if row:
+            kb.append(row)
 
         kb.append([types.InlineKeyboardButton(text="🔙 К выбору даты", callback_data=f"pro_book_client_{data['client_id']}")])
 
         await state.set_state(ProBookingSession.choosing_slot)
-        await callback.message.edit_text(f"Клиент: **{escape_md(data['client_name'])}**\n\nВыберите время на {selected_date.strftime('%d.%m')}:", reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="Markdown")
+    text = f"Клиент: **{escape_md(data['client_name'])}**\n\nВыберите время на {selected_date.strftime('%d.%m')}:"
+    kb_markup = types.InlineKeyboardMarkup(inline_keyboard=kb)
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb_markup, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text, reply_markup=kb_markup, parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data.startswith("pro_slot_"), ProBookingSession.choosing_slot)
@@ -158,7 +216,7 @@ async def pro_slot_selected(callback: types.CallbackQuery, state: FSMContext):
         slot = (await session.execute(stmt)).scalar_one_or_none()
 
         if not slot or slot.status != "free":
-            await callback.answer("Слот уже занят")
+            await callback.answer("Слот уже занят", show_alert=True)
             return
 
         await state.update_data(slot_id=slot_id)
@@ -180,11 +238,30 @@ async def pro_slot_selected(callback: types.CallbackQuery, state: FSMContext):
                 min_price = min(slot.trainer_profile.service_prices.values())
                 price_text = f"Цена: от `{int(min_price)}₽`"
 
-            await callback.message.edit_text(
-                f"Клиент: **{escape_md(data['client_name'])}**\n{price_text}\n\nВыберите {term} для этой записи:",
-                reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
-                parse_mode="Markdown"
+            from dateutil.tz import gettz, UTC
+            moscow_tz = gettz('Europe/Moscow')
+            s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
+            start_moscow = s_start.astimezone(moscow_tz)
+
+            text = (
+                f"👤 Клиент: **{escape_md(data['client_name'])}**\n"
+                f"⏰ Время: `{start_moscow.strftime('%d.%m %H:%M')}`\n"
+                f"{price_text}\n\n"
+                f"Выберите {term} для этой записи:"
             )
+
+            if callback.message.photo:
+                await callback.message.edit_caption(
+                    caption=text,
+                    reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
+                    parse_mode="Markdown"
+                )
+            else:
+                await callback.message.edit_text(
+                    text,
+                    reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb),
+                    parse_mode="Markdown"
+                )
             return
 
         await proceed_to_format_or_confirm(callback, state, slot)
@@ -195,7 +272,7 @@ async def pro_service_selected(callback: types.CallbackQuery, state: FSMContext)
     try:
         idx = int(callback.data.replace("pro_svc_", ""))
     except ValueError:
-        await callback.answer("Неверный формат данных.")
+        await callback.answer("Неверный формат данных.", show_alert=True)
         return
 
     data = await state.get_data()
@@ -211,7 +288,7 @@ async def pro_service_selected(callback: types.CallbackQuery, state: FSMContext)
         slot = (await session.execute(stmt)).scalar_one_or_none()
 
         if not slot:
-            await callback.answer("Слот не найден.")
+            await callback.answer("Слот не найден.", show_alert=True)
             return
 
         specs = slot.trainer_profile.specializations
@@ -219,7 +296,7 @@ async def pro_service_selected(callback: types.CallbackQuery, state: FSMContext)
             service_name = specs[idx].name
             await state.update_data(selected_service=service_name)
         else:
-            await callback.answer("Услуга не найдена.")
+            await callback.answer("Услуга не найдена.", show_alert=True)
             return
 
     async with SessionLocal() as session:
@@ -237,10 +314,11 @@ async def pro_service_selected(callback: types.CallbackQuery, state: FSMContext)
                 await state.update_data(override_price=float(price_found))
 
         display_price = price_found if price_found is not None else slot.price
-        await callback.message.edit_text(
-            f"Выбрана услуга: **{escape_md(service_name)}**\nЦена: `{int(display_price)}₽`\n\nПродолжаем...",
-            parse_mode="Markdown"
-        )
+        text_svc = f"Выбрана услуга: **{escape_md(service_name)}**\nЦена: `{int(display_price)}₽`\n\nПродолжаем..."
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=text_svc, parse_mode="Markdown")
+        else:
+            await callback.message.edit_text(text=text_svc, parse_mode="Markdown")
 
         await proceed_to_format_or_confirm(callback, state, slot)
     await callback.answer()
@@ -255,7 +333,23 @@ async def proceed_to_format_or_confirm(callback: types.CallbackQuery, state: FSM
             [types.InlineKeyboardButton(text="💻 Онлайн", callback_data="pro_fmt_ONLINE")],
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data=f"pro_slot_{slot.id}")]
         ])
-        await callback.message.edit_text("Выберите формат для этой записи:", reply_markup=kb)
+
+        from dateutil.tz import gettz, UTC
+        moscow_tz = gettz('Europe/Moscow')
+        s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
+        start_moscow = s_start.astimezone(moscow_tz)
+        data = await state.get_data()
+
+        text = (
+            f"👤 Клиент: **{escape_md(data['client_name'])}**\n"
+            f"⏰ Время: `{start_moscow.strftime('%d.%m %H:%M')}`\n\n"
+            f"Выберите формат для этой записи:"
+        )
+
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+        else:
+            await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
         return
 
     await show_pro_booking_confirmation(callback, state, slot)
@@ -326,7 +420,11 @@ async def show_pro_booking_confirmation(callback: types.CallbackQuery, state: FS
     ]
 
     await state.set_state(ProBookingSession.confirming)
-    await callback.message.edit_text(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="Markdown")
+    kb_markup = types.InlineKeyboardMarkup(inline_keyboard=kb)
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb_markup, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text, reply_markup=kb_markup, parse_mode="Markdown")
 
 @router.callback_query(F.data == "pro_confirm_booking", ProBookingSession.confirming)
 async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
@@ -412,7 +510,11 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext, 
                 [types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="trainer_menu")]
             ])
             kb = add_admin_button(kb, is_admin=is_admin)
-            await callback.message.edit_text(f"✅ Клиент {client_full_name} успешно записан!", reply_markup=kb)
+            text_success = f"✅ Клиент {client_full_name} успешно записан!"
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=text_success, reply_markup=kb)
+            else:
+                await callback.message.edit_text(text_success, reply_markup=kb)
 
             # Notify client
             try:
@@ -439,7 +541,11 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext, 
             except Exception as e:
                 logger.error(f"Failed to notify client {client_user_id}: {e}")
         else:
-            await callback.message.edit_text("❌ Ошибка при бронировании. Возможно, слот уже занят или клиент не найден.")
+            err_text = "❌ Ошибка при бронировании. Возможно, слот уже занят или клиент не найден."
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=err_text)
+            else:
+                await callback.message.edit_text(err_text)
 
     await state.clear()
     await callback.answer()
@@ -447,5 +553,9 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext, 
 @router.callback_query(F.data == "pro_cancel")
 async def pro_cancel(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.edit_text("Запись отменена.")
+    cancel_text = "Запись отменена."
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=cancel_text)
+    else:
+        await callback.message.edit_text(cancel_text)
     await callback.answer()
