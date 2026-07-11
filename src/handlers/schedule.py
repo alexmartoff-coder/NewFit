@@ -1174,20 +1174,30 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         fmt_text = fmt_map.get(slot.format, slot.format)
         trainer_name = slot.trainer_profile.user.full_name
 
-        # Construct popover message
+        if slot.status == "booked":
+            client_name = slot.booking.client.full_name if (slot.booking and slot.booking.client) else "Клиент"
+            alert_text = (
+                f"📅 Дата: {s_start.strftime('%d.%m.%Y')}\n"
+                f"⏰ Время: {s_start.strftime('%H:%M')} — {s_end.strftime('%H:%M')} (МСК)\n"
+                f"📊 Статус: {status_text}\n"
+                f"📍 Формат: {fmt_text}\n"
+                f"💰 Цена: {int(slot.price)}₽\n"
+                f"👤 Клиент: {client_name}"
+            )
+            await callback.answer(text=alert_text, show_alert=True)
+            return
+
+        # Construct popover message for free/blocked slots
         details = (
             f"📍 *Информация о слоте*\n"
             f"━━━━━━━━━━━━━━━━━━\n\n"
+            f"👤 *Мастер:* {escape_md(trainer_name)}\n"
             f"📅 *Дата:* {s_start.strftime('%d.%m.%Y')}\n"
             f"⏰ *Время:* `{s_start.strftime('%H:%M')} — {s_end.strftime('%H:%M')}` (МСК)\n"
             f"📊 *Статус:* {status_text}\n"
             f"📍 *Формат:* {fmt_text}\n"
             f"💰 *Цена:* {int(slot.price)}₽\n"
         )
-
-        if slot.status == "booked":
-            client_name = slot.booking.client.full_name if (slot.booking and slot.booking.client) else "Клиент"
-            details += f"👤 *Клиент:* {escape_md(client_name)}\n"
 
         if slot.online_platform == "telegram":
             details += "📱 *Видео:* Telegram\n"
