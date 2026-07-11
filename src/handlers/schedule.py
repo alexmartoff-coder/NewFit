@@ -1174,55 +1174,31 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         fmt_text = fmt_map.get(slot.format, slot.format)
         trainer_name = slot.trainer_profile.user.full_name
 
-        # Construct popover message - Header is critical for avoiding "message not modified"
+        # Construct popover message
         details = (
-            f"🔎 *ПРОСМОТР СЛОТА*\n"
+            f"📍 *Информация о слоте*\n"
             f"━━━━━━━━━━━━━━━━━━\n\n"
-            f"👤 *Мастер:* {escape_md(trainer_name)}\n"
             f"📅 *Дата:* {s_start.strftime('%d.%m.%Y')}\n"
             f"⏰ *Время:* `{s_start.strftime('%H:%M')} — {s_end.strftime('%H:%M')}` (МСК)\n"
             f"📊 *Статус:* {status_text}\n"
             f"📍 *Формат:* {fmt_text}\n"
-            f"💰 *Цена:* {int(slot.price)}₽\n\n"
-            f"━━━━━━━━━━━━━━━━━━"
+            f"💰 *Цена:* {int(slot.price)}₽\n"
         )
 
         if slot.status == "booked":
-            # For booked slots, use a native Telegram Alert (Modal) to avoid any feed scrolling
-            # This is the "popover on top of the feed" behavior requested
             client_name = slot.booking.client.full_name if (slot.booking and slot.booking.client) else "Клиент"
+            details += f"👤 *Клиент:* {escape_md(client_name)}\n"
 
-            alert_text = (
-                f"🔴 ЗАБРОНИРОВАНО\n"
-                f"━━━━━━━━━━━━━━\n"
-                f"👤 Клиент: {client_name}\n"
-                f"📅 Дата: {s_start.strftime('%d.%m.%Y')}\n"
-                f"⏰ Время: {s_start.strftime('%H:%M')} — {s_end.strftime('%H:%M')}\n"
-                f"📍 Формат: {fmt_text}\n"
-                f"💰 Цена: {int(slot.price)}₽"
-            )
-            if slot.online_platform == "telegram":
-                alert_text += "\n📱 Видео: Telegram"
-            elif slot.zoom_join_url:
-                alert_text += f"\n🔗 Zoom: {slot.zoom_join_url}"
-
-            await callback.answer(alert_text, show_alert=True)
-            return
-
-        # For free slots, we use the editable card (popover) because it has action buttons
         if slot.online_platform == "telegram":
             details += "📱 *Видео:* Telegram\n"
         elif slot.zoom_join_url:
             details += f"🔗 *Zoom:* {escape_md(slot.zoom_join_url)}\n"
 
+        details += "\n━━━━━━━━━━━━━━━━━━"
+
         kb_list = [
-            [types.InlineKeyboardButton(text="👤 Оформить на клиента", callback_data=f"sche_assign_client_{slot.id}")],
-            [
-                types.InlineKeyboardButton(text="🏖 Отпуск", callback_data="sche_book_vacation"),
-                types.InlineKeyboardButton(text="🗓 Выходной", callback_data="sche_book_weekend")
-            ],
-            [types.InlineKeyboardButton(text="🗑 Удалить этот слот", callback_data=f"slot_del_conf_{slot.id}")],
-            [types.InlineKeyboardButton(text="🔙 Назад к списку", callback_data="sche_view")]
+            [types.InlineKeyboardButton(text="Забронировать", callback_data=f"sche_assign_client_{slot.id}")],
+            [types.InlineKeyboardButton(text="Назад", callback_data="sche_view")]
         ]
         kb = types.InlineKeyboardMarkup(inline_keyboard=kb_list)
 
