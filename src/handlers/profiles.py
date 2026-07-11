@@ -239,6 +239,11 @@ async def show_online_training(message: types.Message, effective_user_id: int = 
 @router.message(F.text == "/clients")
 @router.callback_query(F.data == "clients_list")
 async def show_clients(event: types.Message | types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
+    # Only clear state if we ARE NOT coming from a specific slot in the schedule
+    # (Checking for Message input or explicit 'clients_list' callback)
+    if isinstance(event, types.Message) or (isinstance(event, types.CallbackQuery) and event.data == "clients_list"):
+        await state.clear()
+
     if isinstance(event, types.CallbackQuery):
         user_id = effective_user_id or event.from_user.id
         message = event.message
