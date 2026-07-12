@@ -38,7 +38,7 @@ class TemplateState(StatesGroup):
 
 @router.message(F.text == "Моё расписание")
 @router.message(F.text == "/schedule")
-async def show_schedule_menu(message: types.Message, is_admin: bool = False, effective_user_id: int = None, callback: types.CallbackQuery = None):
+async def show_schedule_menu(message: types.Message, is_admin: bool = False, effective_user_id: int = None, callback: types.CallbackQuery = None, header: str = None):
     kb = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [types.InlineKeyboardButton(text="Посмотреть слоты", callback_data="sche_view")],
@@ -47,14 +47,19 @@ async def show_schedule_menu(message: types.Message, is_admin: bool = False, eff
         ]
     )
     kb = add_admin_button(kb, is_admin=is_admin)
-    text = "Управление вашим расписанием:"
+    text = header if header else "Управление вашим расписанием:"
+
     if callback:
-        if callback.message.photo:
-            await callback.message.edit_caption(caption=text, reply_markup=kb)
-        else:
-            await callback.message.edit_text(text, reply_markup=kb)
+        try:
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+            else:
+                await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+        except exceptions.TelegramBadRequest:
+            # Avoid feed clutter if message is identical or edit fails
+            await callback.answer()
     else:
-        await message.answer(text, reply_markup=kb)
+        await message.answer(text, reply_markup=kb, parse_mode="Markdown")
 
 from src.models.models import TrainerProfile
 
@@ -704,13 +709,13 @@ async def quick_gen_confirm(callback: types.CallbackQuery, state: FSMContext, ef
             interval=data['step'],
             work_format=data.get('gen_format', 'hybrid')
         )
-        await callback.message.answer(f"✅ Успешно! Сгенерировано новых слотов: {count}.\n🔄 Автогенерация на {data['period']} дн. включена.")
+        report = f"✅ Успешно! Сгенерировано новых слотов: {count}.\n🔄 Автогенерация на {data['period']} дн. включена."
     except Exception as e:
         logger.exception("Ошибка при быстрой генерации слотов")
-        await callback.message.answer("❌ Произошла ошибка при генерации. Попробуйте еще раз или обратитесь в поддержку.")
+        report = "❌ Произошла ошибка при генерации. Попробуйте еще раз или обратитесь в поддержку."
 
     await state.clear()
-    await show_schedule_menu(callback.message, effective_user_id=user_id)
+    await show_schedule_menu(callback.message, effective_user_id=user_id, callback=callback, header=report)
     await callback.answer()
 
 async def generate_slots_from_quick_template(user_id: int, days: int, interval: int, work_format: str = "hybrid") -> int:
@@ -924,7 +929,7 @@ async def show_multi_date_picker(message: types.Message, state: FSMContext):
     if row:
         kb.append(row)
 
-    kb.append([types.InlineKeyboardButton(text="🆗 ГОТОВО", callback_data="block_confirm")])
+    kb.append([types.InlineKeyboardButton(text="Бронирование времени", callback_data="block_confirm")])
     kb.append([types.InlineKeyboardButton(text="❌ Отмена", callback_data="sche_back")])
 
     text = f"📅 **Выберите даты для режима '{block_type}':**\n\nНажмите на даты, чтобы отметить их, затем нажмите «Готово»."
@@ -1030,9 +1035,8 @@ async def confirm_manual_block(callback: types.CallbackQuery, state: FSMContext,
         report += "\n\n⚠️ **Внимание!** На эти даты у вас есть записи клиентов:\n" + "\n".join(booked_info)
         report += "\n\nПожалуйста, свяжитесь с клиентами для переноса."
 
-    await callback.message.answer(report, parse_mode="Markdown")
     await state.clear()
-    await show_schedule_menu(callback.message, effective_user_id=user_id)
+    await show_schedule_menu(callback.message, effective_user_id=user_id, callback=callback, header=report)
     await callback.answer()
 
 @router.callback_query(F.data == "sche_view_del")
@@ -1174,8 +1178,8 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         fmt_text = fmt_map.get(slot.format, slot.format)
         trainer_name = slot.trainer_profile.user.full_name
 
-        # Removed show_alert=True to eliminate the hardcoded "OK" button as requested.
-        # Information is now shown only in the interactive card below.
+        # Acknowledge the callback without showing the hardcoded native "OK" button alert.
+        # The slot details are displayed via message editing below (popover behavior).
         await callback.answer()
 
         details = (
@@ -1217,7 +1221,7 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         elif slot.status == "blocked":
             kb_list.append([types.InlineKeyboardButton(text="🔓 Разблокировать", callback_data=f"sche_unblock_slot_{slot.id}")])
 
-        kb_list.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_view")])
+        kb_list.append([types.InlineKeyboardButton(text="Назад", callback_data="sche_view")])
         kb = types.InlineKeyboardMarkup(inline_keyboard=kb_list)
 
         try:
@@ -1245,7 +1249,7 @@ async def sche_block_slot(callback: types.CallbackQuery):
         if slot:
             slot.status = "blocked"
             await session.commit()
-            await callback.answer("Слот заблокирован.")
+            await callback.answer("Слот заблокирован.", show_alert=True)
             await view_slots(callback)
         else:
             await callback.answer("Слот не найден.")
@@ -1258,7 +1262,7 @@ async def sche_unblock_slot(callback: types.CallbackQuery):
         if slot:
             slot.status = "free"
             await session.commit()
-            await callback.answer("Слот разблокирован.")
+            await callback.answer("Слот разблокирован.", show_alert=True)
             await view_slots(callback)
         else:
             await callback.answer("Слот не найден.")
@@ -1271,7 +1275,7 @@ async def sche_delete_specific(callback: types.CallbackQuery):
         if slot:
             await session.delete(slot)
             await session.commit()
-            await callback.answer("Слот удалён.")
+            await callback.answer("Слот удалён.", show_alert=True)
             await view_slots(callback)
         else:
             await callback.answer("Слот не найден.")
@@ -1291,7 +1295,7 @@ async def sche_cancel_booking(callback: types.CallbackQuery):
             slot.status = "free"
             slot.client_id = None
             await session.commit()
-            await callback.answer("Запись отменена. Слот снова свободен.")
+            await callback.answer("Запись отменена. Слот снова свободен.", show_alert=True)
             await view_slots(callback)
         else:
             await callback.answer("Запись не найдена или уже отменена.")
@@ -1335,7 +1339,7 @@ async def sche_day_action(callback: types.CallbackQuery):
         )
         res_booked = await session.execute(stmt_booked)
         if res_booked.scalars().all():
-            await callback.answer(f"⚠️ Невозможно установить {block_type}: на этот день есть записи!")
+            await callback.answer(f"⚠️ Невозможно установить {block_type}: на этот день есть записи!", show_alert=True)
             return
 
         # Delete all free and blocked slots for that day
@@ -1358,7 +1362,7 @@ async def sche_day_action(callback: types.CallbackQuery):
         session.add(block_slot)
         await session.commit()
 
-    await callback.answer(f"✅ Режим '{block_type}' установлен на {d.strftime('%d.%m')}.")
+    await callback.answer(f"✅ Режим '{block_type}' установлен на {d.strftime('%d.%m')}.", show_alert=True)
     await view_slots(callback)
 
 from src.states.pro_booking import ProBookingSession
