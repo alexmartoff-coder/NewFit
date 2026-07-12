@@ -116,24 +116,23 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         config = res_config.scalar_one_or_none()
 
         if config and config.rolling_window:
-            # If we have less than (window / 2) days of slots, or last_replenished is old
-            # For simplicity, if we have slots, we don't replenish.
-            # But the user wants them to appear automatically.
-            # Let's check if we have any slots in the last half of the window.
-            replenish_threshold = now_utc + timedelta(days=config.rolling_window // 2)
+            # Maintain the window: check if we have slots for the full duration of the window
+            # If we have no slots starting after (window - 1) days, we replenish.
+            replenish_threshold = now_utc + timedelta(days=config.rolling_window - 1)
             stmt_future = select(TimeSlot).where(
                 TimeSlot.trainer_profile_id == profile.id,
-                TimeSlot.start_time > replenish_threshold
+                TimeSlot.start_time >= replenish_threshold
             ).limit(1)
             future_res = await session.execute(stmt_future)
 
             if not future_res.scalar():
                 logger.info(f"Replenishing slots for professional {user_id} (rolling window {config.rolling_window}d)")
-                # We need interval. We'll default to 60 if not set.
+                # We use the stored duration and profile's work format
                 await generate_slots_from_quick_template(
                     user_id=user_id,
                     days=config.rolling_window,
-                    interval=config.slot_duration or 60
+                    interval=config.slot_duration or 60,
+                    work_format=profile.work_format.value if hasattr(profile.work_format, 'value') else str(profile.work_format)
                 )
                 # Re-fetch slots
                 res = await session.execute(stmt)
@@ -197,7 +196,8 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         full_kb.append([types.InlineKeyboardButton(text="Бронирование времени", callback_data="sche_view_book")])
         full_kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")])
 
-        main_text = "📅 **Ваше расписание (на 30 дней):**"
+        window_days = config.rolling_window if config else 30
+        main_text = f"📅 **Ваше расписание (на {window_days} дней):**"
         kb = types.InlineKeyboardMarkup(inline_keyboard=full_kb)
 
         # Ensure we edit the message to maintain "popover" behavior
@@ -693,13 +693,14 @@ async def quick_gen_confirm(callback: types.CallbackQuery, state: FSMContext, ef
         await callback.message.edit_text(msg)
 
     try:
-        # Save rolling window preference
+        # Save rolling window preference and parameters
         async with SessionLocal() as session:
             stmt = select(TrainerSchedule).where(TrainerSchedule.trainer_id == user_id)
             res = await session.execute(stmt)
             config = res.scalar_one_or_none()
             if config:
                 config.rolling_window = data['period']
+                config.slot_duration = data['step']
                 config.last_replenished = datetime.now(UTC).replace(tzinfo=None)
                 await session.commit()
 
@@ -740,6 +741,7 @@ async def generate_slots_from_quick_template(user_id: int, days: int, interval: 
         count = 0
 
         now_moscow = datetime.now(moscow_tz)
+        # We always generate for the next 'days' days from today to ensure the window is full
         start_date = now_moscow.date()
         end_date = start_date + timedelta(days=days)
 
@@ -1178,9 +1180,19 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         fmt_text = fmt_map.get(slot.format, slot.format)
         trainer_name = slot.trainer_profile.user.full_name
 
-        # Acknowledge the callback without showing the hardcoded native "OK" button alert.
-        # The slot details are displayed via message editing below (popover behavior).
-        await callback.answer()
+        # Restore native Telegram alert popup for quick summary
+        alert_text = (
+            f"📅 Дата: {s_start.strftime('%d.%m.%Y')}\n"
+            f"⏰ Время: {s_start.strftime('%H:%M')} — {s_end.strftime('%H:%M')} (МСК)\n"
+            f"📊 Статус: {status_text}\n"
+            f"📍 Формат: {fmt_text}\n"
+            f"💰 Цена: {int(slot.price)}₽"
+        )
+        if slot.status == "booked":
+            client_name = slot.booking.client.full_name if (slot.booking and slot.booking.client) else "Клиент"
+            alert_text += f"\n👤 Клиент: {client_name}"
+
+        await callback.answer(text=alert_text, show_alert=True)
 
         details = (
             f"📍 *Управление слотом*\n"

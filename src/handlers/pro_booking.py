@@ -53,6 +53,28 @@ async def pro_start_booking(callback: types.CallbackQuery, state: FSMContext, is
             if slot and slot.status == "free":
                 # Jump straight to service selection
                 specs = slot.trainer_profile.specializations
+
+                # Common time formatting
+                from dateutil.tz import gettz, UTC
+                moscow_tz = gettz('Europe/Moscow')
+                s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
+                s_end = slot.end_time.replace(tzinfo=UTC) if slot.end_time.tzinfo is None else slot.end_time.astimezone(UTC)
+                start_moscow = s_start.astimezone(moscow_tz)
+                end_moscow = s_end.astimezone(moscow_tz)
+
+                fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
+                fmt_text = fmt_map.get(slot.format, slot.format)
+
+                # Native summary alert
+                alert_text = (
+                    f"📅 Дата: {start_moscow.strftime('%d.%m.%Y')}\n"
+                    f"⏰ Время: {start_moscow.strftime('%H:%M')} — {end_moscow.strftime('%H:%M')} (МСК)\n"
+                    f"👤 Клиент: {client.full_name}\n"
+                    f"💰 Цена: {int(slot.price)}₽\n"
+                    f"📍 Формат: {fmt_text}"
+                )
+                await callback.answer(text=alert_text, show_alert=True)
+
                 if specs:
                     await state.set_state(ProBookingSession.choosing_service)
                     kb = []
@@ -68,14 +90,10 @@ async def pro_start_booking(callback: types.CallbackQuery, state: FSMContext, is
                         min_price = min(slot.trainer_profile.service_prices.values())
                         price_text = f"Цена: от `{int(min_price)}₽`"
 
-                    from dateutil.tz import gettz, UTC
-                    moscow_tz = gettz('Europe/Moscow')
-                    s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
-                    start_moscow = s_start.astimezone(moscow_tz)
-
                     text = (
+                        f"📅 **Бронирование времени: {start_moscow.strftime('%d.%m.%Y')}**\n"
                         f"👤 Клиент: **{escape_md(client.full_name)}**\n"
-                        f"⏰ Время: `{start_moscow.strftime('%d.%m %H:%M')}`\n"
+                        f"⏰ Время: `{start_moscow.strftime('%H:%M')} — {end_moscow.strftime('%H:%M')}`\n"
                         f"{price_text}\n\n"
                         f"Выберите {term} для этой записи:"
                     )
@@ -221,6 +239,27 @@ async def pro_slot_selected(callback: types.CallbackQuery, state: FSMContext):
 
         await state.update_data(slot_id=slot_id)
 
+        # Common time formatting
+        from dateutil.tz import gettz, UTC
+        moscow_tz = gettz('Europe/Moscow')
+        s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
+        s_end = slot.end_time.replace(tzinfo=UTC) if slot.end_time.tzinfo is None else slot.end_time.astimezone(UTC)
+        start_moscow = s_start.astimezone(moscow_tz)
+        end_moscow = s_end.astimezone(moscow_tz)
+
+        fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
+        fmt_text = fmt_map.get(slot.format, slot.format)
+
+        # Native summary alert
+        alert_text = (
+            f"📅 Дата: {start_moscow.strftime('%d.%m.%Y')}\n"
+            f"⏰ Время: {start_moscow.strftime('%H:%M')} — {end_moscow.strftime('%H:%M')} (МСК)\n"
+            f"👤 Клиент: {data['client_name']}\n"
+            f"💰 Цена: {int(slot.price)}₽\n"
+            f"📍 Формат: {fmt_text}"
+        )
+        await callback.answer(text=alert_text, show_alert=True)
+
         # Step 1: Choose Service/Direction
         specs = slot.trainer_profile.specializations
         if specs:
@@ -238,14 +277,10 @@ async def pro_slot_selected(callback: types.CallbackQuery, state: FSMContext):
                 min_price = min(slot.trainer_profile.service_prices.values())
                 price_text = f"Цена: от `{int(min_price)}₽`"
 
-            from dateutil.tz import gettz, UTC
-            moscow_tz = gettz('Europe/Moscow')
-            s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
-            start_moscow = s_start.astimezone(moscow_tz)
-
             text = (
+                f"📅 **Бронирование времени: {start_moscow.strftime('%d.%m.%Y')}**\n"
                 f"👤 Клиент: **{escape_md(data['client_name'])}**\n"
-                f"⏰ Время: `{start_moscow.strftime('%d.%m %H:%M')}`\n"
+                f"⏰ Время: `{start_moscow.strftime('%H:%M')} — {end_moscow.strftime('%H:%M')}`\n"
                 f"{price_text}\n\n"
                 f"Выберите {term} для этой записи:"
             )

@@ -203,9 +203,20 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
         fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
         fmt_text = fmt_map.get(slot.format, slot.format)
 
+        # Native summary alert
+        alert_text = (
+            f"📅 Дата: {start_moscow.strftime('%d.%m.%Y')}\n"
+            f"⏰ Время: {start_moscow.strftime('%H:%M')} — {end_moscow.strftime('%H:%M')} (МСК)\n"
+            f"👤 Мастер: {slot.trainer_profile.user.full_name}\n"
+            f"💰 Цена: {int(slot.price)}₽\n"
+            f"📍 Формат: {fmt_text}"
+        )
+        await callback.answer(text=alert_text, show_alert=True)
+
         details = (
+            f"📅 *Бронирование времени: {start_moscow.strftime('%d.%m.%Y')}*\n"
             f"👤 Мастер: {escape_md(slot.trainer_profile.user.full_name)}\n"
-            f"⏰ {start_moscow.strftime('%d.%m %H:%M')}—{end_moscow.strftime('%H:%M')}\n"
+            f"⏰ {start_moscow.strftime('%H:%M')}—{end_moscow.strftime('%H:%M')}\n"
             f"📍 {fmt_text}\n"
             f"💰 Цена: {int(slot.price)}₽\n"
         )
