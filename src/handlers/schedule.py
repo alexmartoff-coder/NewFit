@@ -1174,30 +1174,36 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         fmt_text = fmt_map.get(slot.format, slot.format)
         trainer_name = slot.trainer_profile.user.full_name
 
+        # Show native alert regardless of status
+        alert_text = (
+            f"📅 Дата: {s_start.strftime('%d.%m.%Y')}\n"
+            f"⏰ Время: {s_start.strftime('%H:%M')} — {s_end.strftime('%H:%M')} (МСК)\n"
+            f"📊 Статус: {status_text}\n"
+            f"📍 Формат: {fmt_text}\n"
+            f"💰 Цена: {int(slot.price)}₽"
+        )
         if slot.status == "booked":
             client_name = slot.booking.client.full_name if (slot.booking and slot.booking.client) else "Клиент"
-            alert_text = (
-                f"📅 Дата: {s_start.strftime('%d.%m.%Y')}\n"
-                f"⏰ Время: {s_start.strftime('%H:%M')} — {s_end.strftime('%H:%M')} (МСК)\n"
-                f"📊 Статус: {status_text}\n"
-                f"📍 Формат: {fmt_text}\n"
-                f"💰 Цена: {int(slot.price)}₽\n"
-                f"👤 Клиент: {client_name}"
-            )
-            await callback.answer(text=alert_text, show_alert=True)
-            return
+            alert_text += f"\n👤 Клиент: {client_name}"
 
-        # Construct popover message for free/blocked slots
+        await callback.answer(text=alert_text, show_alert=True)
+
+        # Construct popover card with management functions
         details = (
-            f"📍 *Информация о слоте*\n"
+            f"📍 *Управление слотом*\n"
             f"━━━━━━━━━━━━━━━━━━\n\n"
             f"👤 *Мастер:* {escape_md(trainer_name)}\n"
             f"📅 *Дата:* {s_start.strftime('%d.%m.%Y')}\n"
             f"⏰ *Время:* `{s_start.strftime('%H:%M')} — {s_end.strftime('%H:%M')}` (МСК)\n"
             f"📊 *Статус:* {status_text}\n"
-            f"📍 *Формат:* {fmt_text}\n"
-            f"💰 *Цена:* {int(slot.price)}₽\n"
         )
+
+        if slot.status == "booked":
+            client_name = slot.booking.client.full_name if (slot.booking and slot.booking.client) else "Клиент"
+            details += f"👤 *Клиент:* {escape_md(client_name)}\n"
+
+        details += f"📍 *Формат:* {fmt_text}\n"
+        details += f"💰 *Цена:* {int(slot.price)}₽\n"
 
         if slot.online_platform == "telegram":
             details += "📱 *Видео:* Telegram\n"
@@ -1206,10 +1212,19 @@ async def view_slot_info_details(callback: types.CallbackQuery):
 
         details += "\n━━━━━━━━━━━━━━━━━━"
 
-        kb_list = [
-            [types.InlineKeyboardButton(text="Забронировать", callback_data=f"sche_assign_client_{slot.id}")],
-            [types.InlineKeyboardButton(text="Назад", callback_data="sche_view")]
-        ]
+        kb_list = []
+        if slot.status == "free":
+            kb_list.append([types.InlineKeyboardButton(text="✅ Забронировать", callback_data=f"sche_assign_client_{slot.id}")])
+            kb_list.append([
+                types.InlineKeyboardButton(text="🔒 Блок", callback_data=f"sche_block_slot_{slot.id}"),
+                types.InlineKeyboardButton(text="🗑 Удалить", callback_data=f"sche_delete_specific_{slot.id}")
+            ])
+        elif slot.status == "booked":
+            kb_list.append([types.InlineKeyboardButton(text="❌ Отменить запись", callback_data=f"sche_cancel_booking_{slot.id}")])
+        elif slot.status == "blocked":
+            kb_list.append([types.InlineKeyboardButton(text="🔓 Разблокировать", callback_data=f"sche_unblock_slot_{slot.id}")])
+
+        kb_list.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_view")])
         kb = types.InlineKeyboardMarkup(inline_keyboard=kb_list)
 
         try:
@@ -1230,6 +1245,65 @@ async def none_callback(callback: types.CallbackQuery):
 async def sche_back(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
     await show_schedule_menu(callback.message, is_admin=is_admin, effective_user_id=effective_user_id, callback=callback)
     await callback.answer()
+
+@router.callback_query(F.data.startswith("sche_block_slot_"))
+async def sche_block_slot(callback: types.CallbackQuery):
+    slot_id = int(callback.data.split("_")[3])
+    async with SessionLocal() as session:
+        slot = await session.get(TimeSlot, slot_id)
+        if slot:
+            slot.status = "blocked"
+            await session.commit()
+            await callback.answer("Слот заблокирован.", show_alert=True)
+            await view_slots(callback)
+        else:
+            await callback.answer("Слот не найден.")
+
+@router.callback_query(F.data.startswith("sche_unblock_slot_"))
+async def sche_unblock_slot(callback: types.CallbackQuery):
+    slot_id = int(callback.data.split("_")[3])
+    async with SessionLocal() as session:
+        slot = await session.get(TimeSlot, slot_id)
+        if slot:
+            slot.status = "free"
+            await session.commit()
+            await callback.answer("Слот разблокирован.", show_alert=True)
+            await view_slots(callback)
+        else:
+            await callback.answer("Слот не найден.")
+
+@router.callback_query(F.data.startswith("sche_delete_specific_"))
+async def sche_delete_specific(callback: types.CallbackQuery):
+    slot_id = int(callback.data.split("_")[3])
+    async with SessionLocal() as session:
+        slot = await session.get(TimeSlot, slot_id)
+        if slot:
+            await session.delete(slot)
+            await session.commit()
+            await callback.answer("Слот удалён.", show_alert=True)
+            await view_slots(callback)
+        else:
+            await callback.answer("Слот не найден.")
+
+@router.callback_query(F.data.startswith("sche_cancel_booking_"))
+async def sche_cancel_booking(callback: types.CallbackQuery):
+    slot_id = int(callback.data.split("_")[3])
+    async with SessionLocal() as session:
+        from sqlalchemy.orm import selectinload
+        stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(selectinload(TimeSlot.booking))
+        res = await session.execute(stmt)
+        slot = res.scalar_one_or_none()
+
+        if slot and slot.status == "booked":
+            if slot.booking:
+                await session.delete(slot.booking)
+            slot.status = "free"
+            slot.client_id = None
+            await session.commit()
+            await callback.answer("Запись отменена. Слот снова свободен.", show_alert=True)
+            await view_slots(callback)
+        else:
+            await callback.answer("Запись не найдена или уже отменена.")
 
 from src.states.pro_booking import ProBookingSession
 from src.handlers.profiles import show_clients
