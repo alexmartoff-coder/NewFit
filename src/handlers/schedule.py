@@ -196,8 +196,8 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         full_kb.append([types.InlineKeyboardButton(text="Бронирование времени", callback_data="sche_view_book")])
         full_kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")])
 
-        window_days = config.rolling_window if config else 30
-        main_text = f"📅 **Ваше расписание (на {window_days} дней):**"
+        actual_days = len(grouped)
+        main_text = f"📅 **Ваше расписание (на {actual_days} дней):**"
         kb = types.InlineKeyboardMarkup(inline_keyboard=full_kb)
 
         # Ensure we edit the message to maintain "popover" behavior
