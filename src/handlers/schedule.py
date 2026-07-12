@@ -1214,7 +1214,11 @@ async def view_slot_info_details(callback: types.CallbackQuery):
 
         kb_list = []
         if slot.status == "free":
-            kb_list.append([types.InlineKeyboardButton(text="✅ Забронировать", callback_data=f"sche_assign_client_{slot.id}")])
+            kb_list.append([types.InlineKeyboardButton(text="👤 Клиент", callback_data=f"sche_assign_client_{slot.id}")])
+            kb_list.append([
+                types.InlineKeyboardButton(text="🏖 Отпуск", callback_data=f"sche_day_vacation_{slot.id}"),
+                types.InlineKeyboardButton(text="🗓 Выходной", callback_data=f"sche_day_weekend_{slot.id}")
+            ])
             kb_list.append([
                 types.InlineKeyboardButton(text="🔒 Блок", callback_data=f"sche_block_slot_{slot.id}"),
                 types.InlineKeyboardButton(text="🗑 Удалить", callback_data=f"sche_delete_specific_{slot.id}")
@@ -1304,6 +1308,71 @@ async def sche_cancel_booking(callback: types.CallbackQuery):
             await view_slots(callback)
         else:
             await callback.answer("Запись не найдена или уже отменена.")
+
+@router.callback_query(F.data.startswith("sche_day_"))
+async def sche_day_action(callback: types.CallbackQuery):
+    parts = callback.data.split("_")
+    action = parts[2] # vacation or weekend
+    slot_id = int(parts[3])
+    block_type = "Отпуск" if action == "vacation" else "Выходной"
+
+    async with SessionLocal() as session:
+        from sqlalchemy.orm import selectinload
+        stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(selectinload(TimeSlot.trainer_profile))
+        res = await session.execute(stmt)
+        slot = res.scalar_one_or_none()
+
+        if not slot:
+            await callback.answer("Слот не найден.")
+            return
+
+        profile_id = slot.trainer_profile_id
+        moscow_tz = gettz('Europe/Moscow')
+        # Get the Moscow date of the slot
+        d = slot.start_time.replace(tzinfo=UTC).astimezone(moscow_tz).date()
+
+        # Start and end of day in Moscow time
+        start_msk = datetime.combine(d, time.min).replace(tzinfo=moscow_tz)
+        end_msk = datetime.combine(d, time.max).replace(tzinfo=moscow_tz)
+
+        # Convert to UTC for DB queries
+        start_utc = start_msk.astimezone(UTC).replace(tzinfo=None)
+        end_utc = end_msk.astimezone(UTC).replace(tzinfo=None)
+
+        # Check for booked slots
+        stmt_booked = select(TimeSlot).where(
+            TimeSlot.trainer_profile_id == profile_id,
+            TimeSlot.start_time >= start_utc,
+            TimeSlot.start_time <= end_utc,
+            TimeSlot.status == "booked"
+        )
+        res_booked = await session.execute(stmt_booked)
+        if res_booked.scalars().all():
+            await callback.answer(f"⚠️ Невозможно установить {block_type}: на этот день есть записи!", show_alert=True)
+            return
+
+        # Delete all free and blocked slots for that day
+        stmt_del = delete(TimeSlot).where(
+            TimeSlot.trainer_profile_id == profile_id,
+            TimeSlot.start_time >= start_utc,
+            TimeSlot.start_time <= end_utc,
+            TimeSlot.status.in_(["free", "blocked"])
+        )
+        await session.execute(stmt_del)
+
+        # Create a single dummy blocked slot to indicate the day is unavailable
+        block_slot = TimeSlot(
+            trainer_profile_id=profile_id,
+            start_time=start_utc,
+            end_time=start_utc + timedelta(minutes=1440),
+            status="blocked",
+            format=block_type.lower()
+        )
+        session.add(block_slot)
+        await session.commit()
+
+    await callback.answer(f"✅ Режим '{block_type}' установлен на {d.strftime('%d.%m')}.", show_alert=True)
+    await view_slots(callback)
 
 from src.states.pro_booking import ProBookingSession
 from src.handlers.profiles import show_clients
