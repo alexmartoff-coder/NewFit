@@ -1180,8 +1180,8 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         fmt_text = fmt_map.get(slot.format, slot.format)
         trainer_name = slot.trainer_profile.user.full_name
 
-        # Acknowledge the callback without showing the native "OK" button alert.
-        # The slot details are displayed via message editing below (popover behavior).
+        # Acknowledge the callback silently.
+        # All slot details and management buttons are shown via message editing (popover).
         await callback.answer()
 
         details = (
@@ -1209,7 +1209,7 @@ async def view_slot_info_details(callback: types.CallbackQuery):
 
         kb_list = []
         if slot.status == "free":
-            kb_list.append([types.InlineKeyboardButton(text="Забронировать время", callback_data=f"sche_assign_client_{slot.id}")])
+            kb_list.append([types.InlineKeyboardButton(text="✅ Забронировать время", callback_data=f"sche_assign_client_{slot.id}")])
             kb_list.append([
                 types.InlineKeyboardButton(text="🏖 Отпуск", callback_data=f"sche_day_vacation_{slot.id}"),
                 types.InlineKeyboardButton(text="🗓 Выходной", callback_data=f"sche_day_weekend_{slot.id}")
