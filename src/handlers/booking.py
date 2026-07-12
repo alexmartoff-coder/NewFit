@@ -211,7 +211,7 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
         )
 
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="✅ Забронировать", callback_data=f"slot_confirm_{slot.id}")],
+            [types.InlineKeyboardButton(text="Бронирование времени", callback_data=f"slot_confirm_{slot.id}")],
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data=f"bdate_{slot.start_time.date().isoformat()}")]
         ])
 
@@ -425,7 +425,7 @@ async def show_booking_confirmation(callback: types.CallbackQuery, state: FSMCon
     selected_date = s_start.date().isoformat()
     kb = types.InlineKeyboardMarkup(
         inline_keyboard=[
-            [types.InlineKeyboardButton(text="✅ Да, записаться", callback_data="confirm_booking")],
+            [types.InlineKeyboardButton(text="✅ Бронирование времени", callback_data="confirm_booking")],
             [types.InlineKeyboardButton(text="🔙 К выбору времени", callback_data=f"bdate_{selected_date}")],
             [types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="client_menu")]
         ]

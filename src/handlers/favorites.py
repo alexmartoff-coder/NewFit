@@ -121,7 +121,7 @@ async def show_favorites(callback: types.CallbackQuery, is_admin: bool = False, 
             text += f"⭐ Рейтинг: {profile.rating:.1f}"
 
             kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="📅 Записаться повторно", callback_data=f"book_{profile.user_id}")]
+                [types.InlineKeyboardButton(text="Бронирование времени", callback_data=f"book_{profile.user_id}")]
             ])
             kb = add_admin_button(kb, is_admin=is_admin)
 
