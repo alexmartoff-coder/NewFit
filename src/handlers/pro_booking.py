@@ -415,7 +415,7 @@ async def show_pro_booking_confirmation(callback: types.CallbackQuery, state: FS
     )
 
     kb = [
-        [types.InlineKeyboardButton(text="✅ Подтвердить", callback_data="pro_confirm_booking")],
+        [types.InlineKeyboardButton(text="✅ Бронирование времени", callback_data="pro_confirm_booking")],
         [types.InlineKeyboardButton(text="❌ Отмена", callback_data="pro_cancel")]
     ]
 

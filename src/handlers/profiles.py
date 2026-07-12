@@ -289,7 +289,7 @@ async def show_clients(event: types.Message | types.CallbackQuery, state: FSMCon
                     callback_data += f"_{slot_id}"
 
                 kb_list.append([types.InlineKeyboardButton(
-                    text=f"Забронировать для {client_name}",
+                    text=f"Бронирование времени для {client_name}",
                     callback_data=callback_data
                 )])
 

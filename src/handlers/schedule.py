@@ -43,7 +43,7 @@ async def show_schedule_menu(message: types.Message, is_admin: bool = False, eff
         inline_keyboard=[
             [types.InlineKeyboardButton(text="Посмотреть слоты", callback_data="sche_view")],
             [types.InlineKeyboardButton(text="Быстрая генерация слотов", callback_data="sche_quick_gen")],
-            [types.InlineKeyboardButton(text="Забронировать время", callback_data="sche_view_book")]
+            [types.InlineKeyboardButton(text="Бронирование времени", callback_data="sche_view_book")]
         ]
     )
     kb = add_admin_button(kb, is_admin=is_admin)
@@ -189,7 +189,7 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
             if row:
                 full_kb.append(row)
 
-        full_kb.append([types.InlineKeyboardButton(text="🗓 Забронировать время", callback_data="sche_view_book")])
+        full_kb.append([types.InlineKeyboardButton(text="Бронирование времени", callback_data="sche_view_book")])
         full_kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")])
 
         main_text = "📅 **Ваше расписание (на 30 дней):**"
@@ -891,7 +891,7 @@ async def book_time_submenu(callback: types.CallbackQuery, is_admin: bool = Fals
         [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")]
     ])
     kb = add_admin_button(kb, is_admin=is_admin)
-    text = "Забронировать время:"
+    text = "Бронирование времени:"
     if callback.message.photo:
         await callback.message.edit_caption(caption=text, reply_markup=kb)
     else:
@@ -1174,21 +1174,10 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         fmt_text = fmt_map.get(slot.format, slot.format)
         trainer_name = slot.trainer_profile.user.full_name
 
-        # Show native alert regardless of status
-        alert_text = (
-            f"📅 Дата: {s_start.strftime('%d.%m.%Y')}\n"
-            f"⏰ Время: {s_start.strftime('%H:%M')} — {s_end.strftime('%H:%M')} (МСК)\n"
-            f"📊 Статус: {status_text}\n"
-            f"📍 Формат: {fmt_text}\n"
-            f"💰 Цена: {int(slot.price)}₽"
-        )
-        if slot.status == "booked":
-            client_name = slot.booking.client.full_name if (slot.booking and slot.booking.client) else "Клиент"
-            alert_text += f"\n👤 Клиент: {client_name}"
+        # Removed show_alert=True to eliminate the hardcoded "OK" button as requested.
+        # Information is now shown only in the interactive card below.
+        await callback.answer()
 
-        await callback.answer(text=alert_text, show_alert=True)
-
-        # Construct popover card with management functions
         details = (
             f"📍 *Управление слотом*\n"
             f"━━━━━━━━━━━━━━━━━━\n\n"
@@ -1214,7 +1203,7 @@ async def view_slot_info_details(callback: types.CallbackQuery):
 
         kb_list = []
         if slot.status == "free":
-            kb_list.append([types.InlineKeyboardButton(text="👤 Клиент", callback_data=f"sche_assign_client_{slot.id}")])
+            kb_list.append([types.InlineKeyboardButton(text="Бронирование времени", callback_data=f"sche_assign_client_{slot.id}")])
             kb_list.append([
                 types.InlineKeyboardButton(text="🏖 Отпуск", callback_data=f"sche_day_vacation_{slot.id}"),
                 types.InlineKeyboardButton(text="🗓 Выходной", callback_data=f"sche_day_weekend_{slot.id}")
@@ -1239,8 +1228,6 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         except exceptions.TelegramBadRequest:
             pass
 
-        await callback.answer()
-
 @router.callback_query(F.data == "none")
 async def none_callback(callback: types.CallbackQuery):
     await callback.answer()
@@ -1258,7 +1245,7 @@ async def sche_block_slot(callback: types.CallbackQuery):
         if slot:
             slot.status = "blocked"
             await session.commit()
-            await callback.answer("Слот заблокирован.", show_alert=True)
+            await callback.answer("Слот заблокирован.")
             await view_slots(callback)
         else:
             await callback.answer("Слот не найден.")
@@ -1271,7 +1258,7 @@ async def sche_unblock_slot(callback: types.CallbackQuery):
         if slot:
             slot.status = "free"
             await session.commit()
-            await callback.answer("Слот разблокирован.", show_alert=True)
+            await callback.answer("Слот разблокирован.")
             await view_slots(callback)
         else:
             await callback.answer("Слот не найден.")
@@ -1284,7 +1271,7 @@ async def sche_delete_specific(callback: types.CallbackQuery):
         if slot:
             await session.delete(slot)
             await session.commit()
-            await callback.answer("Слот удалён.", show_alert=True)
+            await callback.answer("Слот удалён.")
             await view_slots(callback)
         else:
             await callback.answer("Слот не найден.")
@@ -1304,7 +1291,7 @@ async def sche_cancel_booking(callback: types.CallbackQuery):
             slot.status = "free"
             slot.client_id = None
             await session.commit()
-            await callback.answer("Запись отменена. Слот снова свободен.", show_alert=True)
+            await callback.answer("Запись отменена. Слот снова свободен.")
             await view_slots(callback)
         else:
             await callback.answer("Запись не найдена или уже отменена.")
@@ -1348,7 +1335,7 @@ async def sche_day_action(callback: types.CallbackQuery):
         )
         res_booked = await session.execute(stmt_booked)
         if res_booked.scalars().all():
-            await callback.answer(f"⚠️ Невозможно установить {block_type}: на этот день есть записи!", show_alert=True)
+            await callback.answer(f"⚠️ Невозможно установить {block_type}: на этот день есть записи!")
             return
 
         # Delete all free and blocked slots for that day
@@ -1371,7 +1358,7 @@ async def sche_day_action(callback: types.CallbackQuery):
         session.add(block_slot)
         await session.commit()
 
-    await callback.answer(f"✅ Режим '{block_type}' установлен на {d.strftime('%d.%m')}.", show_alert=True)
+    await callback.answer(f"✅ Режим '{block_type}' установлен на {d.strftime('%d.%m')}.")
     await view_slots(callback)
 
 from src.states.pro_booking import ProBookingSession
