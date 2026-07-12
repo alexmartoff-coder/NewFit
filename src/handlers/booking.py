@@ -203,18 +203,12 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
         fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
         fmt_text = fmt_map.get(slot.format, slot.format)
 
-        # Native summary alert
-        alert_text = (
-            f"📅 Дата: {start_moscow.strftime('%d.%m.%Y')}\n"
-            f"⏰ Время: {start_moscow.strftime('%H:%M')} — {end_moscow.strftime('%H:%M')} (МСК)\n"
-            f"👤 Мастер: {slot.trainer_profile.user.full_name}\n"
-            f"💰 Цена: {int(slot.price)}₽\n"
-            f"📍 Формат: {fmt_text}"
-        )
-        await callback.answer(text=alert_text, show_alert=True)
+        # Acknowledge the callback silently.
+        # The slot details are displayed via message editing below (popover behavior).
+        await callback.answer()
 
         details = (
-            f"📅 *Бронирование времени: {start_moscow.strftime('%d.%m.%Y')}*\n"
+            f"📅 *Забронировать время: {start_moscow.strftime('%d.%m.%Y')}*\n"
             f"👤 Мастер: {escape_md(slot.trainer_profile.user.full_name)}\n"
             f"⏰ {start_moscow.strftime('%H:%M')}—{end_moscow.strftime('%H:%M')}\n"
             f"📍 {fmt_text}\n"
@@ -222,7 +216,7 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
         )
 
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="Бронирование времени", callback_data=f"slot_confirm_{slot.id}")],
+            [types.InlineKeyboardButton(text="Забронировать время", callback_data=f"slot_confirm_{slot.id}")],
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data=f"bdate_{slot.start_time.date().isoformat()}")]
         ])
 
@@ -436,7 +430,7 @@ async def show_booking_confirmation(callback: types.CallbackQuery, state: FSMCon
     selected_date = s_start.date().isoformat()
     kb = types.InlineKeyboardMarkup(
         inline_keyboard=[
-            [types.InlineKeyboardButton(text="✅ Бронирование времени", callback_data="confirm_booking")],
+            [types.InlineKeyboardButton(text="✅ Забронировать время", callback_data="confirm_booking")],
             [types.InlineKeyboardButton(text="🔙 К выбору времени", callback_data=f"bdate_{selected_date}")],
             [types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="client_menu")]
         ]

@@ -65,15 +65,8 @@ async def pro_start_booking(callback: types.CallbackQuery, state: FSMContext, is
                 fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
                 fmt_text = fmt_map.get(slot.format, slot.format)
 
-                # Native summary alert
-                alert_text = (
-                    f"📅 Дата: {start_moscow.strftime('%d.%m.%Y')}\n"
-                    f"⏰ Время: {start_moscow.strftime('%H:%M')} — {end_moscow.strftime('%H:%M')} (МСК)\n"
-                    f"👤 Клиент: {client.full_name}\n"
-                    f"💰 Цена: {int(slot.price)}₽\n"
-                    f"📍 Формат: {fmt_text}"
-                )
-                await callback.answer(text=alert_text, show_alert=True)
+                # Acknowledge callback silently. Details shown via popover edit below.
+                await callback.answer()
 
                 if specs:
                     await state.set_state(ProBookingSession.choosing_service)
@@ -91,7 +84,7 @@ async def pro_start_booking(callback: types.CallbackQuery, state: FSMContext, is
                         price_text = f"Цена: от `{int(min_price)}₽`"
 
                     text = (
-                        f"📅 **Бронирование времени: {start_moscow.strftime('%d.%m.%Y')}**\n"
+                        f"📅 **Забронировать время: {start_moscow.strftime('%d.%m.%Y')}**\n"
                         f"👤 Клиент: **{escape_md(client.full_name)}**\n"
                         f"⏰ Время: `{start_moscow.strftime('%H:%M')} — {end_moscow.strftime('%H:%M')}`\n"
                         f"{price_text}\n\n"
@@ -250,15 +243,8 @@ async def pro_slot_selected(callback: types.CallbackQuery, state: FSMContext):
         fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
         fmt_text = fmt_map.get(slot.format, slot.format)
 
-        # Native summary alert
-        alert_text = (
-            f"📅 Дата: {start_moscow.strftime('%d.%m.%Y')}\n"
-            f"⏰ Время: {start_moscow.strftime('%H:%M')} — {end_moscow.strftime('%H:%M')} (МСК)\n"
-            f"👤 Клиент: {data['client_name']}\n"
-            f"💰 Цена: {int(slot.price)}₽\n"
-            f"📍 Формат: {fmt_text}"
-        )
-        await callback.answer(text=alert_text, show_alert=True)
+        # Acknowledge callback silently. Details shown via popover edit below.
+        await callback.answer()
 
         # Step 1: Choose Service/Direction
         specs = slot.trainer_profile.specializations
@@ -278,7 +264,7 @@ async def pro_slot_selected(callback: types.CallbackQuery, state: FSMContext):
                 price_text = f"Цена: от `{int(min_price)}₽`"
 
             text = (
-                f"📅 **Бронирование времени: {start_moscow.strftime('%d.%m.%Y')}**\n"
+                f"📅 **Забронировать время: {start_moscow.strftime('%d.%m.%Y')}**\n"
                 f"👤 Клиент: **{escape_md(data['client_name'])}**\n"
                 f"⏰ Время: `{start_moscow.strftime('%H:%M')} — {end_moscow.strftime('%H:%M')}`\n"
                 f"{price_text}\n\n"
@@ -450,7 +436,7 @@ async def show_pro_booking_confirmation(callback: types.CallbackQuery, state: FS
     )
 
     kb = [
-        [types.InlineKeyboardButton(text="✅ Бронирование времени", callback_data="pro_confirm_booking")],
+        [types.InlineKeyboardButton(text="✅ Забронировать время", callback_data="pro_confirm_booking")],
         [types.InlineKeyboardButton(text="❌ Отмена", callback_data="pro_cancel")]
     ]
 

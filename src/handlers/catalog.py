@@ -589,7 +589,7 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
                 )
                 kb = types.InlineKeyboardMarkup(
                     inline_keyboard=[
-                        [types.InlineKeyboardButton(text="Бронирование времени", callback_data=f"book_{trainer_profile.user_id}")],
+                        [types.InlineKeyboardButton(text="Забронировать время", callback_data=f"book_{trainer_profile.user_id}")],
                         [types.InlineKeyboardButton(text="🔙 Назад к фильтрам", callback_data="filter_back")]
                     ]
                 )
