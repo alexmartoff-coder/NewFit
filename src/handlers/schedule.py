@@ -43,7 +43,7 @@ async def show_schedule_menu(message: types.Message, is_admin: bool = False, eff
         inline_keyboard=[
             [types.InlineKeyboardButton(text="Посмотреть слоты", callback_data="sche_view")],
             [types.InlineKeyboardButton(text="Быстрая генерация слотов", callback_data="sche_quick_gen")],
-            [types.InlineKeyboardButton(text="Бронирование времени", callback_data="sche_view_book")]
+            [types.InlineKeyboardButton(text="Забронировать время", callback_data="sche_view_book")]
         ]
     )
     kb = add_admin_button(kb, is_admin=is_admin)
@@ -193,7 +193,7 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
             if row:
                 full_kb.append(row)
 
-        full_kb.append([types.InlineKeyboardButton(text="Бронирование времени", callback_data="sche_view_book")])
+        full_kb.append([types.InlineKeyboardButton(text="Забронировать время", callback_data="sche_view_book")])
         full_kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")])
 
         actual_days = len(grouped)
@@ -898,7 +898,7 @@ async def book_time_submenu(callback: types.CallbackQuery, is_admin: bool = Fals
         [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")]
     ])
     kb = add_admin_button(kb, is_admin=is_admin)
-    text = "Бронирование времени:"
+    text = "Забронировать время:"
     if callback.message.photo:
         await callback.message.edit_caption(caption=text, reply_markup=kb)
     else:
@@ -931,7 +931,7 @@ async def show_multi_date_picker(message: types.Message, state: FSMContext):
     if row:
         kb.append(row)
 
-    kb.append([types.InlineKeyboardButton(text="Бронирование времени", callback_data="block_confirm")])
+    kb.append([types.InlineKeyboardButton(text="ГОТОВО", callback_data="block_confirm")])
     kb.append([types.InlineKeyboardButton(text="❌ Отмена", callback_data="sche_back")])
 
     text = f"📅 **Выберите даты для режима '{block_type}':**\n\nНажмите на даты, чтобы отметить их, затем нажмите «Готово»."
@@ -1180,19 +1180,9 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         fmt_text = fmt_map.get(slot.format, slot.format)
         trainer_name = slot.trainer_profile.user.full_name
 
-        # Restore native Telegram alert popup for quick summary
-        alert_text = (
-            f"📅 Дата: {s_start.strftime('%d.%m.%Y')}\n"
-            f"⏰ Время: {s_start.strftime('%H:%M')} — {s_end.strftime('%H:%M')} (МСК)\n"
-            f"📊 Статус: {status_text}\n"
-            f"📍 Формат: {fmt_text}\n"
-            f"💰 Цена: {int(slot.price)}₽"
-        )
-        if slot.status == "booked":
-            client_name = slot.booking.client.full_name if (slot.booking and slot.booking.client) else "Клиент"
-            alert_text += f"\n👤 Клиент: {client_name}"
-
-        await callback.answer(text=alert_text, show_alert=True)
+        # Acknowledge the callback without showing the native "OK" button alert.
+        # The slot details are displayed via message editing below (popover behavior).
+        await callback.answer()
 
         details = (
             f"📍 *Управление слотом*\n"
@@ -1219,7 +1209,7 @@ async def view_slot_info_details(callback: types.CallbackQuery):
 
         kb_list = []
         if slot.status == "free":
-            kb_list.append([types.InlineKeyboardButton(text="Бронирование времени", callback_data=f"sche_assign_client_{slot.id}")])
+            kb_list.append([types.InlineKeyboardButton(text="Забронировать время", callback_data=f"sche_assign_client_{slot.id}")])
             kb_list.append([
                 types.InlineKeyboardButton(text="🏖 Отпуск", callback_data=f"sche_day_vacation_{slot.id}"),
                 types.InlineKeyboardButton(text="🗓 Выходной", callback_data=f"sche_day_weekend_{slot.id}")
