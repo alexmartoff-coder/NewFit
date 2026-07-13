@@ -554,8 +554,11 @@ async def show_my_bookings_by_pro(callback: types.CallbackQuery, effective_user_
                 if not review_res.scalar_one_or_none():
                     kb_list.append([types.InlineKeyboardButton(text="⭐ Оставить отзыв", callback_data=f"leave_review_{b.id}")])
 
+            # Repeat booking button
+            kb_list.append([types.InlineKeyboardButton(text="🔄 Повторная запись", callback_data=f"book_{pro_user_id}")])
+
             if b.status in ["confirmed", "pending"] and b.start_time > now_utc:
-                kb_list.append([types.InlineKeyboardButton(text="❌ Отменить запись", callback_data=f"client_cancel_booking_{b.id}")])
+                kb_list.append([types.InlineKeyboardButton(text="❌ Отменить запись", callback_data=f"client_cancel_req_{b.id}")])
 
             kb = types.InlineKeyboardMarkup(inline_keyboard=kb_list) if kb_list else None
             await callback.message.answer(text, reply_markup=kb, parse_mode="Markdown")
@@ -639,8 +642,12 @@ async def show_my_bookings_by_service(callback: types.CallbackQuery, effective_u
                 if not review_res.scalar_one_or_none():
                     kb_list.append([types.InlineKeyboardButton(text="⭐ Оставить отзыв", callback_data=f"leave_review_{b.id}")])
 
+            # Repeat booking button
+            trainer_user_id = slot.trainer_profile.user_id
+            kb_list.append([types.InlineKeyboardButton(text="🔄 Повторная запись", callback_data=f"book_{trainer_user_id}")])
+
             if b.status in ["confirmed", "pending"] and b.start_time > now_utc:
-                kb_list.append([types.InlineKeyboardButton(text="❌ Отменить запись", callback_data=f"client_cancel_booking_{b.id}")])
+                kb_list.append([types.InlineKeyboardButton(text="❌ Отменить запись", callback_data=f"client_cancel_req_{b.id}")])
 
             kb = types.InlineKeyboardMarkup(inline_keyboard=kb_list) if kb_list else None
             await callback.message.answer(text, reply_markup=kb, parse_mode="Markdown")
@@ -821,7 +828,25 @@ async def show_instructions_detailed(message: types.Message):
     )
     await message.answer(instruction, parse_mode="Markdown", disable_web_page_preview=True)
 
-@router.callback_query(F.data.startswith("client_cancel_booking_"))
+@router.callback_query(F.data.startswith("client_cancel_req_"))
+async def client_cancel_request(callback: types.CallbackQuery):
+    booking_id = int(callback.data.split("_")[3])
+
+    text = "❓ **Подтвердите отмену**\n\nВы действительно хотите отменить вашу запись? Специалист получит уведомление об отмене."
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(text="✅ Да, отменить", callback_data=f"client_cancel_final_{booking_id}"),
+            types.InlineKeyboardButton(text="❌ Нет, оставить", callback_data="my_bookings_cat_sport") # Or some other back target
+        ]
+    ])
+
+    try:
+        await callback.message.edit_text(text=text, reply_markup=kb, parse_mode="Markdown")
+    except exceptions.TelegramBadRequest:
+        pass
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("client_cancel_final_"))
 async def client_cancel_booking(callback: types.CallbackQuery):
     booking_id = int(callback.data.split("_")[3])
 
