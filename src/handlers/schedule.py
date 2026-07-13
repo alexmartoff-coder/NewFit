@@ -1285,22 +1285,81 @@ async def sche_delete_specific(callback: types.CallbackQuery):
 @router.callback_query(F.data.startswith("sche_cancel_booking_"))
 async def sche_cancel_booking(callback: types.CallbackQuery):
     slot_id = int(callback.data.split("_")[3])
+
+    text = "❓ **Отмена записи**\n\nВыберите вариант отмены:"
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="🔓 Освободить время (для новой записи)", callback_data=f"sche_cancel_confirm_free_{slot_id}")],
+        [types.InlineKeyboardButton(text="🗑 Удалить слот (например, заболел)", callback_data=f"sche_cancel_confirm_del_{slot_id}")],
+        [types.InlineKeyboardButton(text="🔙 Назад", callback_data=f"view_slot_{slot_id}")]
+    ])
+
+    try:
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+        else:
+            await callback.message.edit_text(text=text, reply_markup=kb, parse_mode="Markdown")
+    except exceptions.TelegramBadRequest:
+        pass
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("sche_cancel_confirm_"))
+async def sche_cancel_confirm(callback: types.CallbackQuery):
+    parts = callback.data.split("_")
+    action = parts[3] # free or del
+    slot_id = int(parts[4])
+
     async with SessionLocal() as session:
         from sqlalchemy.orm import selectinload
-        stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(selectinload(TimeSlot.booking))
+        stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(
+            selectinload(TimeSlot.booking).options(selectinload(Booking.client)),
+            selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
+        )
         res = await session.execute(stmt)
         slot = res.scalar_one_or_none()
 
-        if slot and slot.status == "booked":
-            if slot.booking:
-                await session.delete(slot.booking)
+        if not slot or slot.status != "booked":
+            await callback.answer("Запись не найдена или уже отменена.", show_alert=True)
+            await view_slots(callback)
+            return
+
+        booking = slot.booking
+        client_user_id = booking.client.user_id if booking and booking.client else None
+        trainer_name = slot.trainer_profile.user.full_name
+
+        moscow_tz = gettz('Europe/Moscow')
+        s_start = slot.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
+        slot_time_str = s_start.strftime('%d.%m %H:%M')
+        slot_format = slot.format
+
+        # 1. Notify Client
+        if client_user_id:
+            try:
+                msg_to_client = (
+                    f"❌ **Запись отменена мастером**\n\n"
+                    f"Ваша запись к мастеру {escape_md(trainer_name)} отменена.\n"
+                    f"📅 Время: `{slot_time_str}` (МСК)\n"
+                    f"🏷 Услуга: {escape_md(slot_format)}\n\n"
+                    f"Вы можете выбрать другое время в каталоге."
+                )
+                await callback.bot.send_message(client_user_id, msg_to_client, parse_mode="Markdown")
+            except Exception as e:
+                logger.error(f"Failed to notify client {client_user_id} about cancellation: {e}")
+
+        # 2. Process Cancellation
+        if booking:
+            await session.delete(booking)
+
+        if action == "free":
             slot.status = "free"
             slot.client_id = None
-            await session.commit()
-            await callback.answer("Запись отменена. Слот снова свободен.", show_alert=True)
-            await view_slots(callback)
-        else:
-            await callback.answer("Запись не найдена или уже отменена.")
+            msg_alert = "Запись отменена. Слот снова свободен."
+        else: # del
+            await session.delete(slot)
+            msg_alert = "Запись отменена. Слот удалён из расписания."
+
+        await session.commit()
+        await callback.answer(msg_alert, show_alert=True)
+        await view_slots(callback)
 
 @router.callback_query(F.data.startswith("sche_day_"))
 async def sche_day_action(callback: types.CallbackQuery):
