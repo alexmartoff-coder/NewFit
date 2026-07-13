@@ -1091,6 +1091,28 @@ async def delete_slot_callback(callback: types.CallbackQuery, effective_user_id:
 async def process_slot_deletion(callback: types.CallbackQuery, effective_user_id: int = None):
     user_id = effective_user_id or callback.from_user.id
     slot_id = int(callback.data.split("_")[3])
+
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(text="✅ Да, удалить", callback_data=f"sche_del_free_final_{slot_id}"),
+            types.InlineKeyboardButton(text="❌ Отмена", callback_data="sche_view_del")
+        ]
+    ])
+    text = "❓ **Подтвердите удаление**\n\nВы действительно хотите удалить этот свободный слот?"
+
+    try:
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+        else:
+            await callback.message.edit_text(text=text, reply_markup=kb, parse_mode="Markdown")
+    except exceptions.TelegramBadRequest:
+        pass
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("sche_del_free_final_"))
+async def process_slot_deletion_final(callback: types.CallbackQuery, effective_user_id: int = None):
+    user_id = effective_user_id or callback.from_user.id
+    slot_id = int(callback.data.split("_")[4])
     async with SessionLocal() as session:
         stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
         profile = (await session.execute(stmt_p)).scalar_one_or_none()
@@ -1100,7 +1122,7 @@ async def process_slot_deletion(callback: types.CallbackQuery, effective_user_id
 
         await session.execute(delete(TimeSlot).where(TimeSlot.id == slot_id, TimeSlot.trainer_profile_id == profile.id))
         await session.commit()
-    await callback.answer("Слот удалён.")
+    await callback.answer("Слот удалён.", show_alert=True)
     # Refresh the deletion view
     await delete_slot_callback(callback, effective_user_id=effective_user_id)
 
@@ -1219,6 +1241,9 @@ async def view_slot_info_details(callback: types.CallbackQuery):
                 types.InlineKeyboardButton(text="🗑 Удалить", callback_data=f"sche_delete_specific_{slot.id}")
             ])
         elif slot.status == "booked":
+            client_id = slot.booking.client.id if slot.booking and slot.booking.client else None
+            if client_id:
+                kb_list.append([types.InlineKeyboardButton(text="🔄 Повторная запись", callback_data=f"pro_book_client_{client_id}")])
             kb_list.append([types.InlineKeyboardButton(text="❌ Отменить запись", callback_data=f"sche_cancel_booking_{slot.id}")])
         elif slot.status == "blocked":
             kb_list.append([types.InlineKeyboardButton(text="🔓 Разблокировать", callback_data=f"sche_unblock_slot_{slot.id}")])
@@ -1272,6 +1297,27 @@ async def sche_unblock_slot(callback: types.CallbackQuery):
 @router.callback_query(F.data.startswith("sche_delete_specific_"))
 async def sche_delete_specific(callback: types.CallbackQuery):
     slot_id = int(callback.data.split("_")[3])
+
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(text="✅ Да, удалить", callback_data=f"sche_del_spec_final_{slot_id}"),
+            types.InlineKeyboardButton(text="❌ Отмена", callback_data=f"view_slot_{slot_id}")
+        ]
+    ])
+    text = "❓ **Подтвердите удаление**\n\nВы действительно хотите удалить этот слот из расписания?"
+
+    try:
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+        else:
+            await callback.message.edit_text(text=text, reply_markup=kb, parse_mode="Markdown")
+    except exceptions.TelegramBadRequest:
+        pass
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("sche_del_spec_final_"))
+async def sche_delete_specific_final(callback: types.CallbackQuery):
+    slot_id = int(callback.data.split("_")[4])
     async with SessionLocal() as session:
         slot = await session.get(TimeSlot, slot_id)
         if slot:
@@ -1304,6 +1350,29 @@ async def sche_cancel_booking(callback: types.CallbackQuery):
 
 @router.callback_query(F.data.startswith("sche_cancel_confirm_"))
 async def sche_cancel_confirm(callback: types.CallbackQuery):
+    parts = callback.data.split("_")
+    action = parts[3] # free or del
+    slot_id = int(parts[4])
+
+    text = "⚠️ **Внимание!**\n\nВы действительно хотите отменить запись клиента? Это действие нельзя отменить, клиент получит уведомление."
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(text="✅ Да, отменить", callback_data=f"sche_cancel_final_{action}_{slot_id}"),
+            types.InlineKeyboardButton(text="❌ Нет", callback_data=f"sche_cancel_booking_{slot_id}")
+        ]
+    ])
+
+    try:
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+        else:
+            await callback.message.edit_text(text=text, reply_markup=kb, parse_mode="Markdown")
+    except exceptions.TelegramBadRequest:
+        pass
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("sche_cancel_final_"))
+async def sche_cancel_confirm_final(callback: types.CallbackQuery):
     parts = callback.data.split("_")
     action = parts[3] # free or del
     slot_id = int(parts[4])
