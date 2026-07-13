@@ -547,15 +547,17 @@ async def show_my_bookings_by_pro(callback: types.CallbackQuery, effective_user_
                 f"📊 Статус: {status_map.get(b.status, b.status)}"
             )
 
-            kb = None
+            kb_list = []
             if b.status == "confirmed" and b.start_time < now_utc:
                 review_stmt = select(Review).where(Review.booking_id == b.id)
                 review_res = await session.execute(review_stmt)
                 if not review_res.scalar_one_or_none():
-                    kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                        [types.InlineKeyboardButton(text="⭐ Оставить отзыв", callback_data=f"leave_review_{b.id}")]
-                    ])
+                    kb_list.append([types.InlineKeyboardButton(text="⭐ Оставить отзыв", callback_data=f"leave_review_{b.id}")])
 
+            if b.status in ["confirmed", "pending"] and b.start_time > now_utc:
+                kb_list.append([types.InlineKeyboardButton(text="❌ Отменить запись", callback_data=f"client_cancel_booking_{b.id}")])
+
+            kb = types.InlineKeyboardMarkup(inline_keyboard=kb_list) if kb_list else None
             await callback.message.answer(text, reply_markup=kb, parse_mode="Markdown")
     await callback.answer()
 
@@ -630,15 +632,17 @@ async def show_my_bookings_by_service(callback: types.CallbackQuery, effective_u
                 f"📊 Статус: {status_map.get(b.status, b.status)}"
             )
 
-            kb = None
+            kb_list = []
             if b.status == "confirmed" and b.start_time < now_utc:
                 review_stmt = select(Review).where(Review.booking_id == b.id)
                 review_res = await session.execute(review_stmt)
                 if not review_res.scalar_one_or_none():
-                    kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                        [types.InlineKeyboardButton(text="⭐ Оставить отзыв", callback_data=f"leave_review_{b.id}")]
-                    ])
+                    kb_list.append([types.InlineKeyboardButton(text="⭐ Оставить отзыв", callback_data=f"leave_review_{b.id}")])
 
+            if b.status in ["confirmed", "pending"] and b.start_time > now_utc:
+                kb_list.append([types.InlineKeyboardButton(text="❌ Отменить запись", callback_data=f"client_cancel_booking_{b.id}")])
+
+            kb = types.InlineKeyboardMarkup(inline_keyboard=kb_list) if kb_list else None
             await callback.message.answer(text, reply_markup=kb, parse_mode="Markdown")
     await callback.answer()
 
@@ -816,3 +820,54 @@ async def show_instructions_detailed(message: types.Message):
         "7. Скопируйте Client ID and Client Secret и введите их в боте через меню подключения."
     )
     await message.answer(instruction, parse_mode="Markdown", disable_web_page_preview=True)
+
+@router.callback_query(F.data.startswith("client_cancel_booking_"))
+async def client_cancel_booking(callback: types.CallbackQuery):
+    booking_id = int(callback.data.split("_")[3])
+
+    async with SessionLocal() as session:
+        stmt = select(Booking).where(Booking.id == booking_id).options(
+            selectinload(Booking.slot).options(selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)),
+            selectinload(Booking.client)
+        )
+        res = await session.execute(stmt)
+        booking = res.scalar_one_or_none()
+
+        if not booking or booking.status == "canceled":
+            await callback.answer("Запись не найдена или уже отменена.", show_alert=True)
+            return
+
+        slot = booking.slot
+        client_name = booking.client.full_name or "Клиент"
+        trainer_user_id = slot.trainer_profile.user_id
+
+        moscow_tz = gettz('Europe/Moscow')
+        s_start = booking.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
+        slot_time_str = s_start.strftime('%d.%m %H:%M')
+        slot_format = slot.format
+
+        # 1. Notify Specialist
+        try:
+            msg_to_trainer = (
+                f"❌ **Запись отменена клиентом**\n\n"
+                f"Клиент {escape_md(client_name)} отменил запись.\n"
+                f"📅 Время: `{slot_time_str}` (МСК)\n"
+                f"🏷 Услуга: {escape_md(slot_format)}\n\n"
+                f"Слот снова свободен в вашем расписании."
+            )
+            await callback.bot.send_message(trainer_user_id, msg_to_trainer, parse_mode="Markdown")
+        except Exception as e:
+            logger.error(f"Failed to notify trainer {trainer_user_id} about client cancellation: {e}")
+
+        # 2. Process Cancellation
+        slot.status = "free"
+        slot.client_id = None
+        await session.delete(booking)
+        await session.commit()
+
+        await callback.answer("Запись успешно отменена.", show_alert=True)
+        # Update the UI
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
