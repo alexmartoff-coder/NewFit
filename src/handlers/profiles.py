@@ -846,7 +846,8 @@ async def profile_photo_carousel(callback: types.CallbackQuery, is_admin: bool =
     async with SessionLocal() as session:
         stmt = select(TrainerProfile).where(TrainerProfile.user_id == target_user_id).options(
             selectinload(TrainerProfile.specializations),
-            selectinload(TrainerProfile.photos)
+            selectinload(TrainerProfile.photos),
+            selectinload(TrainerProfile.user)
         )
         res = await session.execute(stmt)
         profile = res.scalar_one_or_none()
