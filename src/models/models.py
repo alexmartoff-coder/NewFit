@@ -92,6 +92,15 @@ class TrainerProfile(Base):
     subscriptions: Mapped[List["Subscription"]] = relationship(back_populates="trainer")
     bookings: Mapped[List["Booking"]] = relationship(back_populates="trainer_profile")
     time_slots: Mapped[List["TimeSlot"]] = relationship(back_populates="trainer_profile")
+    photos: Mapped[List["TrainerPhoto"]] = relationship(back_populates="trainer_profile", cascade="all, delete-orphan")
+
+class TrainerPhoto(Base):
+    __tablename__ = "trainer_photos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    trainer_profile_id: Mapped[int] = mapped_column(ForeignKey("trainer_profiles.id", ondelete="CASCADE"))
+    file_id: Mapped[str] = mapped_column(String(512))
+
+    trainer_profile: Mapped["TrainerProfile"] = relationship(back_populates="photos")
 
 class ClientProfile(Base):
     __tablename__ = "client_profiles"
