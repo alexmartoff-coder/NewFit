@@ -1,7 +1,7 @@
 from aiogram import Router, types, F, exceptions
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import select, and_, func
-from src.models.models import TrainerProfile, User, Specialization, UserRole
+from src.models.models import TrainerProfile, User, Specialization, UserRole, TrainerPhoto
 from src.utils.db import SessionLocal
 from src.keyboards.catalog import get_filter_kb, get_price_filter_kb, get_catalog_city_kb
 from src.keyboards.inline import add_admin_button
@@ -23,6 +23,80 @@ async def start_catalog(message: types.Message, state: FSMContext):
         [types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="client_menu")]
     ])
     await message.answer("Какая сфера услуг вас интересует?", reply_markup=kb)
+
+@router.callback_query(F.data.startswith("catalog_photo_"))
+async def catalog_photo_carousel(callback: types.CallbackQuery, is_admin: bool = False):
+    parts = callback.data.split("_")
+    idx = int(parts[2])
+    target_user_id = int(parts[3])
+
+    async with SessionLocal() as session:
+        from sqlalchemy.orm import selectinload
+        stmt = select(TrainerProfile).where(TrainerProfile.user_id == target_user_id).options(
+            selectinload(TrainerProfile.specializations),
+            selectinload(TrainerProfile.photos),
+            selectinload(TrainerProfile.user)
+        )
+        res = await session.execute(stmt)
+        profile = res.scalar_one_or_none()
+
+        if not profile or not profile.photos:
+            await callback.answer("Фото не найдены.")
+            return
+
+        idx = idx % len(profile.photos)
+        user = profile.user
+
+        fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
+        work_fmt = profile.work_format.value if hasattr(profile.work_format, 'value') else str(profile.work_format)
+        work_fmt_ru = fmt_map.get(work_fmt.upper(), work_fmt.lower())
+
+        dist_text = f"\n🏙 Район: {escape_md(profile.district)}" if profile.district else ""
+        phone_text = f"\n📞 Телефон: {escape_md(profile.phone)}" if profile.phone else ""
+
+        text = (
+            f"👤 **{escape_md(user.full_name)}**\n"
+            f"📍 Город: {escape_md(profile.city)}{dist_text}{phone_text}\n"
+            f"💪 Опыт: {profile.experience} лет\n"
+        )
+
+        if profile.service_prices:
+            term = "Услуги" if user.role == UserRole.BEAUTY else "Направления"
+            text += f"\n🛠 **{term} и цены:**\n"
+            for svc, price in profile.service_prices.items():
+                text += f"• {escape_md(svc)}: {int(price)}₽\n"
+        else:
+            current_profile_specs = [s.name for s in profile.specializations]
+            specs_str = ", ".join(current_profile_specs) or "не указаны"
+            text += f"🎯 Специализации: {escape_md(specs_str)}\n"
+
+        text += (
+            f"⭐ Рейтинг: {profile.rating:.1f}\n"
+            f"📝 Формат: {escape_md(work_fmt_ru)}"
+        )
+
+        kb = types.InlineKeyboardMarkup(
+            inline_keyboard=[
+                [types.InlineKeyboardButton(text="Забронировать время", callback_data=f"book_{profile.user_id}")],
+                [types.InlineKeyboardButton(text="🔙 Назад к фильтрам", callback_data="filter_back")]
+            ]
+        )
+
+        prev_idx = (idx - 1) % len(profile.photos)
+        next_idx = (idx + 1) % len(profile.photos)
+        nav_row = [
+            types.InlineKeyboardButton(text="⬅️", callback_data=f"catalog_photo_{prev_idx}_{target_user_id}"),
+            types.InlineKeyboardButton(text=f"{idx+1}/{len(profile.photos)}", callback_data="none"),
+            types.InlineKeyboardButton(text="➡️", callback_data=f"catalog_photo_{next_idx}_{target_user_id}")
+        ]
+        kb.inline_keyboard.insert(0, nav_row)
+
+        try:
+            input_media = types.InputMediaPhoto(media=profile.photos[idx].file_id, caption=text, parse_mode="Markdown")
+            await callback.message.edit_media(media=input_media, reply_markup=kb)
+        except exceptions.TelegramBadRequest:
+            pass
+        await callback.answer()
 
 @router.callback_query(F.data == "cat_back_to_start")
 async def cat_back_to_start(callback: types.CallbackQuery, state: FSMContext):
@@ -461,7 +535,10 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
 
     async with SessionLocal() as session:
         from sqlalchemy.orm import selectinload
-        query = select(TrainerProfile, User).join(User, TrainerProfile.user_id == User.id).options(selectinload(TrainerProfile.specializations))
+        query = select(TrainerProfile, User).join(User, TrainerProfile.user_id == User.id).options(
+            selectinload(TrainerProfile.specializations),
+            selectinload(TrainerProfile.photos)
+        )
 
         filters = [TrainerProfile.status == "approved"]
 
@@ -594,11 +671,22 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
                     ]
                 )
 
+                # If multiple photos, add navigation to the card in catalog too
+                if len(trainer_profile.photos) > 1:
+                    nav_row = [
+                        types.InlineKeyboardButton(text="⬅️", callback_data=f"catalog_photo_0_{trainer_profile.user_id}"),
+                        types.InlineKeyboardButton(text=f"1/{len(trainer_profile.photos)}", callback_data="none"),
+                        types.InlineKeyboardButton(text="➡️", callback_data=f"catalog_photo_1_{trainer_profile.user_id}")
+                    ]
+                    kb.inline_keyboard.insert(0, nav_row)
+
                 # If we have filtered by specific specializations, we want the booking flow to know about them
                 # for the terminology fix.
                 # Note: We'll actually handle this in start_booking by checking the specialist's profile directly
                 # but we can also store the 'intended' specialization here.
-                if trainer_profile.photo_url:
+                if trainer_profile.photos:
+                    await message.answer_photo(trainer_profile.photos[0].file_id, caption=text, reply_markup=kb, parse_mode="Markdown")
+                elif trainer_profile.photo_url:
                     await message.answer_photo(trainer_profile.photo_url, caption=text, reply_markup=kb, parse_mode="Markdown")
                 else:
                     await message.answer(text, reply_markup=kb, parse_mode="Markdown")

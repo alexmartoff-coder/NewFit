@@ -15,18 +15,62 @@ logger = logging.getLogger(__name__)
 # --- STEP 1: Handled in start.py (Role selection) ---
 
 # --- STEP 2: City Selection ---
-@router.callback_query(F.data == "role_trainer")
+@router.callback_query(F.data.in_(["role_trainer", "start_registration"]))
 @router.message(F.text == "Профи")
 async def provider_role_chosen(event: types.Message | types.CallbackQuery, state: FSMContext):
+    user_id = event.from_user.id
+    async with SessionLocal() as session:
+        stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id).options(
+            selectinload(TrainerProfile.specializations),
+            selectinload(TrainerProfile.user)
+        )
+        profile = (await session.execute(stmt)).scalar_one_or_none()
+
+        kb = get_city_kb()
+        if profile:
+            # Pre-load state for editing
+            data = {
+                "city": profile.city,
+                "district": profile.district,
+                "role": profile.user.role.value if profile.user and profile.user.role else None,
+                "specializations": [s.name for s in profile.specializations],
+                "full_name": profile.user.full_name if profile.user else None,
+                "phone": profile.phone,
+                "experience": profile.experience,
+                "work_format": profile.work_format,
+                "price_single": profile.price_single,
+                "price_online": profile.price_online,
+                "price_package": profile.price_package,
+                "service_prices": profile.service_prices,
+                "online_link": profile.online_meeting_link,
+                "video_url": profile.video_presentation_url
+            }
+            await state.update_data(**{k: v for k, v in data.items() if v is not None})
+
+            # If editing, we can add a skip button
+            if isinstance(kb, types.ReplyKeyboardMarkup):
+                # We can't mix Reply and Inline. But we can send an Inline keyboard after or convert get_city_kb.
+                # For now, let's just make sure skip_step_handler handles it.
+                pass
+
     await state.set_state(TrainerOnboarding.city)
     text = "Шаг 2: Выберите ваш город или введите его:"
-    kb = get_city_kb()
 
-    if isinstance(event, types.Message):
-        await event.answer(text, reply_markup=kb)
+    if profile:
+        kb_skip = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text=f"Не менять ({profile.city})", callback_data="skip_step")]])
+        if isinstance(event, types.Message):
+            await event.answer(text, reply_markup=kb)
+            await event.answer("Или нажмите кнопку ниже, чтобы оставить прежний город:", reply_markup=kb_skip)
+        else:
+            await event.message.answer(text, reply_markup=kb)
+            await event.message.answer("Или нажмите кнопку ниже, чтобы оставить прежний город:", reply_markup=kb_skip)
+            await event.answer()
     else:
-        await event.message.answer(text, reply_markup=kb)
-        await event.answer()
+        if isinstance(event, types.Message):
+            await event.answer(text, reply_markup=kb)
+        else:
+            await event.message.answer(text, reply_markup=kb)
+            await event.answer()
 
 # --- STEP 3: District Selection ---
 @router.message(TrainerOnboarding.city)
@@ -94,8 +138,11 @@ async def provider_sphere_chosen(event: types.Message | types.CallbackQuery, sta
     # Store role as a string to ensure consistent serialization
     await state.update_data(role=role.value)
 
+    data = await state.get_data()
+    selected_specs = data.get('specializations', [])
+
     await state.set_state(TrainerOnboarding.specialization)
-    kb = get_spec_kb(role=role.value)
+    kb = get_spec_kb(selected_specs=selected_specs, role=role.value)
     kb = add_admin_button(kb, is_admin=is_admin)
 
     step_texts = {
@@ -374,10 +421,35 @@ async def process_online_link(message: types.Message, state: FSMContext):
 # --- PHOTO & VIDEO ---
 @router.message(TrainerOnboarding.photo, F.photo)
 async def process_photo(message: types.Message, state: FSMContext, is_admin: bool = False):
-    await state.update_data(photo_url=message.photo[-1].file_id)
+    # Check file size (2 MB limit)
+    if message.photo[-1].file_size > 2 * 1024 * 1024:
+        await message.answer("❌ Размер фото превышает 2 МБ. Пожалуйста, загрузите фото меньшего размера.")
+        return
+
+    data = await state.get_data()
+    photos = data.get('photos', [])
+
+    if len(photos) >= 5:
+        await message.answer("❌ Вы уже загрузили 5 фото. Нажмите «Завершить», чтобы продолжить.")
+        return
+
+    photos.append(message.photo[-1].file_id)
+    await state.update_data(photos=photos)
+
+    count = len(photos)
+    kb_list = []
+    if count >= 1:
+        kb_list.append([types.InlineKeyboardButton(text="✅ Завершить загрузку", callback_data="finish_photos")])
+
+    kb = types.InlineKeyboardMarkup(inline_keyboard=kb_list)
+    await message.answer(f"✅ Фото {count}/5 загружено. Вы можете отправить еще или нажать «Завершить»:", reply_markup=kb)
+
+@router.callback_query(F.data == "finish_photos", TrainerOnboarding.photo)
+async def finish_photos(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
     await state.set_state(TrainerOnboarding.video)
     kb = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text="Пропустить", callback_data="skip_video")]])
-    await message.answer("Шаг 13: Загрузите короткое видео-презентацию (15–60 секунд) или пропустите этот шаг.", reply_markup=add_admin_button(kb, is_admin=is_admin))
+    await callback.message.answer("Шаг 13: Загрузите короткое видео-презентацию (15–60 секунд) или пропустите этот шаг.", reply_markup=add_admin_button(kb, is_admin=is_admin))
+    await callback.answer()
 
 @router.callback_query(F.data == "skip_video", TrainerOnboarding.video)
 async def skip_video(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
@@ -396,9 +468,44 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
     user_id = effective_user_id or callback.from_user.id
     async with SessionLocal() as session:
         user = await session.get(User, user_id)
-        profile = (await session.execute(select(TrainerProfile).where(TrainerProfile.user_id == user_id))).scalar_one_or_none()
+        profile = (await session.execute(select(TrainerProfile).where(TrainerProfile.user_id == user_id))).options(selectinload(TrainerProfile.user)).scalar_one_or_none()
 
-        if current_state == TrainerOnboarding.full_name:
+        if current_state == TrainerOnboarding.city:
+            await state.update_data(city=profile.city if profile else "Москва")
+            if profile and profile.city != "Онлайн":
+                kb = get_district_kb(profile.city)
+                if kb:
+                    await state.set_state(TrainerOnboarding.district)
+                    kb_inline = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text=f"Не менять ({profile.district})", callback_data="skip_step")]])
+                    await callback.message.answer(f"Шаг 3: Выберите район работы в г. {profile.city}:", reply_markup=kb)
+                    await callback.message.answer("Или нажмите кнопку ниже, чтобы оставить прежний район:", reply_markup=add_admin_button(kb_inline, is_admin=is_admin))
+                else:
+                    await state.set_state(TrainerOnboarding.sphere)
+                    kb_inline = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text="Не менять сферу", callback_data="skip_step")]])
+                    await callback.message.answer("Шаг 4: Выберите вашу сферу деятельности:", reply_markup=add_admin_button(get_sphere_kb(), is_admin=is_admin))
+                    await callback.message.answer("Или нажмите кнопку выше, чтобы оставить прежнюю.", reply_markup=kb_inline)
+            else:
+                await state.set_state(TrainerOnboarding.sphere)
+                await callback.message.answer("Шаг 4: Выберите вашу сферу деятельности:", reply_markup=get_sphere_kb())
+
+        elif current_state == TrainerOnboarding.district:
+            await state.update_data(district=profile.district if profile else None)
+            await state.set_state(TrainerOnboarding.sphere)
+            kb_inline = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text="Не менять сферу", callback_data="skip_step")]])
+            await callback.message.answer("Шаг 4: Выберите вашу сферу деятельности:", reply_markup=get_sphere_kb())
+            await callback.message.answer("Или нажмите кнопку выше, чтобы оставить прежнюю.", reply_markup=kb_inline)
+
+        elif current_state == TrainerOnboarding.sphere:
+            await state.update_data(role=profile.user.role.value if profile and profile.user else UserRole.TRAINER.value)
+            role_val = profile.user.role.value if profile and profile.user else UserRole.TRAINER.value
+            await state.set_state(TrainerOnboarding.specialization)
+
+            data = await state.get_data()
+            specs = data.get('specializations', [])
+            kb = get_spec_kb(selected_specs=specs, role=role_val)
+            await callback.message.answer("Шаг 5: Выберите ваши специализации:", reply_markup=add_admin_button(kb, is_admin=is_admin))
+
+        elif current_state == TrainerOnboarding.full_name:
             await state.update_data(full_name=user.full_name if user else "Не указано")
             await state.set_state(TrainerOnboarding.phone)
             kb = None
@@ -532,7 +639,6 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                     price_online=float(data.get('price_online', 0)),
                     price_package=float(data.get('price_package', 0)),
                     service_prices=data.get('service_prices'),
-                    photo_url=data.get('photo_url'),
                     video_presentation_url=data.get('video_url'),
                     online_meeting_link=data.get('online_link'),
                     status="approved"
@@ -548,9 +654,18 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 profile.price_online = float(data.get('price_online', profile.price_online))
                 profile.price_package = float(data.get('price_package', profile.price_package))
                 profile.service_prices = data.get('service_prices', profile.service_prices)
-                if data.get('photo_url'): profile.photo_url = data.get('photo_url')
                 if data.get('video_url'): profile.video_presentation_url = data.get('video_url')
                 if data.get('online_link'): profile.online_meeting_link = data.get('online_link')
+
+            # Handle multiple photos
+            if data.get('photos'):
+                from src.models.models import TrainerPhoto
+                # Clear old photos
+                await session.execute(delete(TrainerPhoto).where(TrainerPhoto.trainer_profile_id == profile.id))
+                for f_id in data['photos']:
+                    session.add(TrainerPhoto(trainer_profile_id=profile.id, file_id=f_id))
+                # Update legacy photo_url for backward compatibility
+                profile.photo_url = data['photos'][0]
 
             if data.get('specializations'):
                 spec_names = [s.strip() for s in data['specializations']]
