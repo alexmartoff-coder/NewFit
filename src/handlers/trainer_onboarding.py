@@ -468,7 +468,11 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
     user_id = effective_user_id or callback.from_user.id
     async with SessionLocal() as session:
         user = await session.get(User, user_id)
-        profile = (await session.execute(select(TrainerProfile).where(TrainerProfile.user_id == user_id))).options(selectinload(TrainerProfile.user)).scalar_one_or_none()
+        profile = (await session.execute(
+            select(TrainerProfile)
+            .where(TrainerProfile.user_id == user_id)
+            .options(selectinload(TrainerProfile.user))
+        )).scalar_one_or_none()
 
         if current_state == TrainerOnboarding.city:
             await state.update_data(city=profile.city if profile else "Москва")
