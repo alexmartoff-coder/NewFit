@@ -268,9 +268,10 @@ async def add_slot_duration(callback: types.CallbackQuery, state: FSMContext):
 
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="🏢 Оффлайн", callback_data="as_fmt_OFFLINE")],
-        [types.InlineKeyboardButton(text="📱 Онлайн в Telegram", callback_data="as_fmt_TG")],
-        [types.InlineKeyboardButton(text="💻 Другой (Zoom/Meet)", callback_data="as_fmt_ONLINE")],
-        [types.InlineKeyboardButton(text="🔄 Гибрид", callback_data="as_fmt_HYBRID")]
+        # Online features temporarily disabled
+        # [types.InlineKeyboardButton(text="📱 Онлайн в Telegram", callback_data="as_fmt_TG")],
+        # [types.InlineKeyboardButton(text="💻 Другой (Zoom/Meet)", callback_data="as_fmt_ONLINE")],
+        # [types.InlineKeyboardButton(text="🔄 Гибрид", callback_data="as_fmt_HYBRID")]
     ])
     text = "Выберите формат для этого слота:"
     if callback.message.photo:
@@ -624,8 +625,9 @@ async def quick_gen_period(callback: types.CallbackQuery, state: FSMContext, eff
 
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="Оффлайн", callback_data="gen_f_OFFLINE")],
-        [types.InlineKeyboardButton(text="Онлайн", callback_data="gen_f_ONLINE")],
-        [types.InlineKeyboardButton(text="Гибрид", callback_data="gen_f_HYBRID")],
+        # Online features temporarily disabled
+        # [types.InlineKeyboardButton(text="Онлайн", callback_data="gen_f_ONLINE")],
+        # [types.InlineKeyboardButton(text="Гибрид", callback_data="gen_f_HYBRID")],
         [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_quick_gen")]
     ])
     text = "Выберите формат занятий для генерации:"
@@ -719,7 +721,7 @@ async def quick_gen_confirm(callback: types.CallbackQuery, state: FSMContext, ef
     await show_schedule_menu(callback.message, effective_user_id=user_id, callback=callback, header=report)
     await callback.answer()
 
-async def generate_slots_from_quick_template(user_id: int, days: int, interval: int, work_format: str = "hybrid") -> int:
+async def generate_slots_from_quick_template(user_id: int, days: int, interval: int, work_format: str = "OFFLINE") -> int:
     from dateutil.tz import gettz, UTC
     from datetime import datetime, time, timedelta
     from dateutil.rrule import rrule, DAILY, MO, TU, WE, TH, FR, SA, SU
@@ -1222,10 +1224,11 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         details += f"📍 *Формат:* {fmt_text}\n"
         details += f"💰 *Цена:* {int(slot.price)}₽\n"
 
-        if slot.online_platform == "telegram":
-            details += "📱 *Видео:* Telegram\n"
-        elif slot.zoom_join_url:
-            details += f"🔗 *Zoom:* {escape_md(slot.zoom_join_url)}\n"
+        # Online platforms temporarily disabled
+        # if slot.online_platform == "telegram":
+        #     details += "📱 *Видео:* Telegram\n"
+        # elif slot.zoom_join_url:
+        #     details += f"🔗 *Zoom:* {escape_md(slot.zoom_join_url)}\n"
 
         details += "\n━━━━━━━━━━━━━━━━━━"
 

@@ -270,8 +270,10 @@ async def process_experience(message: types.Message, state: FSMContext, is_admin
         role = data.get('role')
         if isinstance(role, str): role = UserRole(role.lower())
 
+        # Temporarily force OFFLINE for all roles
+        await state.update_data(work_format=WorkFormat.OFFLINE)
+
         if role in [UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL]:
-            await state.update_data(work_format=WorkFormat.OFFLINE)
             await state.set_state(TrainerOnboarding.price_services)
             specs = data.get('specializations', [])
             if specs:
@@ -283,9 +285,15 @@ async def process_experience(message: types.Message, state: FSMContext, is_admin
                 await state.set_state(TrainerOnboarding.price_package)
                 await message.answer("Шаг 11: Укажите цену за пакет услуг (в ₽):")
         else:
-            await state.set_state(TrainerOnboarding.formats)
-            kb = get_format_kb()
-            await message.answer("Шаг 9: Какие форматы вы предлагаете?", reply_markup=add_admin_button(kb, is_admin=is_admin))
+            # TRAINER role also goes directly to price_single
+            await state.set_state(TrainerOnboarding.price_single)
+            user_id = effective_user_id or message.from_user.id
+            async with SessionLocal() as session:
+                profile = (await session.execute(select(TrainerProfile).where(TrainerProfile.user_id == user_id))).scalar_one_or_none()
+                kb = None
+                if profile and profile.price_single:
+                    kb = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text=f"Не менять ({profile.price_single}₽)", callback_data="skip_step")]])
+                await message.answer("Шаг 10: Укажите вашу цену за разовое занятие (в ₽):", reply_markup=add_admin_button(kb, is_admin=is_admin) if kb else None)
 
     except ValueError:
         await message.answer("Пожалуйста, введите число (количество полных лет опыта).")
@@ -534,8 +542,10 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
             role = data.get('role')
             if isinstance(role, str): role = UserRole(role.lower())
 
+            # Temporarily force OFFLINE for all roles
+            await state.update_data(work_format=WorkFormat.OFFLINE)
+
             if role in [UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL]:
-                await state.update_data(work_format=WorkFormat.OFFLINE)
                 await state.set_state(TrainerOnboarding.price_services)
                 specs = data.get('specializations', [])
                 if specs:
@@ -546,25 +556,21 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
                     await state.set_state(TrainerOnboarding.price_package)
                     await callback.message.answer("Шаг 11: Укажите цену за пакет услуг (в ₽):")
             else:
-                await state.set_state(TrainerOnboarding.formats)
-                await callback.message.answer("Шаг 9: Какие форматы вы предлагаете?", reply_markup=get_format_kb())
-
-        elif current_state == TrainerOnboarding.price_online:
-            await state.update_data(price_online=profile.price_online if profile else 0.0)
-            data = await state.get_data()
-            if data.get('work_format') == WorkFormat.HYBRID:
+                # TRAINER role also goes directly to price_single
                 await state.set_state(TrainerOnboarding.price_single)
                 kb = None
                 if profile and profile.price_single:
                     kb = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text=f"Не менять ({profile.price_single}₽)", callback_data="skip_step")]])
-                await callback.message.answer("Укажите вашу цену за Оффлайн занятие (в ₽):", reply_markup=add_admin_button(kb, is_admin=is_admin))
-            else:
-                await state.update_data(price_single=profile.price_online if profile else 0.0)
-                await state.set_state(TrainerOnboarding.price_package)
-                kb = None
-                if profile and profile.price_package:
-                    kb = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text=f"Не менять ({profile.price_package}₽)", callback_data="skip_step")]])
-                await callback.message.answer("Шаг 11: Укажите цену за пакет услуг (в ₽):", reply_markup=add_admin_button(kb, is_admin=is_admin))
+                await callback.message.answer("Шаг 10: Укажите вашу цену за разовое занятие (в ₽):", reply_markup=add_admin_button(kb, is_admin=is_admin) if kb else None)
+
+        elif current_state == TrainerOnboarding.price_online:
+            # Skip price_online if encountered
+            await state.update_data(price_online=profile.price_online if profile else 0.0)
+            await state.set_state(TrainerOnboarding.price_single)
+            kb = None
+            if profile and profile.price_single:
+                kb = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text=f"Не менять ({profile.price_single}₽)", callback_data="skip_step")]])
+            await callback.message.answer("Укажите вашу цену за Оффлайн занятие (в ₽):", reply_markup=add_admin_button(kb, is_admin=is_admin))
 
         elif current_state == TrainerOnboarding.price_single:
             await state.update_data(price_single=profile.price_single if profile else 0.0)
@@ -576,17 +582,9 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
 
         elif current_state == TrainerOnboarding.price_package:
             await state.update_data(price_package=profile.price_package if profile else 0.0)
-            data = await state.get_data()
-            work_fmt = data.get('work_format')
-            if work_fmt in [WorkFormat.ONLINE, WorkFormat.HYBRID]:
-                await state.set_state(TrainerOnboarding.online_link)
-                kb = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text="Пропустить", callback_data="skip_step")]])
-                if profile and profile.online_meeting_link:
-                    kb.inline_keyboard.insert(0, [types.InlineKeyboardButton(text=f"Не менять ({profile.online_meeting_link[:20]}...)", callback_data="skip_step")])
-                await callback.message.answer("Шаг 11.1: Введите вашу постоянную ссылку для онлайн-занятий:", reply_markup=add_admin_button(kb, is_admin=is_admin))
-            else:
-                await state.set_state(TrainerOnboarding.photo)
-                await callback.message.answer("Шаг 12: Загрузите ваше фото или оставьте прежнее:", reply_markup=types.ReplyKeyboardRemove())
+            # Skip online link step entirely
+            await state.set_state(TrainerOnboarding.photo)
+            await callback.message.answer("Шаг 12: Загрузите ваше фото или оставьте прежнее:", reply_markup=types.ReplyKeyboardRemove())
 
         elif current_state == TrainerOnboarding.online_link:
             await state.update_data(online_link=profile.online_meeting_link if profile else None)
