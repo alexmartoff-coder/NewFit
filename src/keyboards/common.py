@@ -31,8 +31,9 @@ def get_trainer_main_kb(is_admin: bool = False, has_online: bool = False):
         [KeyboardButton(text="Мой профиль"), KeyboardButton(text="Моё расписание")],
         [KeyboardButton(text="Мои записи"), KeyboardButton(text="Мои клиенты")],
     ]
-    if has_online is True:
-        kb.append([KeyboardButton(text="🖥 Онлайн тренировка")])
+    # Online features temporarily disabled
+    # if has_online is True:
+    #     kb.append([KeyboardButton(text="🖥 Онлайн тренировка")])
 
     kb.extend([
         [KeyboardButton(text="Статистика"), KeyboardButton(text="Поддержка")],
@@ -45,7 +46,7 @@ def get_trainer_main_kb(is_admin: bool = False, has_online: bool = False):
 def get_client_main_kb(is_admin: bool = False, has_specialists: bool = False):
     kb = [
         [KeyboardButton(text="Выбрать услугу"), KeyboardButton(text="Мои записи")],
-        [KeyboardButton(text="🖥 Онлайн тренировка")],
+        # [KeyboardButton(text="🖥 Онлайн тренировка")],
     ]
 
     if has_specialists:
@@ -61,8 +62,9 @@ def get_format_kb():
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="Оффлайн занятия", callback_data="fmt_offline")],
-            [InlineKeyboardButton(text="Онлайн занятия", callback_data="fmt_online")],
-            [InlineKeyboardButton(text="Гибрид (оффлайн + онлайн)", callback_data="fmt_hybrid")]
+            # Online and Hybrid temporarily disabled
+            # [InlineKeyboardButton(text="Онлайн занятия", callback_data="fmt_online")],
+            # [InlineKeyboardButton(text="Гибрид (оффлайн + онлайн)", callback_data="fmt_hybrid")]
         ]
     )
 
