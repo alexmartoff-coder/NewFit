@@ -59,14 +59,17 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
                         text += f"• {escape_md(svc)}: {int(price)}₽\n"
 
                     if profile.price_package > 0:
-                        text += f"💳 Цена (пакет 12): {int(profile.price_package)}₽\n"
+                        term_pkg = "услуг" if (user.role == UserRole.BEAUTY or user.role in [UserRole.TENNIS, UserRole.PADEL]) else "занятий"
+                        text += f"💳 Цена (пакет 12 {term_pkg}): {int(profile.price_package)}₽\n"
                 else:
                     specs = ", ".join([s.name for s in profile.specializations]) or "не указаны"
                     text += f"🎯 Специализации: {escape_md(specs)}\n"
+
+                    term_pkg = "услуг" if (user.role == UserRole.BEAUTY or user.role in [UserRole.TENNIS, UserRole.PADEL]) else "занятий"
                     text += (
                         f"\n💰 Цена (разовое): {int(profile.price_single)}₽\n"
                         f"💰 Цена (онлайн): {int(profile.price_online)}₽\n"
-                        f"💳 Цена (пакет 12): {int(profile.price_package)}₽\n"
+                        f"💳 Цена (пакет 12 {term_pkg}): {int(profile.price_package)}₽\n"
                     )
 
                 text += (
@@ -172,10 +175,12 @@ async def show_online_training(message: types.Message, effective_user_id: int = 
             online_slots = [s for s in slots if ("онлайн" in s.format.lower() or "online" in s.format.lower())]
 
             if not online_slots:
-                await message.answer("У вас нет онлайн тренировок на ближайшие 3 дня.")
+                term_not_found = "записей" if user.role == UserRole.BEAUTY else "онлайн тренировок"
+                await message.answer(f"У вас нет {term_not_found} на ближайшие 3 дня.")
                 return
 
-            await message.answer(f"🖥 **Ваши онлайн тренировки (на 3 дня):**", parse_mode="Markdown")
+            term_header = "Ваши онлайн записи" if user.role == UserRole.BEAUTY else "Ваши онлайн тренировки"
+            await message.answer(f"🖥 **{term_header} (на 3 дня):**", parse_mode="Markdown")
 
             for slot in online_slots:
                 start_moscow = slot.start_time.replace(tzinfo=UTC).astimezone(moscow_tz)
@@ -193,7 +198,9 @@ async def show_online_training(message: types.Message, effective_user_id: int = 
                     if client_user:
                         if client_user.username:
                             kb.append([types.InlineKeyboardButton(text="💬 Написать клиенту", url=f"https://t.me/{client_user.username}")])
-                        kb.append([types.InlineKeyboardButton(text="📹 Онлайн тренировка", url=f"tg://user?id={client_user.id}")])
+
+                        term_video = "Начать видеозвонок" if user.role == UserRole.BEAUTY else "Онлайн тренировка"
+                        kb.append([types.InlineKeyboardButton(text=f"📹 {term_video}", url=f"tg://user?id={client_user.id}")])
                 elif slot.zoom_start_url or slot.zoom_join_url:
                     url = slot.zoom_start_url or slot.zoom_join_url
                     kb.append([types.InlineKeyboardButton(text="🚀 Начать Zoom", url=url)])
@@ -205,7 +212,7 @@ async def show_online_training(message: types.Message, effective_user_id: int = 
             cp_stmt = select(ClientProfile).where(ClientProfile.user_id == user_id)
             client_profile = (await session.execute(cp_stmt)).scalar_one_or_none()
             if not client_profile:
-                await message.answer("У вас нет ближайших онлайн тренировок.")
+                await message.answer("У вас нет ближайших онлайн записей.")
                 return
 
             stmt = (
@@ -230,10 +237,10 @@ async def show_online_training(message: types.Message, effective_user_id: int = 
             online_bookings = [b for b in bookings if b.slot and ("онлайн" in b.slot.format.lower() or "online" in b.slot.format.lower())]
 
             if not online_bookings:
-                await message.answer("У вас нет онлайн тренировок на ближайшие 3 дня.")
+                await message.answer("У вас нет ближайших онлайн записей.")
                 return
 
-            await message.answer(f"🖥 **Ваши онлайн тренировки (на 3 дня):**", parse_mode="Markdown")
+            await message.answer(f"🖥 **Ваши онлайн записи (на 3 дня):**", parse_mode="Markdown")
 
             for booking in online_bookings:
                 slot = booking.slot
@@ -252,7 +259,10 @@ async def show_online_training(message: types.Message, effective_user_id: int = 
                     if trainer_user:
                         if trainer_user.username:
                             kb.append([types.InlineKeyboardButton(text="💬 Написать мастеру", url=f"https://t.me/{trainer_user.username}")])
-                        kb.append([types.InlineKeyboardButton(text="📹 Онлайн тренировка", url=f"tg://user?id={trainer_user.id}")])
+
+                        pro_role = trainer_user.role
+                        term_video = "Начать видеозвонок" if pro_role == UserRole.BEAUTY else "Онлайн тренировка"
+                        kb.append([types.InlineKeyboardButton(text=f"📹 {term_video}", url=f"tg://user?id={trainer_user.id}")])
                 elif slot.zoom_join_url:
                     kb.append([types.InlineKeyboardButton(text="🔗 Войти в Zoom", url=slot.zoom_join_url)])
 
@@ -399,8 +409,18 @@ async def show_finances(message: types.Message):
     await message.answer("Ваш баланс: 0₽. Выплаты производятся автоматически раз в неделю.")
 
 @router.message(F.text == "Статистика")
-async def show_stats(message: types.Message):
-    await message.answer("Ваша активность за последние 30 дней: 0 занятий.")
+async def show_stats(message: types.Message, effective_user_id: int = None):
+    user_id = effective_user_id or message.from_user.id
+    async with SessionLocal() as session:
+        user = await session.get(User, user_id)
+
+        term = "занятий"
+        if user:
+            is_specific_sport = user.role in [UserRole.TENNIS, UserRole.PADEL]
+            if user.role == UserRole.BEAUTY or is_specific_sport:
+                term = "услуг"
+
+    await message.answer(f"Ваша активность за последние 30 дней: 0 {term}.")
 
 @router.message(F.text == "📹 Создать контент (рилсы)")
 async def show_content_tools(message: types.Message):

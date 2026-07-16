@@ -176,14 +176,22 @@ async def pro_date_selected(callback: types.CallbackQuery, state: FSMContext):
         start_utc = start_msk.astimezone(UTC).replace(tzinfo=None)
         end_utc = end_msk.astimezone(UTC).replace(tzinfo=None)
 
+        # Filter out slots that have already started
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        effective_start_utc = max(start_utc, now_utc)
+
         stmt = select(TimeSlot).where(
             TimeSlot.trainer_profile_id == trainer_profile_id,
             TimeSlot.status == "free",
-            TimeSlot.start_time >= start_utc,
+            TimeSlot.start_time >= effective_start_utc,
             TimeSlot.start_time <= end_utc
         ).order_by(TimeSlot.start_time.asc())
         res = await session.execute(stmt)
         slots = res.scalars().all()
+
+        # Filter out slots that have already started
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        slots = [s for s in slots if s.start_time >= now_utc]
 
         if not slots:
             await callback.answer("На этот день нет свободных слотов", show_alert=True)
@@ -226,8 +234,9 @@ async def pro_slot_selected(callback: types.CallbackQuery, state: FSMContext):
         )
         slot = (await session.execute(stmt)).scalar_one_or_none()
 
-        if not slot or slot.status != "free":
-            await callback.answer("Слот уже занят", show_alert=True)
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        if not slot or slot.status != "free" or slot.start_time < now_utc:
+            await callback.answer("Слот уже занят или недоступен", show_alert=True)
             return
 
         await state.update_data(slot_id=slot_id)
@@ -465,7 +474,8 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext, 
 
         client_profile = await session.get(ClientProfile, client_id, options=[selectinload(ClientProfile.user)])
 
-        if slot and slot.status == "free" and client_profile:
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        if slot and slot.status == "free" and slot.start_time >= now_utc and client_profile:
             # Pre-fetch needed values BEFORE commit/flush to avoid MissingGreenlet
             trainer_name = slot.trainer_profile.user.full_name
             client_user_id = client_profile.user_id
@@ -543,8 +553,13 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext, 
                 s_start = slot_start_time.replace(tzinfo=UTC) if slot_start_time.tzinfo is None else slot_start_time.astimezone(UTC)
                 start_moscow = s_start.astimezone(moscow_tz)
 
+                # Dynamic terminology
+                is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY
+                is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in slot_format.split(", "))
+                term_main = "на услугу" if (is_beauty or is_specific_sport) else "на занятие"
+
                 client_text = (
-                    f"📅 **Вас записали на занятие!**\n\n"
+                    f"📅 **Вас записали {term_main}!**\n\n"
                     f"👤 Мастер: {trainer_name}\n"
                     f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
                     f"🏷 Услуга: {slot_format}\n"
@@ -552,7 +567,14 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext, 
 
                 if ("онлайн" in slot_format.lower() or "online" in slot_format.lower()):
                     if slot_online_platform == "telegram":
-                        client_text += "\n📱 **Формат:** Telegram Video\n**Инструкция:** Занятие будет проходить в этом чате по видеосвязи. Тренер свяжется с вами в назначенное время.\n"
+                        term_meet = "Ваша запись" if (is_beauty or is_specific_sport) else "Занятие"
+                        term_specialist = "бьюти-мастер" if is_beauty else ("тренер" if is_specific_sport else "тренер")
+                        if not is_beauty and not is_specific_sport:
+                            term_specialist = "Тренер"
+                        else:
+                            term_specialist = "Мастер"
+
+                        client_text += f"\n📱 **Формат:** Telegram Video\n**Инструкция:** {term_meet} будет проходить в этом чате по видеосвязи. {term_specialist} свяжется с вами в назначенное время.\n"
                     elif slot_zoom_url:
                         client_text += f"\n🔗 **Ссылка на Zoom:** {slot_zoom_url}\n"
 

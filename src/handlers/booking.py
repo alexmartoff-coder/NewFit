@@ -114,10 +114,14 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
         start_utc = start_msk.astimezone(UTC).replace(tzinfo=None)
         end_utc = end_msk.astimezone(UTC).replace(tzinfo=None)
 
+        # Filter out slots that have already started
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        effective_start_utc = max(start_utc, now_utc)
+
         stmt = select(TimeSlot).where(
             TimeSlot.trainer_profile_id == trainer_profile_id,
             TimeSlot.status == "free",
-            TimeSlot.start_time >= start_utc,
+            TimeSlot.start_time >= effective_start_utc,
             TimeSlot.start_time <= end_utc
         ).order_by(TimeSlot.start_time.asc())
         res = await session.execute(stmt)
@@ -185,7 +189,8 @@ async def process_slot_selection(callback: types.CallbackQuery, state: FSMContex
         res = await session.execute(stmt)
         slot = res.scalar_one_or_none()
 
-        if not slot or slot.status != "free":
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        if not slot or slot.status != "free" or slot.start_time < now_utc:
             text = "Этот слот уже занят или недоступен. Выберите другой."
             if callback.message.photo:
                 await callback.message.edit_caption(caption=text)
@@ -242,7 +247,8 @@ async def process_slot_selection_confirmed(callback: types.CallbackQuery, state:
         res = await session.execute(stmt)
         slot = res.scalar_one_or_none()
 
-        if not slot or slot.status != "free":
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        if not slot or slot.status != "free" or slot.start_time < now_utc:
             text = "Этот слот уже занят или недоступен."
             await callback.answer(text, show_alert=True)
             return
@@ -495,7 +501,8 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
         res = await session.execute(stmt)
         slot = res.scalar_one_or_none()
 
-        if slot and slot.status == "free":
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        if slot and slot.status == "free" and slot.start_time >= now_utc:
             # Pre-fetch all necessary attributes before commit to avoid MissingGreenlet
             client_name = client_profile.full_name
             trainer_name = slot.trainer_profile.user.full_name
@@ -564,7 +571,14 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
 
             if ("онлайн" in slot_format.lower() or "online" in slot_format.lower()):
                 if slot_online_platform == "telegram":
-                    text += f"\n\n📱 *Формат:* Telegram Video\n*Инструкция:* Занятие будет проходить в этом чате по видеосвязи. Тренер свяжется с вами в назначенное время."
+                    term_meet = "Ваша запись" if (is_beauty or is_specific_sport) else "Занятие"
+                    term_specialist = "бьюти-мастер" if is_beauty else ("тренер" if is_specific_sport else "тренер")
+                    if not is_beauty and not is_specific_sport:
+                        term_specialist = "Тренер"
+                    else:
+                        term_specialist = "Мастер"
+
+                    text += f"\n\n📱 *Формат:* Telegram Video\n*Инструкция:* {term_meet} будет проходить в этом чате по видеосвязи. {term_specialist} свяжется с вами в назначенное время."
                 elif slot_zoom_join_url:
                     text += f"\n\n🔗 *Ссылка на Zoom:* {escape_md(slot_zoom_join_url)}"
                 else:

@@ -123,9 +123,23 @@ class ReminderService:
 
                             kb = None
                             if r.reminder_type == "review":
+                                # Dynamic terminology based on role
+                                role = trainer_data[1].role if trainer_data else None
+                                slot_format = booking.slot.format if booking.slot else ""
+                                is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in slot_format.split(", "))
+
+                                if role == UserRole.BEAUTY or is_specific_sport:
+                                    term_how = "Как прошла услуга?"
+                                    term_main = "Ваша запись"
+                                    term_verb = "завершилась"
+                                else:
+                                    term_how = "Как прошло занятие?"
+                                    term_main = "Ваше занятие"
+                                    term_verb = "завершилось"
+
                                 msg = (
-                                    f"⭐ **Как прошло занятие?**\n\n"
-                                    f"Ваше занятие с {escape_md(trainer_name)} завершилось. "
+                                    f"⭐ **{term_how}**\n\n"
+                                    f"{term_main} с {escape_md(trainer_name)} {term_verb}. "
                                     f"Пожалуйста, оставьте отзыв, это поможет другим пользователям!"
                                 )
                                 kb = types.InlineKeyboardMarkup(inline_keyboard=[
@@ -133,7 +147,14 @@ class ReminderService:
                                 ])
                             elif r.reminder_type == "10m" and ("онлайн" in booking.slot.format.lower() or "online" in booking.slot.format.lower()):
                                 if booking.slot.online_platform == "telegram":
-                                    msg = "Занятие начинается через 10 минут."
+                                    # Dynamic terminology
+                                    role = trainer_data[1].role if trainer_data else None
+                                    is_beauty = role == UserRole.BEAUTY
+                                    is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in booking.slot.format.split(", "))
+
+                                    term_meet = "Ваша запись начинается" if (is_beauty or is_specific_sport) else "Занятие начинается"
+                                    msg = f"{term_meet} через 10 минут."
+
                                     # Link to the other participant
                                     other_user_id = trainer_data[0].user_id if r.user_id == booking.client.user_id else booking.client.user_id
                                     kb = types.InlineKeyboardMarkup(inline_keyboard=[

@@ -283,7 +283,8 @@ async def process_experience(message: types.Message, state: FSMContext, is_admin
                 await message.answer(f"Шаг 10: Укажите цену за {term_price} «{first_spec}» (в ₽):")
             else:
                 await state.set_state(TrainerOnboarding.price_package)
-                await message.answer("Шаг 11: Укажите цену за пакет услуг (в ₽):")
+                term_pkg = "услуг"
+                await message.answer(f"Шаг 11: Укажите цену за пакет {term_pkg} (в ₽):")
         else:
             # TRAINER role also goes directly to price_single
             await state.set_state(TrainerOnboarding.price_single)
@@ -293,7 +294,9 @@ async def process_experience(message: types.Message, state: FSMContext, is_admin
                 kb = None
                 if profile and profile.price_single:
                     kb = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text=f"Не менять ({profile.price_single}₽)", callback_data="skip_step")]])
-                await message.answer("Шаг 10: Укажите вашу цену за разовое занятие (в ₽):", reply_markup=add_admin_button(kb, is_admin=is_admin) if kb else None)
+
+                term_lesson = "на услугу" if (role == UserRole.BEAUTY or role in [UserRole.TENNIS, UserRole.PADEL]) else "за разовое занятие"
+                await message.answer(f"Шаг 10: Укажите вашу цену {term_lesson} (в ₽):", reply_markup=add_admin_button(kb, is_admin=is_admin) if kb else None)
 
     except ValueError:
         await message.answer("Пожалуйста, введите число (количество полных лет опыта).")
@@ -348,7 +351,9 @@ async def process_price_online(message: types.Message, state: FSMContext, is_adm
                 kb = None
                 if profile and profile.price_package:
                     kb = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text=f"Не менять ({profile.price_package}₽)", callback_data="skip_step")]])
-                await message.answer("Шаг 11: Укажите цену за абонемент на 12 занятий (в ₽):", reply_markup=add_admin_button(kb, is_admin=is_admin))
+
+                term_pkg = "услуг" if (role == UserRole.BEAUTY or role in [UserRole.TENNIS, UserRole.PADEL]) else "занятий"
+                await message.answer(f"Шаг 11: Укажите цену за абонемент на 12 {term_pkg} (в ₽):", reply_markup=add_admin_button(kb, is_admin=is_admin))
     except ValueError:
         await message.answer("Введите число.")
 
@@ -383,12 +388,18 @@ async def process_price_single(message: types.Message, state: FSMContext, is_adm
         await state.update_data(price_single=float(message.text))
         await state.set_state(TrainerOnboarding.price_package)
         user_id = effective_user_id or message.from_user.id
+        data = await state.get_data()
+        role = data.get('role')
+        if isinstance(role, str): role = UserRole(role.lower())
+
         async with SessionLocal() as session:
             profile = (await session.execute(select(TrainerProfile).where(TrainerProfile.user_id == user_id))).scalar_one_or_none()
             kb = None
             if profile and profile.price_package:
                 kb = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text=f"Не менять ({profile.price_package}₽)", callback_data="skip_step")]])
-            await message.answer("Шаг 11: Укажите цену за абонемент на 12 занятий (в ₽):", reply_markup=add_admin_button(kb, is_admin=is_admin))
+
+            term_pkg = "услуг" if (role == UserRole.BEAUTY or role in [UserRole.TENNIS, UserRole.PADEL]) else "занятий"
+            await message.answer(f"Шаг 11: Укажите цену за абонемент на 12 {term_pkg} (в ₽):", reply_markup=add_admin_button(kb, is_admin=is_admin))
     except ValueError:
         await message.answer("Введите число.")
 
@@ -589,7 +600,8 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
                     await callback.message.answer(f"Шаг 10: Укажите цену за {term_price} «{specs[0]}» (в ₽):")
                 else:
                     await state.set_state(TrainerOnboarding.price_package)
-                    await callback.message.answer("Шаг 11: Укажите цену за пакет услуг (в ₽):")
+                term_pkg = "услуг"
+                await callback.message.answer(f"Шаг 11: Укажите цену за пакет {term_pkg} (в ₽):")
             else:
                 # TRAINER role also goes directly to price_single
                 await state.set_state(TrainerOnboarding.price_single)
@@ -610,10 +622,16 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
         elif current_state == TrainerOnboarding.price_single:
             await state.update_data(price_single=profile.price_single if profile else 0.0)
             await state.set_state(TrainerOnboarding.price_package)
+
+            data = await state.get_data()
+            role = data.get('role')
+            if isinstance(role, str): role = UserRole(role.lower())
+            term_pkg = "услуг" if (role == UserRole.BEAUTY or role in [UserRole.TENNIS, UserRole.PADEL]) else "занятий"
+
             kb = None
             if profile and profile.price_package:
                 kb = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text=f"Не менять ({profile.price_package}₽)", callback_data="skip_step")]])
-            await callback.message.answer("Шаг 11: Укажите цену за пакет услуг (в ₽):", reply_markup=add_admin_button(kb, is_admin=is_admin))
+            await callback.message.answer(f"Шаг 11: Укажите цену за пакет {term_pkg} (в ₽):", reply_markup=add_admin_button(kb, is_admin=is_admin))
 
         elif current_state == TrainerOnboarding.price_package:
             await state.update_data(price_package=profile.price_package if profile else 0.0)

@@ -42,7 +42,23 @@ async def start_review(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.delete()
     except Exception:
         pass
-    await callback.message.answer("Пожалуйста, оцените работу мастера от 1 до 5:", reply_markup=kb)
+
+    async with SessionLocal() as session:
+        booking = await session.get(Booking, booking_id, options=[
+            selectinload(Booking.slot).selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
+        ])
+
+        role = booking.slot.trainer_profile.user.role if booking and booking.slot else None
+        slot_format = booking.slot.format if booking and booking.slot else ""
+        is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in slot_format.split(", "))
+
+        term = "мастера"
+        if role == UserRole.BEAUTY:
+            term = "бьюти-мастера"
+        elif is_specific_sport:
+            term = "тренера"
+
+    await callback.message.answer(f"Пожалуйста, оцените работу {term} от 1 до 5:", reply_markup=kb)
     await callback.answer()
 
 @router.callback_query(ReviewStates.waiting_for_rating, F.data.startswith("rate_"))
@@ -75,7 +91,9 @@ async def save_review(message: types.Message, state: FSMContext, comment: str = 
     rating = data['rating']
 
     async with SessionLocal() as session:
-        booking = await session.get(Booking, booking_id)
+        booking = await session.get(Booking, booking_id, options=[
+            selectinload(Booking.slot).selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
+        ])
         if not booking:
             await message.answer("Ошибка: запись не найдена.")
             await state.clear()
@@ -107,5 +125,15 @@ async def save_review(message: types.Message, state: FSMContext, comment: str = 
 
         await session.commit()
 
-    await message.answer("Спасибо за ваш отзыв! ❤️ Он поможет другим пользователям выбрать лучшего мастера.")
+        role = booking.slot.trainer_profile.user.role if booking and booking.slot else None
+        slot_format = booking.slot.format if booking and booking.slot else ""
+        is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in slot_format.split(", "))
+
+        term = "мастера"
+        if role == UserRole.BEAUTY:
+            term = "бьюти-мастера"
+        elif is_specific_sport:
+            term = "тренера"
+
+    await message.answer(f"Спасибо за ваш отзыв! ❤️ Он поможет другим пользователям выбрать лучшего {term}.")
     await state.clear()
