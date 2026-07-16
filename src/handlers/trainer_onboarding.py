@@ -4,7 +4,7 @@ from aiogram.fsm.context import FSMContext
 from src.states.trainer_onboarding import TrainerOnboarding
 from src.keyboards.common import get_format_kb, get_trainer_main_kb, get_start_reg_kb, get_spec_kb, get_city_kb, get_sphere_kb, get_district_kb
 from src.keyboards.inline import add_admin_button
-from src.models.models import User, TrainerProfile, UserRole, WorkFormat, Specialization, trainer_specializations
+from src.models.models import User, TrainerProfile, UserRole, WorkFormat, Specialization, trainer_specializations, TrainerPhoto
 from src.utils.db import SessionLocal
 from sqlalchemy import select, func, delete, insert
 from sqlalchemy.orm import selectinload
@@ -614,8 +614,17 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
             res = await session.execute(stmt)
             user = res.scalar_one_or_none()
 
-            role = data.get('role', UserRole.TRAINER)
-            if isinstance(role, str): role = UserRole(role.lower())
+            # Normalize role and work_fmt
+            role_val = data.get('role', UserRole.trainer.value)
+            if hasattr(role_val, 'value'): role_val = role_val.value
+            role = UserRole(role_val.lower())
+
+            work_fmt_val = data.get('work_format', WorkFormat.OFFLINE.value)
+            if hasattr(work_fmt_val, 'value'): work_fmt_val = work_fmt_val.value
+            try:
+                work_fmt = WorkFormat(work_fmt_val.upper())
+            except (ValueError, AttributeError):
+                work_fmt = WorkFormat.OFFLINE
 
             if not user:
                 user = User(id=user_id, username=username, full_name=data.get('full_name', 'Не указано'), role=role)
@@ -626,14 +635,9 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 user.full_name = data.get('full_name', user.full_name)
                 profile = user.trainer_profile
 
-            work_fmt = data.get('work_format', WorkFormat.ONLINE)
-            if isinstance(work_fmt, str):
-                try: work_fmt = WorkFormat(work_fmt)
-                except ValueError: work_fmt = WorkFormat.ONLINE
-
             if not profile:
                 profile = TrainerProfile(
-                    user_id=user_id, city=data.get('city', 'Не указан'),
+                    user=user, city=data.get('city', 'Не указан'),
                     district=data.get('district'),
                     phone=data.get('phone'),
                     experience=int(data.get('experience', 0)),
@@ -646,8 +650,10 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                     online_meeting_link=data.get('online_link'),
                     status="approved"
                 )
+                # Initialize collections for new object to avoid lazy load checks
+                profile.photos = []
+                profile.specializations = []
                 session.add(profile)
-                await session.flush() # Ensure profile has an ID for photos/specs
             else:
                 profile.city = data.get('city', profile.city)
                 profile.district = data.get('district', profile.district)
@@ -663,9 +669,8 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
 
             # Handle multiple photos
             if data.get('photos'):
-                from src.models.models import TrainerPhoto
-                # Use relationship assignment for clean deletion and FK management
-                profile.photos = [TrainerPhoto(file_id=f_id) for f_id in data['photos']]
+                # Use relationship assignment with explicit parent linking for maximum safety
+                profile.photos = [TrainerPhoto(trainer_profile=profile, file_id=f_id) for f_id in data['photos']]
                 # Update legacy photo_url for backward compatibility
                 profile.photo_url = data['photos'][0]
 
