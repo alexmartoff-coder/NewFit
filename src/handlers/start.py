@@ -1,5 +1,6 @@
 from aiogram import Router, types, F
 from aiogram.filters import CommandStart
+from aiogram.fsm.context import FSMContext
 from src.keyboards.common import get_role_kb, get_launch_kb
 from src.keyboards.inline import add_admin_button
 from src.models.models import User, UserRole
@@ -48,10 +49,32 @@ async def cmd_start(message: types.Message, is_admin: bool = False, effective_us
                 return
 
     # Show launch button for new users or those without a role
-    await message.answer(
-        "Добро пожаловать в NewFit — экосистему для фитнеса будущего! 🔥",
-        reply_markup=get_launch_kb()
+    welcome_text = (
+        "👋 **Добро пожаловать в NewFit!**\n\n"
+        "Единая экосистема для **Спортa** и **Бьюти** прямо в Telegram.\n\n"
+        "• **Профессионалам:** удобное управление расписанием и привлечение клиентов.\n"
+        "• **Клиентам:** быстрая запись к лучшим мастерам в пару кликов.\n\n"
+        "Выберите, как вы хотите использовать бота:"
     )
+    await message.answer(
+        welcome_text,
+        reply_markup=get_launch_kb(),
+        parse_mode="Markdown"
+    )
+
+
+@router.message(F.text == "ℹ️ О проекте")
+async def about_project_handler(message: types.Message):
+    about_text = (
+        "**NewFit** — это современная платформа для автоматизации записи в сферах спорта и красоты.\n\n"
+        "**Что мы предлагаем:**\n"
+        "• ⚡️ Мгновенное бронирование времени\n"
+        "• 📅 Интерактивное расписание для мастеров\n"
+        "• 📸 Портфолио с галереей работ\n"
+        "• 🔔 Автоматические уведомления о записях\n\n"
+        "Мы объединяем фитнес-тренеров, мастеров бьюти-индустрии и тренеров по теннису/падлу в одном удобном интерфейсе."
+    )
+    await message.answer(about_text, parse_mode="Markdown")
 
 @router.message(F.text == "🚀 Запустить бота")
 async def launch_bot_handler(message: types.Message, is_admin: bool = False):
@@ -67,10 +90,16 @@ async def launch_bot_handler(message: types.Message, is_admin: bool = False):
 
 @router.callback_query(F.data == "learn_more")
 async def learn_more_callback(callback: types.CallbackQuery):
-    await callback.message.answer(
-        "NewFit — это единая экосистема для фитнес-мастеров и клиентов в Telegram.\n"
-        "Мы помогаем мастерам автоматизировать запись, а клиентам — быстро находить профессионалов."
+    about_text = (
+        "**NewFit** — это современная платформа для автоматизации записи в сферах спорта и красоты.\n\n"
+        "**Что мы предлагаем:**\n"
+        "• ⚡️ Мгновенное бронирование времени\n"
+        "• 📅 Интерактивное расписание для мастеров\n"
+        "• 📸 Портфолио с галереей работ\n"
+        "• 🔔 Автоматические уведомления о записях\n\n"
+        "Мы объединяем фитнес-тренеров, мастеров бьюти-индустрии и тренеров по теннису/падлу в одном удобном интерфейсе."
     )
+    await callback.message.answer(about_text, parse_mode="Markdown")
     await callback.answer()
 
 @router.message(F.text == "🛠 Админ")
@@ -80,13 +109,6 @@ async def admin_button_handler(message: types.Message, is_admin: bool = False):
         return
     from src.handlers.admin import admin_panel
     await admin_panel(message, is_admin=True)
-
-@router.message(F.text == "❓ Узнать больше о NewFit")
-async def learn_more(message: types.Message):
-    await message.answer(
-        "NewFit — это единая экосистема для фитнес-мастеров и клиентов в Telegram.\n"
-        "Мы помогаем мастерам автоматизировать запись, а клиентам — быстро находить профессионалов."
-    )
 
 @router.message(F.text == "/help")
 async def cmd_help(message: types.Message):
