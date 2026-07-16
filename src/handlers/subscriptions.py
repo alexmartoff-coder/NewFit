@@ -9,11 +9,13 @@ router = Router()
 
 @router.message(F.text == "💳 Купить абонемент")
 async def show_subscription_packages(message: types.Message, is_admin: bool = False):
+    # This usually comes from the client menu.
+    # For now, let's keep it generic but use inclusive labels.
     kb = types.InlineKeyboardMarkup(
         inline_keyboard=[
-            [types.InlineKeyboardButton(text="8 занятий - 15 000₽", callback_data="buy_sub_8_15000")],
-            [types.InlineKeyboardButton(text="12 занятий - 20 000₽", callback_data="buy_sub_12_20000")],
-            [types.InlineKeyboardButton(text="24 занятия - 35 000₽", callback_data="buy_sub_24_35000")]
+            [types.InlineKeyboardButton(text="8 услуг/занятий - 15 000₽", callback_data="buy_sub_8_15000")],
+            [types.InlineKeyboardButton(text="12 услуг/занятий - 20 000₽", callback_data="buy_sub_12_20000")],
+            [types.InlineKeyboardButton(text="24 услуги/занятия - 35 000₽", callback_data="buy_sub_24_35000")]
         ]
     )
     kb = add_admin_button(kb, is_admin=is_admin)
@@ -27,7 +29,7 @@ async def process_sub_purchase(callback: types.CallbackQuery, is_admin: bool = F
 
     payment_link = await PaymentService.create_payment_link(
         amount=price,
-        description=f"Абонемент на {count} занятий",
+        description=f"Абонемент на {count} услуг/занятий",
         user_id=callback.from_user.id
     )
 
@@ -38,7 +40,7 @@ async def process_sub_purchase(callback: types.CallbackQuery, is_admin: bool = F
         ]
     )
     kb = add_admin_button(kb, is_admin=is_admin)
-    text = f"Вы выбрали пакет на {count} занятий за {price}₽.\nОплатите по ссылке ниже:"
+    text = f"Вы выбрали пакет на {count} услуг/занятий за {price}₽.\nОплатите по ссылке ниже:"
     if callback.message.photo:
         await callback.message.edit_caption(caption=text, reply_markup=kb)
     else:
@@ -67,7 +69,7 @@ async def verify_sub_mock(callback: types.CallbackQuery):
         session.add(sub)
         await session.commit()
 
-    text = f"Оплата подтверждена! Вам начислено {count} занятий."
+    text = f"Оплата подтверждена! Вам начислено {count} услуг/занятий."
     if callback.message.photo:
         await callback.message.edit_caption(caption=text)
     else:

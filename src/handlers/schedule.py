@@ -256,7 +256,7 @@ async def add_slot_time(message: types.Message, state: FSMContext):
             [types.InlineKeyboardButton(text="60 минут", callback_data="as_dur_60")],
             [types.InlineKeyboardButton(text="90 минут", callback_data="as_dur_90")]
         ])
-        await message.answer("Выберите длительность занятия:", reply_markup=kb)
+        await message.answer("Выберите длительность:", reply_markup=kb)
         await state.set_state(ScheduleState.choosing_duration)
     except ValueError:
         await message.answer("Неверный формат времени. Используйте ЧЧ:ММ:")
@@ -1130,7 +1130,7 @@ async def process_slot_deletion_final(callback: types.CallbackQuery, effective_u
 
 @router.callback_query(F.data == "sche_config_duration")
 async def config_duration_start(callback: types.CallbackQuery, state: FSMContext):
-    text = "Введите стандартную длительность занятия в минутах (например, 60 или 90):"
+    text = "Введите стандартную длительность в минутах (например, 60 или 90):"
     if callback.message.photo:
         await callback.message.edit_caption(caption=text)
     else:
@@ -1155,7 +1155,7 @@ async def process_config_duration(message: types.Message, state: FSMContext, eff
                 config.slot_duration = duration
 
             await session.commit()
-        await message.answer(f"Длительность занятия установлена: {duration} мин.")
+        await message.answer(f"Длительность установлена: {duration} мин.")
         await state.clear()
     except ValueError:
         await message.answer("Введите число.")

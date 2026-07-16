@@ -112,13 +112,16 @@ async def show_favorites(callback: types.CallbackQuery, is_admin: bool = False, 
                     text += f"• {escape_md(svc)}: {int(price)}₽\n"
 
                 if profile.price_package > 0:
-                    text += f"💳 Цена (пакет 12): {int(profile.price_package)}₽\n"
+                    term_pkg = "услуг" if (user_data.role == UserRole.BEAUTY or user_data.role in [UserRole.TENNIS, UserRole.PADEL]) else "занятий"
+                    text += f"💳 Цена (пакет 12 {term_pkg}): {int(profile.price_package)}₽\n"
             else:
                 specs_str = ", ".join([s.name for s in profile.specializations]) or "не указаны"
                 text += f"🎯 Специализации: {escape_md(specs_str)}\n"
+
+                term_pkg = "услуг" if (user_data.role == UserRole.BEAUTY or user_data.role in [UserRole.TENNIS, UserRole.PADEL]) else "занятий"
                 text += (
                     f"💰 Разовое: {int(profile.price_single)}₽\n"
-                    f"💳 12 занятий: {int(profile.price_package)}₽\n"
+                    f"💳 12 {term_pkg}: {int(profile.price_package)}₽\n"
                 )
 
             text += f"⭐ Рейтинг: {profile.rating:.1f}"
@@ -181,13 +184,16 @@ async def favorite_photo_carousel(callback: types.CallbackQuery, is_admin: bool 
                 text += f"• {escape_md(svc)}: {int(price)}₽\n"
 
             if profile.price_package > 0:
-                text += f"💳 Цена (пакет 12): {int(profile.price_package)}₽\n"
+                term_pkg = "услуг" if (user.role == UserRole.BEAUTY or user.role in [UserRole.TENNIS, UserRole.PADEL]) else "занятий"
+                text += f"💳 Цена (пакет 12 {term_pkg}): {int(profile.price_package)}₽\n"
         else:
             specs_str = ", ".join([s.name for s in profile.specializations]) or "не указаны"
             text += f"🎯 Специализации: {escape_md(specs_str)}\n"
+
+            term_pkg = "услуг" if (user.role == UserRole.BEAUTY or user.role in [UserRole.TENNIS, UserRole.PADEL]) else "занятий"
             text += (
                 f"💰 Разовое: {int(profile.price_single)}₽\n"
-                f"💳 12 занятий: {int(profile.price_package)}₽\n"
+                f"💳 12 {term_pkg}: {int(profile.price_package)}₽\n"
             )
 
         text += f"⭐ Рейтинг: {profile.rating:.1f}"
