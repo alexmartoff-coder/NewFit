@@ -607,7 +607,8 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
             # 1. Load User and Profile with explicit relationship loading
             stmt = select(User).where(User.id == user_id).options(
                 selectinload(User.trainer_profile).options(
-                    selectinload(TrainerProfile.specializations)
+                    selectinload(TrainerProfile.specializations),
+                    selectinload(TrainerProfile.photos)
                 )
             )
             res = await session.execute(stmt)
@@ -646,6 +647,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                     status="approved"
                 )
                 session.add(profile)
+                await session.flush() # Ensure profile has an ID for photos/specs
             else:
                 profile.city = data.get('city', profile.city)
                 profile.district = data.get('district', profile.district)
@@ -662,10 +664,8 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
             # Handle multiple photos
             if data.get('photos'):
                 from src.models.models import TrainerPhoto
-                # Clear old photos
-                await session.execute(delete(TrainerPhoto).where(TrainerPhoto.trainer_profile_id == profile.id))
-                for f_id in data['photos']:
-                    session.add(TrainerPhoto(trainer_profile_id=profile.id, file_id=f_id))
+                # Use relationship assignment for clean deletion and FK management
+                profile.photos = [TrainerPhoto(file_id=f_id) for f_id in data['photos']]
                 # Update legacy photo_url for backward compatibility
                 profile.photo_url = data['photos'][0]
 
