@@ -436,9 +436,25 @@ async def process_photo(message: types.Message, state: FSMContext, is_admin: boo
 
     data = await state.get_data()
     photos = data.get('photos', [])
+    last_conf_msg_id = data.get('last_conf_msg_id')
+
+    # Remove buttons from previous confirmation message if it exists
+    if last_conf_msg_id:
+        try:
+            await message.bot.edit_message_reply_markup(
+                chat_id=message.chat.id,
+                message_id=last_conf_msg_id,
+                reply_markup=None
+            )
+        except Exception:
+            pass
 
     if len(photos) >= 5:
-        await message.answer("❌ Вы уже загрузили 5 фото. Нажмите «Завершить», чтобы продолжить.")
+        kb = types.InlineKeyboardMarkup(inline_keyboard=[
+            [types.InlineKeyboardButton(text="✅ Завершить загрузку", callback_data="finish_photos")]
+        ])
+        conf_msg = await message.answer("❌ Вы уже загрузили максимум (5 фото). Нажмите «Завершить», чтобы продолжить.", reply_markup=kb)
+        await state.update_data(last_conf_msg_id=conf_msg.message_id)
         return
 
     photos.append(message.photo[-1].file_id)
@@ -446,14 +462,33 @@ async def process_photo(message: types.Message, state: FSMContext, is_admin: boo
 
     count = len(photos)
     kb_list = []
-    if count >= 1:
-        kb_list.append([types.InlineKeyboardButton(text="✅ Завершить загрузку", callback_data="finish_photos")])
+    if count < 5:
+        kb_list.append([types.InlineKeyboardButton(text="📸 Загрузить ещё", callback_data="upload_more_photos")])
+
+    kb_list.append([types.InlineKeyboardButton(text="✅ Завершить загрузку", callback_data="finish_photos")])
 
     kb = types.InlineKeyboardMarkup(inline_keyboard=kb_list)
-    await message.answer(f"✅ Фото {count}/5 загружено. Вы можете отправить еще или нажать «Завершить»:", reply_markup=kb)
+    conf_msg = await message.answer(f"✅ Фото {count}/5 загружено. Выберите действие:", reply_markup=kb)
+    await state.update_data(last_conf_msg_id=conf_msg.message_id)
+
+@router.callback_query(F.data == "upload_more_photos", TrainerOnboarding.photo)
+async def upload_more_photos_callback(callback: types.CallbackQuery, state: FSMContext):
+    # Remove buttons from current message
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
+    await callback.message.answer("Пожалуйста, отправьте следующее фото (до 5 штук):")
+    await callback.answer()
 
 @router.callback_query(F.data == "finish_photos", TrainerOnboarding.photo)
 async def finish_photos(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
     await state.set_state(TrainerOnboarding.video)
     kb = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text="Пропустить", callback_data="skip_video")]])
     await callback.message.answer("Шаг 13: Загрузите короткое видео-презентацию (15–60 секунд) или пропустите этот шаг.", reply_markup=add_admin_button(kb, is_admin=is_admin))
