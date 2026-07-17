@@ -478,6 +478,7 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext, 
         if slot and slot.status == "free" and slot.start_time >= now_utc and client_profile:
             # Pre-fetch needed values BEFORE commit/flush to avoid MissingGreenlet
             trainer_name = slot.trainer_profile.user.full_name
+            trainer_role = slot.trainer_profile.user.role
             client_user_id = client_profile.user_id
             client_full_name = client_profile.full_name
             slot_start_time = slot.start_time
@@ -554,15 +555,15 @@ async def pro_confirm_booking(callback: types.CallbackQuery, state: FSMContext, 
                 start_moscow = s_start.astimezone(moscow_tz)
 
                 # Dynamic terminology
-                is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY
+                is_beauty = trainer_role == UserRole.BEAUTY
                 is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in slot_format.split(", "))
                 term_main = "на услугу" if (is_beauty or is_specific_sport) else "на занятие"
 
                 client_text = (
                     f"📅 **Вас записали {term_main}!**\n\n"
-                    f"👤 Мастер: {trainer_name}\n"
+                    f"👤 Мастер: {escape_md(trainer_name)}\n"
                     f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
-                    f"🏷 Услуга: {slot_format}\n"
+                    f"🏷 Услуга: {escape_md(slot_format)}\n"
                 )
 
                 if ("онлайн" in slot_format.lower() or "online" in slot_format.lower()):
