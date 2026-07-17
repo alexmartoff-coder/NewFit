@@ -113,7 +113,7 @@ async def process_district(message: types.Message, state: FSMContext):
 
 # --- STEP 5: Services / Specializations ---
 @router.callback_query(F.data.startswith("sphere_"), TrainerOnboarding.sphere)
-@router.message(TrainerOnboarding.sphere, F.text.in_(["Фитнес", "Бьюти", "Большой теннис", "Падл"]))
+@router.message(TrainerOnboarding.sphere, F.text.in_(["Фитнес", "Бьюти", "Большой теннис", "Теннис", "Падл"]))
 async def provider_sphere_chosen(event: types.Message | types.CallbackQuery, state: FSMContext, is_admin: bool = False):
     if isinstance(event, types.CallbackQuery):
         sphere_choice = event.data.split("_")[1]
@@ -130,6 +130,7 @@ async def provider_sphere_chosen(event: types.Message | types.CallbackQuery, sta
             "фитнес": UserRole.TRAINER,
             "бьюти": UserRole.BEAUTY,
             "большой теннис": UserRole.TENNIS,
+            "теннис": UserRole.TENNIS,
             "падл": UserRole.PADEL
         }
         role = role_map_txt.get(event.text.lower(), UserRole.TRAINER)
@@ -600,8 +601,8 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
                     await callback.message.answer(f"Шаг 10: Укажите цену за {term_price} «{specs[0]}» (в ₽):")
                 else:
                     await state.set_state(TrainerOnboarding.price_package)
-                term_pkg = "услуг"
-                await callback.message.answer(f"Шаг 11: Укажите цену за пакет {term_pkg} (в ₽):")
+                    term_pkg = "услуг"
+                    await callback.message.answer(f"Шаг 11: Укажите цену за пакет {term_pkg} (в ₽):")
             else:
                 # TRAINER role also goes directly to price_single
                 await state.set_state(TrainerOnboarding.price_single)
