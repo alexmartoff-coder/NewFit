@@ -721,6 +721,76 @@ async def quick_gen_confirm(callback: types.CallbackQuery, state: FSMContext, ef
     await show_schedule_menu(callback.message, effective_user_id=user_id, callback=callback, header=report)
     await callback.answer()
 
+async def generate_slots_for_single_day(session, profile_id: int, user_id: int, target_date):
+    from dateutil.tz import gettz, UTC
+    from datetime import datetime, time, timedelta
+
+    moscow_tz = gettz('Europe/Moscow')
+
+    # Fetch trainer configuration
+    stmt_config = select(TrainerSchedule).where(TrainerSchedule.trainer_id == user_id)
+    res_config = await session.execute(stmt_config)
+    config = res_config.scalar_one_or_none()
+
+    slot_duration = config.slot_duration if config else 60
+
+    # Fetch TrainerProfile
+    profile = await session.get(TrainerProfile, profile_id)
+    if not profile:
+        return
+
+    work_format = profile.work_format.value if hasattr(profile.work_format, 'value') else str(profile.work_format)
+    if not work_format:
+        work_format = "OFFLINE"
+
+    default_price = float(profile.price_single or 2500.0)
+
+    # Determine start and end hours for target_date
+    is_weekend = target_date.weekday() >= 5
+    start_h = 9 if is_weekend else 7
+    end_h = 22 if is_weekend else 23
+
+    current = datetime.combine(target_date, time(start_h, 0)).replace(tzinfo=moscow_tz)
+    now_moscow = datetime.now(moscow_tz)
+
+    while current.hour < end_h:
+        end_slot = current + timedelta(minutes=slot_duration)
+        if end_slot.hour > end_h + 1:
+            break
+
+        start_utc = current.astimezone(UTC).replace(tzinfo=None)
+        end_utc = end_slot.astimezone(UTC).replace(tzinfo=None)
+
+        # Skip slots in the past
+        if current < now_moscow:
+            current += timedelta(minutes=slot_duration)
+            continue
+
+        # Overlap check
+        overlap = await session.execute(
+            select(TimeSlot).where(
+                TimeSlot.trainer_profile_id == profile_id,
+                TimeSlot.start_time < end_utc,
+                TimeSlot.end_time > start_utc
+            )
+        )
+        if overlap.scalar_one_or_none():
+            current += timedelta(minutes=slot_duration)
+            continue
+
+        # Create slot
+        new_slot = TimeSlot(
+            trainer_profile_id=profile_id,
+            start_time=start_utc,
+            end_time=end_utc,
+            format=work_format.lower(),
+            price=default_price if work_format.upper() != "ONLINE" else (profile.price_online or default_price),
+            status="free"
+        )
+        session.add(new_slot)
+        current += timedelta(minutes=slot_duration)
+
+
 async def generate_slots_from_quick_template(user_id: int, days: int, interval: int, work_format: str = "OFFLINE") -> int:
     from dateutil.tz import gettz, UTC
     from datetime import datetime, time, timedelta
@@ -1290,10 +1360,33 @@ async def sche_unblock_slot(callback: types.CallbackQuery):
     async with SessionLocal() as session:
         slot = await session.get(TimeSlot, slot_id)
         if slot:
-            slot.status = "free"
-            await session.commit()
-            await callback.answer("Слот разблокирован.", show_alert=True)
-            await view_slots(callback)
+            if slot.status == "blocked" and slot.format in ["отпуск", "выходной", "vacation", "weekend"]:
+                from dateutil.tz import gettz, UTC
+                moscow_tz = gettz('Europe/Moscow')
+                slot_date = slot.start_time.replace(tzinfo=UTC).astimezone(moscow_tz).date()
+                profile_id = slot.trainer_profile_id
+
+                # Fetch user_id from TrainerProfile to get config
+                profile_stmt = select(TrainerProfile).where(TrainerProfile.id == profile_id)
+                profile = (await session.execute(profile_stmt)).scalar_one_or_none()
+                user_id = profile.user_id if profile else None
+
+                # Delete dummy slot and flush
+                await session.delete(slot)
+                await session.flush()
+
+                # Generate regular slots for this single day
+                if user_id:
+                    await generate_slots_for_single_day(session, profile_id, user_id, slot_date)
+
+                await session.commit()
+                await callback.answer("Слот разблокирован. Расписание на этот день восстановлено.", show_alert=True)
+                await view_slots(callback)
+            else:
+                slot.status = "free"
+                await session.commit()
+                await callback.answer("Слот разблокирован.", show_alert=True)
+                await view_slots(callback)
         else:
             await callback.answer("Слот не найден.")
 
