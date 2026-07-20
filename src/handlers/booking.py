@@ -586,8 +586,11 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
 
             # Show main menu keyboard to client
             from src.keyboards.common import get_client_main_kb
+            # Check if user is also registered as professional
+            stmt_t = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+            has_trainer_profile = (await session.execute(stmt_t)).scalar_one_or_none() is not None
             # After a successful booking, the user definitely has at least one specialist now
-            kb = get_client_main_kb(has_specialists=True)
+            kb = get_client_main_kb(has_specialists=True, is_pro=has_trainer_profile)
 
             # Cleanup confirmation screen
             try:

@@ -32,7 +32,7 @@ async def cmd_start(message: types.Message, is_admin: bool = False, effective_us
                 return
             elif user.role == UserRole.CLIENT:
                 from src.keyboards.common import get_client_main_kb
-                from src.models.models import ClientProfile, Booking
+                from src.models.models import ClientProfile, Booking, TrainerProfile
 
                 async with SessionLocal() as session:
                     cp_stmt = select(ClientProfile).where(ClientProfile.user_id == user.id)
@@ -44,7 +44,10 @@ async def cmd_start(message: types.Message, is_admin: bool = False, effective_us
                         booking_count = (await session.execute(count_stmt)).scalar_one()
                         has_specialists = booking_count > 0
 
-                kb = get_client_main_kb(is_admin=is_admin, has_specialists=has_specialists)
+                    stmt_t = select(TrainerProfile).where(TrainerProfile.user_id == user.id)
+                    has_trainer_profile = (await session.execute(stmt_t)).scalar_one_or_none() is not None
+
+                kb = get_client_main_kb(is_admin=is_admin, has_specialists=has_specialists, is_pro=has_trainer_profile)
                 await message.answer(f"С возвращением! Личный кабинет клиента:", reply_markup=kb)
                 return
 

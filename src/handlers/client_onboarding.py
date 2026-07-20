@@ -1,7 +1,7 @@
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import select, func
-from src.models.models import User, ClientProfile, UserRole, Booking
+from src.models.models import User, ClientProfile, UserRole, Booking, TrainerProfile, PROFESSIONAL_ROLES
 from src.utils.db import SessionLocal
 from src.keyboards.common import get_client_main_kb
 from src.states.client_onboarding import ClientOnboarding
@@ -20,14 +20,31 @@ async def client_start(event: types.Message | types.CallbackQuery, state: FSMCon
         stmt = select(ClientProfile).where(ClientProfile.user_id == user_id)
         client_profile = (await session.execute(stmt)).scalar_one_or_none()
 
+        # If they don't have a client profile but they are a professional, auto-create client profile
+        if user and user.role in PROFESSIONAL_ROLES and not client_profile:
+            client_profile = ClientProfile(
+                user_id=user_id,
+                full_name=user.full_name,
+                status="active"
+            )
+            session.add(client_profile)
+            await session.commit()
+            # Re-fetch
+            stmt = select(ClientProfile).where(ClientProfile.user_id == user_id)
+            client_profile = (await session.execute(stmt)).scalar_one()
+
         # If user has a role and profile with a name, skip onboarding
         if user and user.role in [UserRole.CLIENT, UserRole.TRAINER, UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL] and client_profile and client_profile.full_name:
             count_stmt = select(func.count(Booking.id)).where(Booking.client_id == client_profile.id)
             booking_count = (await session.execute(count_stmt)).scalar_one()
             has_specialists = booking_count > 0
 
+            # Check if user has professional profile
+            stmt_t = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+            has_trainer_profile = (await session.execute(stmt_t)).scalar_one_or_none() is not None
+
             text = "🏋️‍♀️ NewFit — найди своего мастера\n\nЧто хотите сделать?"
-            await message.answer(text, reply_markup=get_client_main_kb(is_admin=is_admin, has_specialists=has_specialists))
+            await message.answer(text, reply_markup=get_client_main_kb(is_admin=is_admin, has_specialists=has_specialists, is_pro=has_trainer_profile))
             if isinstance(event, types.CallbackQuery):
                 await event.answer()
             return
@@ -75,9 +92,13 @@ async def process_client_name(message: types.Message, state: FSMContext, is_admi
 
         await session.commit()
 
+        # Check if user has professional profile
+        stmt_t = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+        has_trainer_profile = (await session.execute(stmt_t)).scalar_one_or_none() is not None
+
     await state.clear()
     # New clients definitely don't have specialists yet
     await message.answer(
         f"Приятно познакомиться, {full_name}! 👋\n\nТеперь вы можете выбирать услуги и записываться к мастерам.",
-        reply_markup=get_client_main_kb(is_admin=is_admin, has_specialists=False)
+        reply_markup=get_client_main_kb(is_admin=is_admin, has_specialists=False, is_pro=has_trainer_profile)
     )

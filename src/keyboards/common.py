@@ -32,6 +32,7 @@ def get_trainer_main_kb(is_admin: bool = False, has_online: bool = False):
     kb = [
         [KeyboardButton(text="Мой профиль"), KeyboardButton(text="Моё расписание")],
         [KeyboardButton(text="Мои записи"), KeyboardButton(text="Мои клиенты")],
+        [KeyboardButton(text="Клиент")],
     ]
     # Online features temporarily disabled
     # if has_online is True:
@@ -45,7 +46,7 @@ def get_trainer_main_kb(is_admin: bool = False, has_online: bool = False):
         kb.append([KeyboardButton(text="🛠 Админ")])
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
-def get_client_main_kb(is_admin: bool = False, has_specialists: bool = False):
+def get_client_main_kb(is_admin: bool = False, has_specialists: bool = False, is_pro: bool = False):
     kb = [
         [KeyboardButton(text="Выбрать услугу"), KeyboardButton(text="Мои записи")],
         # [KeyboardButton(text="🖥 Онлайн тренировка")],
@@ -55,6 +56,9 @@ def get_client_main_kb(is_admin: bool = False, has_specialists: bool = False):
         kb.append([KeyboardButton(text="Мои специалисты")])
 
     kb.append([KeyboardButton(text="💬 Мои диалоги")])
+
+    if is_pro:
+        kb.append([KeyboardButton(text="Кабинет профи")])
 
     if is_admin:
         kb.append([KeyboardButton(text="🛠 Админ")])
