@@ -127,7 +127,11 @@ async def show_profile(message: types.Message, is_admin: bool = False, effective
                 booking_count = (await session.execute(count_stmt)).scalar_one()
                 has_specialists = booking_count > 0
 
-            kb = get_client_main_kb(is_admin=is_admin, has_specialists=has_specialists)
+            # Check if user has professional profile
+            stmt_t = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+            has_trainer_profile = (await session.execute(stmt_t)).scalar_one_or_none() is not None
+
+            kb = get_client_main_kb(is_admin=is_admin, has_specialists=has_specialists, is_pro=has_trainer_profile)
             await message.answer(f"🏋️‍♀️ **Личный кабинет клиента**\n\n👤 Имя: {escape_md(user.full_name)}", reply_markup=kb, parse_mode="Markdown")
 
 @router.message(F.text == "🖥 Онлайн тренировка")
@@ -337,6 +341,26 @@ async def show_clients(event: types.Message | types.CallbackQuery, state: FSMCon
         else:
             await message.answer("У вас пока нет базы клиентов.")
 
+@router.message(F.text == "Кабинет профи")
+async def show_pro_cabinet(message: types.Message, is_admin: bool = False, effective_user_id: int = None):
+    user_id = effective_user_id or message.from_user.id
+    async with SessionLocal() as session:
+        user = await session.get(User, user_id)
+        if not user or user.role not in PROFESSIONAL_ROLES:
+            await message.answer("❌ Доступ запрещен или профиль профессионала не найден.")
+            return
+
+        stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user.id)
+        profile = (await session.execute(stmt_p)).scalar_one_or_none()
+        has_online = (profile.work_format in [WorkFormat.ONLINE, WorkFormat.HYBRID]) if profile else False
+
+        kb = get_trainer_main_kb(is_admin=is_admin, has_online=has_online)
+        role_text = "мастера"
+        if user.role == UserRole.BEAUTY: role_text = "бьюти-мастера"
+        elif user.role == UserRole.TENNIS: role_text = "тренера по теннису"
+        elif user.role == UserRole.PADEL: role_text = "тренера по падлу"
+        await message.answer(f"Личный кабинет {role_text}:", reply_markup=kb)
+
 @router.message(F.text == "Мои записи")
 @router.message(F.text == "/bookings")
 async def show_bookings_router(message: types.Message, effective_user_id: int = None):
@@ -348,9 +372,31 @@ async def show_bookings_router(message: types.Message, effective_user_id: int = 
             return
 
         if user.role in PROFESSIONAL_ROLES:
-            await show_pro_bookings(message, user_id)
+            # Check if they also have a client profile
+            stmt_c = select(ClientProfile).where(ClientProfile.user_id == user_id)
+            client_profile = (await session.execute(stmt_c)).scalar_one_or_none()
+
+            if client_profile:
+                # Show choice inline keyboard
+                kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                    [types.InlineKeyboardButton(text="💼 Записи клиентов (я профи)", callback_data="bookings_as_pro")],
+                    [types.InlineKeyboardButton(text="🎒 Мои записи (я клиент)", callback_data="bookings_as_client")]
+                ])
+                await message.answer("Какие записи вы хотите посмотреть?", reply_markup=kb)
+            else:
+                await show_pro_bookings(message, user_id)
         else:
             await show_client_bookings_menu(message, user_id)
+
+@router.callback_query(F.data == "bookings_as_pro")
+async def callback_bookings_as_pro(callback: types.CallbackQuery):
+    await show_pro_bookings(callback.message, callback.from_user.id)
+    await callback.answer()
+
+@router.callback_query(F.data == "bookings_as_client")
+async def callback_bookings_as_client(callback: types.CallbackQuery):
+    await show_client_bookings_menu(callback.message, callback.from_user.id)
+    await callback.answer()
 
 async def show_pro_bookings(message: types.Message, user_id: int):
     async with SessionLocal() as session:
