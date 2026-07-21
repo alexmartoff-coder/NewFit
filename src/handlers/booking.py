@@ -201,8 +201,10 @@ async def process_slot_toggle(callback: types.CallbackQuery, state: FSMContext, 
 
     # Re-render the slot selection keyboard for the current date
     selected_date_str = data.get('selected_date')
-    callback.data = f"bdate_{selected_date_str}"
-    await booking_date_selected(callback, state, is_admin=is_admin)
+
+    # Use model_copy(update=...) for frozen Pydantic v2 objects (such as CallbackQuery)
+    cloned_callback = callback.model_copy(update={"data": f"bdate_{selected_date_str}"})
+    await booking_date_selected(cloned_callback, state, is_admin=is_admin)
 
 @router.callback_query(F.data == "tslot_confirm")
 async def process_multi_slot_confirm(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
