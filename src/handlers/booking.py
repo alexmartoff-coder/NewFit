@@ -98,10 +98,15 @@ async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_adm
 
 @router.callback_query(F.data.startswith("bdate_"))
 async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
-    selected_date = datetime.fromisoformat(callback.data.split("_")[1]).date()
+    selected_date_str = callback.data.split("_")[1]
+    selected_date = datetime.fromisoformat(selected_date_str).date()
     data = await state.get_data()
     trainer_profile_id = data['trainer_profile_id']
     trainer_user_id = data['trainer_user_id']
+
+    # Initialize and keep selected_slots in FSM state
+    selected_slots = data.get('selected_slots', [])
+    await state.update_data(selected_date=selected_date_str, selected_slots=selected_slots)
 
     async with SessionLocal() as session:
         from dateutil.tz import gettz, UTC
@@ -149,14 +154,21 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
             start_str = s_start.astimezone(moscow_tz).strftime('%H:%M')
             end_str = s_end.astimezone(moscow_tz).strftime('%H:%M')
 
-            btn_text = f"{start_str}-{end_str}"
-            row.append(types.InlineKeyboardButton(text=btn_text, callback_data=f"slot_{s.id}"))
+            # Render tick checkmark if selected
+            is_selected = s.id in selected_slots
+            tick_mark = "✅ " if is_selected else ""
+            btn_text = f"{tick_mark}{start_str}-{end_str}"
+            row.append(types.InlineKeyboardButton(text=btn_text, callback_data=f"tslot_toggle_{s.id}"))
             if len(row) == 3:
                 kb.append(row)
                 row = []
 
         if row:
             kb.append(row)
+
+        # Primary "Забронировать время" button if at least one is selected
+        if selected_slots:
+            kb.append([types.InlineKeyboardButton(text="Забронировать время", callback_data="tslot_confirm")])
 
         kb.append([types.InlineKeyboardButton(text="🔙 К выбору даты", callback_data=f"book_{trainer_user_id}")])
         kb.append([types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="client_menu")])
@@ -167,12 +179,119 @@ async def booking_date_selected(callback: types.CallbackQuery, state: FSMContext
         trainer_user = await session.get(User, trainer_user_id)
         trainer_name = trainer_user.full_name if trainer_user else "Мастер"
 
-        text = f"Мастер: {escape_md(trainer_name)}\n\nСвободные слоты на {selected_date.strftime('%d.%m')}:"
+        text = f"Мастер: {escape_md(trainer_name)}\n\nСвободные слоты на {selected_date.strftime('%d.%m')}:\n*(Вы можете выбрать несколько слотов)*"
         if callback.message.photo:
-            await callback.message.edit_caption(caption=text, reply_markup=kb_markup)
+            await callback.message.edit_caption(caption=text, reply_markup=kb_markup, parse_mode="Markdown")
         else:
-            await callback.message.edit_text(text, reply_markup=kb_markup)
+            await callback.message.edit_text(text, reply_markup=kb_markup, parse_mode="Markdown")
     await callback.answer()
+
+@router.callback_query(F.data.startswith("tslot_toggle_"))
+async def process_slot_toggle(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
+    slot_id = int(callback.data.split("_")[2])
+    data = await state.get_data()
+    selected_slots = data.get('selected_slots', [])
+
+    if slot_id in selected_slots:
+        selected_slots.remove(slot_id)
+    else:
+        selected_slots.append(slot_id)
+
+    await state.update_data(selected_slots=selected_slots)
+
+    # Re-render the slot selection keyboard for the current date
+    selected_date_str = data.get('selected_date')
+    callback.data = f"bdate_{selected_date_str}"
+    await booking_date_selected(callback, state, is_admin=is_admin)
+
+@router.callback_query(F.data == "tslot_confirm")
+async def process_multi_slot_confirm(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
+    data = await state.get_data()
+    selected_slots = data.get('selected_slots', [])
+    trainer_user_id = data.get('trainer_user_id')
+    trainer_profile_id = data.get('trainer_profile_id')
+
+    if not selected_slots:
+        await callback.answer("Выберите хотя бы один временной слот!", show_alert=True)
+        return
+
+    # Store the first slot ID for backward compatibility with existing single-slot handlers
+    await state.update_data(slot_id=selected_slots[0])
+
+    async with SessionLocal() as session:
+        # Load slots details for validation and ordering
+        stmt = select(TimeSlot).where(TimeSlot.id.in_(selected_slots)).order_by(TimeSlot.start_time.asc())
+        res = await session.execute(stmt)
+        slots = res.scalars().all()
+
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        # Verify slots are still free
+        for s in slots:
+            if s.status != "free" or s.start_time < now_utc:
+                await callback.answer(f"Слот на {s.start_time.strftime('%H:%M')} уже занят или недоступен. Пожалуйста, выберите другие.", show_alert=True)
+                return
+
+        # Fetch trainer role + specializations
+        stmt_p = select(TrainerProfile).where(TrainerProfile.id == trainer_profile_id).options(
+            selectinload(TrainerProfile.specializations),
+            selectinload(TrainerProfile.user)
+        )
+        profile = (await session.execute(stmt_p)).scalar_one_or_none()
+        if not profile:
+            await callback.answer("Профиль профессионала не найден!")
+            return
+
+        # Store selected specs and details
+        spec_names = [s.name for s in profile.specializations]
+        await state.update_data(specializations=spec_names)
+
+        trainer_role = profile.user.role
+        specs = profile.specializations
+        if specs:
+            # Step 1: Choose Service (if applicable)
+            await state.set_state(BookingSession.choosing_service)
+            kb = []
+            row = []
+            for i, s in enumerate(specs):
+                row.append(types.InlineKeyboardButton(text=s.name, callback_data=f"c_svc_{i}"))
+                if len(row) == 2:
+                    kb.append(row)
+                    row = []
+            if row:
+                kb.append(row)
+
+            selected_date_str = data.get('selected_date')
+            kb.append([types.InlineKeyboardButton(text="🔙 К выбору времени", callback_data=f"bdate_{selected_date_str}")])
+
+            term = "услугу" if trainer_role in [UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL] else "направление"
+
+            # Determine price info
+            total_price = sum(s.price for s in slots)
+            price_text = f"Общая цена: `{int(total_price)}₽`"
+
+            # Format selected times for the message
+            from dateutil.tz import gettz, UTC
+            moscow_tz = gettz('Europe/Moscow')
+            time_strings = []
+            for s in slots:
+                s_start = s.start_time.replace(tzinfo=UTC) if s.start_time.tzinfo is None else s.start_time.astimezone(UTC)
+                time_strings.append(s_start.astimezone(moscow_tz).strftime('%H:%M'))
+            times_formatted = ", ".join(time_strings)
+
+            text = (
+                f"👤 Мастер: {escape_md(profile.user.full_name)}\n"
+                f"⏰ Выбранное время: `{times_formatted}`\n"
+                f"💰 {price_text}\n\n"
+                f"Выберите {term} для записи:"
+            )
+            if callback.message.photo:
+                await callback.message.edit_caption(caption=text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="Markdown")
+            else:
+                await callback.message.edit_text(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="Markdown")
+            return
+
+        # No specs, proceed directly to confirmation
+        await proceed_to_format_selection_or_confirm(callback, state, slots[0], is_admin)
 
 @router.callback_query(F.data.startswith("slot_") & ~F.data.startswith("slot_confirm_"))
 async def process_slot_selection(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
@@ -340,36 +459,8 @@ async def process_service_selection(callback: types.CallbackQuery, state: FSMCon
     await callback.answer()
 
 async def proceed_to_format_selection_or_confirm(callback: types.CallbackQuery, state: FSMContext, slot: TimeSlot, is_admin: bool):
-    # Check if we need to ask for format (offline/online)
-    # We ask if the specialist's slot format is 'hybrid'
-    if slot.format.lower() == "hybrid" or slot.format.lower() == "гибрид":
-        await state.set_state(BookingSession.choosing_format)
-        kb = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="🏢 Оффлайн", callback_data="c_fmt_offline")],
-            [types.InlineKeyboardButton(text="💻 Онлайн (дистанционно)", callback_data="c_fmt_online")],
-            [types.InlineKeyboardButton(text="🔙 Назад", callback_data=f"slot_{slot.id}")]
-        ])
-
-        from dateutil.tz import gettz, UTC
-        moscow_tz = gettz('Europe/Moscow')
-        s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
-        start_moscow = s_start.astimezone(moscow_tz)
-
-        data = await state.get_data()
-        current_price = data.get('override_price', slot.price)
-        trainer_name = slot.trainer_profile.user.full_name
-        text = (
-            f"👤 Мастер: {escape_md(trainer_name)}\n"
-            f"⏰ Время: `{start_moscow.strftime('%d.%m %H:%M')}`\n"
-            f"💰 Цена: `{int(current_price)}₽`\n\n"
-            f"Этот специалист проводит занятия и оффлайн, и онлайн. Выберите удобный вам формат:"
-        )
-        if callback.message.photo:
-            await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
-        else:
-            await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
-        return
-
+    # Bypassed format selection completely: force OFFLINE mode
+    await state.update_data(override_format="OFFLINE")
     await show_booking_confirmation(callback, state, slot, is_admin)
 
 @router.callback_query(F.data.startswith("c_fmt_"), BookingSession.choosing_format)
@@ -403,11 +494,11 @@ async def show_booking_confirmation(callback: types.CallbackQuery, state: FSMCon
     from dateutil.tz import gettz, UTC
     moscow_tz = gettz('Europe/Moscow')
     s_start = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
-    start_moscow = s_start.astimezone(moscow_tz)
 
     # Dynamic terminology based on specialist role
     data = await state.get_data()
     specs = data.get('specializations', [])
+    selected_slots = data.get('selected_slots', [slot.id])
 
     # Determine if we should use 'Услуга' label
     is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY
@@ -443,15 +534,29 @@ async def show_booking_confirmation(callback: types.CallbackQuery, state: FSMCon
     )
     kb = add_admin_button(kb, is_admin=is_admin)
 
-    display_price = data.get('override_price', slot.price)
+    # Load all selected slots to format times and sum prices
+    async with SessionLocal() as session:
+        stmt = select(TimeSlot).where(TimeSlot.id.in_(selected_slots)).order_by(TimeSlot.start_time.asc())
+        slots = (await session.execute(stmt)).scalars().all()
+
+    time_strings = []
+    total_price = 0.0
+    for s in slots:
+        start_utc = s.start_time.replace(tzinfo=UTC) if s.start_time.tzinfo is None else s.start_time.astimezone(UTC)
+        time_strings.append(start_utc.astimezone(moscow_tz).strftime('%H:%M'))
+        total_price += data.get('override_price', s.price)
+
+    times_formatted = ", ".join(time_strings)
+    date_formatted = s_start.astimezone(moscow_tz).strftime('%d.%m.%Y')
 
     trainer_name = slot.trainer_profile.user.full_name
     text = (
         f"📍 *Подтверждение записи*\n\n"
         f"👤 Мастер: {escape_md(trainer_name)}\n"
-        f"⏰ Время: `{start_moscow.strftime('%d.%m.%Y %H:%M')}` (МСК)\n"
+        f"📅 Дата: `{date_formatted}`\n"
+        f"⏰ Время: `{times_formatted}` (МСК)\n"
         f"🏷 {term_format}: `{escape_md(display_format)}`\n"
-        f"💰 Цена: `{int(display_price)}₽`\n\n"
+        f"💰 Общая цена: `{int(total_price)}₽`\n\n"
         f"Нажмите подтвердить для завершения записи."
     )
     if callback.message.photo:
@@ -462,14 +567,13 @@ async def show_booking_confirmation(callback: types.CallbackQuery, state: FSMCon
 @router.callback_query(F.data == "confirm_booking", BookingSession.confirming_booking)
 async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
     data = await state.get_data()
-    slot_id = data['slot_id']
+    selected_slots = data.get('selected_slots', [data['slot_id']])
     user_id = effective_user_id or callback.from_user.id
 
     async with SessionLocal() as session:
         # Safety check: ensure client user exists in 'users' table
         client_user = await session.get(User, user_id)
         if not client_user:
-            # Fallback for impersonation or accidental deletion: recreate the user
             client_user = User(
                 id=user_id,
                 username=callback.from_user.username,
@@ -479,7 +583,6 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             session.add(client_user)
             await session.flush()
 
-        # 1. Автосоздание профиля клиента
         stmt_cp = select(ClientProfile).where(ClientProfile.user_id == user_id)
         res_cp = await session.execute(stmt_cp)
         client_profile = res_cp.scalar_one_or_none()
@@ -491,57 +594,69 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
                 status="active"
             )
             session.add(client_profile)
-            await session.flush() # Получаем ID
+            await session.flush()
 
-        stmt = select(TimeSlot).where(TimeSlot.id == slot_id).options(
+        # Load all selected slots with relationship loading
+        stmt = select(TimeSlot).where(TimeSlot.id.in_(selected_slots)).options(
             selectinload(TimeSlot.trainer_profile).options(
                 selectinload(TrainerProfile.user)
             )
-        )
-        res = await session.execute(stmt)
-        slot = res.scalar_one_or_none()
+        ).order_by(TimeSlot.start_time.asc())
+        slots = (await session.execute(stmt)).scalars().all()
 
         now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
-        if slot and slot.status == "free" and slot.start_time >= now_utc:
-            # Pre-fetch all necessary attributes before commit to avoid MissingGreenlet
-            client_name = client_profile.full_name
-            trainer_name = slot.trainer_profile.user.full_name
-            trainer_user_id = slot.trainer_profile.user_id
+        # Verify slots are still free
+        for slot in slots:
+            if not slot or slot.status != "free" or slot.start_time < now_utc:
+                text = "Один или несколько выбранных слотов уже заняты или недоступны."
+                await callback.answer(text, show_alert=True)
+                return
+
+        # Pre-fetch all necessary attributes before commit to avoid MissingGreenlet
+        client_name = client_profile.full_name
+        trainer_name = slots[0].trainer_profile.user.full_name
+        trainer_user_id = slots[0].trainer_profile.user_id
+
+        # Build full slot format string (Service + Format)
+        selected_svc = data.get('selected_service', '')
+        chosen_fmt = data.get('override_format', 'OFFLINE')
+        fmt_ru_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
+
+        slot_format = selected_svc
+        if chosen_fmt:
+            if slot_format:
+                slot_format += f" ({fmt_ru_map.get(chosen_fmt, chosen_fmt)})"
+            else:
+                slot_format = fmt_ru_map.get(chosen_fmt, chosen_fmt)
+
+        if not slot_format:
+            slot_format = slots[0].format
+
+        is_beauty = slots[0].trainer_profile.user.role == UserRole.BEAUTY
+        is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in slot_format.split(", "))
+
+        term_lesson = "на услугу" if (is_beauty or is_specific_sport) else "на тренировку"
+        term_format = "Услуга" if (is_beauty or is_specific_sport) else "Формат"
+
+        from dateutil.tz import gettz, UTC
+        moscow_tz = gettz('Europe/Moscow')
+
+        booked_time_details = []
+        total_price = 0.0
+
+        # Loop and book all slots
+        for slot in slots:
             slot_start = slot.start_time
             slot_end = slot.end_time
             slot_price = data.get('override_price', slot.price)
-            slot_online_platform = slot.online_platform
-            slot_zoom_join_url = slot.zoom_join_url
-
-            # Build full slot format string (Service + Format)
-            selected_svc = data.get('selected_service', '')
-            chosen_fmt = data.get('override_format', '')
-            fmt_ru_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
-
-            slot_format = selected_svc
-            if chosen_fmt:
-                if slot_format:
-                    slot_format += f" ({fmt_ru_map.get(chosen_fmt, chosen_fmt)})"
-                else:
-                    slot_format = fmt_ru_map.get(chosen_fmt, chosen_fmt)
-
-            if not slot_format:
-                slot_format = slot.format
-
-            # Determine role-specific terminology
-            is_beauty = slot.trainer_profile.user.role == UserRole.BEAUTY
-            is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in slot_format.split(", "))
-
-            term_lesson = "на услугу" if (is_beauty or is_specific_sport) else "на тренировку"
-            term_format = "Услуга" if (is_beauty or is_specific_sport) else "Формат"
 
             slot.status = "booked"
             slot.client_id = user_id
-            slot.format = slot_format # Store the specific service name
-            slot.price = slot_price   # Store the final price for this booking
+            slot.format = slot_format
+            slot.price = slot_price
 
             new_booking = Booking(
-                slot_id=slot_id,
+                slot_id=slot.id,
                 trainer_profile_id=slot.trainer_profile_id,
                 client_id=client_profile.id,
                 start_time=slot_start,
@@ -553,12 +668,10 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             session.add(new_booking)
             await session.flush()
 
-            # Setup reminders
+            # Reminders
             from src.services.reminders import ReminderService
             is_online = ("онлайн" in slot_format.lower() or "online" in slot_format.lower())
             await ReminderService.schedule_reminders(session, new_booking.id, user_id, trainer_user_id, slot_start, slot_end, is_online=is_online)
-
-            await session.commit()
 
             # Sync to Google Calendar
             try:
@@ -567,68 +680,59 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             except Exception as e:
                 logger.error(f"Failed to sync with Google Calendar for trainer {trainer_user_id}: {e}")
 
-            text = f"✅ *Запись успешно подтверждена!*\n\nВы успешно записаны {term_lesson} к мастеру {escape_md(trainer_name)}.\n📅 Мы пришлем вам напоминание за 24 и 2 часа до начала."
+            s_start = slot_start.replace(tzinfo=UTC) if slot_start.tzinfo is None else slot_start.astimezone(UTC)
+            start_moscow = s_start.astimezone(moscow_tz)
+            booked_time_details.append(f"⏰ `{start_moscow.strftime('%d.%m.%Y %H:%M')}`")
+            total_price += slot_price
 
-            if ("онлайн" in slot_format.lower() or "online" in slot_format.lower()):
-                if slot_online_platform == "telegram":
-                    term_meet = "Ваша запись" if (is_beauty or is_specific_sport) else "Занятие"
-                    term_specialist = "бьюти-мастер" if is_beauty else ("тренер" if is_specific_sport else "тренер")
-                    if not is_beauty and not is_specific_sport:
-                        term_specialist = "Тренер"
-                    else:
-                        term_specialist = "Мастер"
+        await session.commit()
 
-                    text += f"\n\n📱 *Формат:* Telegram Video\n*Инструкция:* {term_meet} будет проходить в этом чате по видеосвязи. {term_specialist} свяжется с вами в назначенное время."
-                elif slot_zoom_join_url:
-                    text += f"\n\n🔗 *Ссылка на Zoom:* {escape_md(slot_zoom_join_url)}"
-                else:
-                    text += f"\n\n📱 *Формат:* Онлайн\n*Услуга:* {escape_md(slot_format)}"
+        # Format confirmation messages
+        times_formatted_msg = "\n".join(booked_time_details)
+        text = f"✅ *Запись успешно подтверждена!*\n\nВы успешно записаны {term_lesson} к мастеру {escape_md(trainer_name)}.\n\nВыбранное время:\n{times_formatted_msg}\n\n📅 Мы пришлем вам напоминание за 24 и 2 часа до начала."
 
-            # Show main menu keyboard to client
-            from src.keyboards.common import get_client_main_kb
-            # Check if user is also registered as professional
-            stmt_t = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
-            has_trainer_profile = (await session.execute(stmt_t)).scalar_one_or_none() is not None
-            # After a successful booking, the user definitely has at least one specialist now
-            kb = get_client_main_kb(has_specialists=True, is_pro=has_trainer_profile)
+        # Show main menu keyboard to client
+        from src.keyboards.common import get_client_main_kb
+        stmt_t = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+        has_trainer_profile = (await session.execute(stmt_t)).scalar_one_or_none() is not None
+        kb = get_client_main_kb(has_specialists=True, is_pro=has_trainer_profile)
 
-            # Cleanup confirmation screen
+        # Cleanup confirmation screen
+        try:
+            await callback.message.delete()
+        except Exception:
             try:
-                await callback.message.delete()
+                await callback.message.edit_reply_markup(reply_markup=None)
             except Exception:
-                try:
-                    await callback.message.edit_reply_markup(reply_markup=None)
-                except Exception:
-                    pass
+                pass
 
-            # Send final confirmation message
-            # Explicitly use bot.send_message for reliability after potential delete
-            await callback.bot.send_message(
-                chat_id=callback.message.chat.id,
-                text=text,
-                reply_markup=kb,
-                parse_mode="Markdown"
+        # Send final confirmation message
+        await callback.bot.send_message(
+            chat_id=callback.message.chat.id,
+            text=text,
+            reply_markup=kb,
+            parse_mode="Markdown"
+        )
+
+        # Notify professional
+        try:
+            trainer_text = (
+                f"🆕 *Новая запись!*\n\n"
+                f"👤 Клиент: {escape_md(client_name)}\n"
+                f"📅 Выбранное время:\n"
             )
+            for slot in slots:
+                s_start_slot = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
+                start_moscow_slot = s_start_slot.astimezone(moscow_tz)
+                trainer_text += f" • {start_moscow_slot.strftime('%d.%m %H:%M')}\n"
 
-            # Notify professional
-            try:
-                from dateutil.tz import gettz, UTC
-                moscow_tz = gettz('Europe/Moscow')
-
-                # Convert time to Moscow for notification
-                s_start = slot_start.replace(tzinfo=UTC) if slot_start.tzinfo is None else slot_start.astimezone(UTC)
-                start_moscow = s_start.astimezone(moscow_tz)
-
-                trainer_text = (
-                    f"🆕 *Новая запись!*\n\n"
-                    f"👤 Клиент: {escape_md(client_name)}\n"
-                    f"⏰ Время: {start_moscow.strftime('%d.%m %H:%M')}\n"
-                    f"🏷 {term_format}: {escape_md(slot_format)}\n"
-                    f"💰 Цена: {slot_price}₽"
-                )
-                await callback.bot.send_message(trainer_user_id, trainer_text, parse_mode="Markdown")
-            except Exception as e:
-                logger.error(f"Failed to notify professional {trainer_user_id}: {e}")
+            trainer_text += (
+                f"\n🏷 {term_format}: {escape_md(slot_format)}\n"
+                f"💰 Общая цена: {int(total_price)}₽"
+            )
+            await callback.bot.send_message(trainer_user_id, trainer_text, parse_mode="Markdown")
+        except Exception as e:
+            logger.error(f"Failed to notify professional {trainer_user_id}: {e}")
         else:
             text = "К сожалению, этот слот уже занят или недоступен."
             if callback.message.photo:
