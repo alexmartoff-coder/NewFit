@@ -15,4 +15,3 @@ class TrainerOnboarding(StatesGroup):
     price_package = State()
     online_link = State()
     photo = State()
-    video = State()

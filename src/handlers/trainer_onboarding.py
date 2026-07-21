@@ -495,26 +495,14 @@ async def upload_more_photos_callback(callback: types.CallbackQuery, state: FSMC
     await callback.answer()
 
 @router.callback_query(F.data == "finish_photos", TrainerOnboarding.photo)
-async def finish_photos(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False):
+async def finish_photos(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     try:
         await callback.message.edit_reply_markup(reply_markup=None)
     except Exception:
         pass
 
-    await state.set_state(TrainerOnboarding.video)
-    kb = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text="Пропустить", callback_data="skip_video")]])
-    await callback.message.answer("Шаг 13: Загрузите короткое видео-презентацию (15–60 секунд) или пропустите этот шаг.", reply_markup=add_admin_button(kb, is_admin=is_admin))
-    await callback.answer()
-
-@router.callback_query(F.data == "skip_video", TrainerOnboarding.video)
-async def skip_video(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
-    await callback.message.edit_reply_markup(reply_markup=None)
     await finish_onboarding(callback.message, state, effective_user_id or callback.from_user.id, callback.from_user.username, is_admin)
-
-@router.message(TrainerOnboarding.video, F.video)
-async def process_video(message: types.Message, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
-    await state.update_data(video_url=message.video.file_id)
-    await finish_onboarding(message, state, effective_user_id or message.from_user.id, message.from_user.username, is_admin)
+    await callback.answer()
 
 # --- SKIP STEP HANDLER ---
 @router.callback_query(F.data == "skip_step")
@@ -647,9 +635,7 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
 
         elif current_state == TrainerOnboarding.photo:
             await state.update_data(photo_url=profile.photo_url if profile else None)
-            await state.set_state(TrainerOnboarding.video)
-            kb = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text="Пропустить", callback_data="skip_video")], [types.InlineKeyboardButton(text="Не менять видео", callback_data="skip_step")]])
-            await callback.message.answer("Шаг 13: Загрузите видео-презентацию:", reply_markup=add_admin_button(kb, is_admin=is_admin))
+            await finish_onboarding(callback.message, state, user_id, callback.from_user.username, is_admin)
     await callback.answer()
 
 # --- FINISH ---
