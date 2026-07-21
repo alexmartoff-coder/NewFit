@@ -115,4 +115,4 @@ async def admin_button_handler(message: types.Message, is_admin: bool = False):
 
 @router.message(F.text == "/help")
 async def cmd_help(message: types.Message):
-    await message.answer("Служба поддержки NewFit: @NewFitSupport")
+    await message.answer("Служба поддержки NewFit:\nEmail: alexandr@cbda.ru")

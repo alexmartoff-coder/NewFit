@@ -486,7 +486,7 @@ async def show_settings(message: types.Message):
 
 @router.message(F.text == "Поддержка")
 async def show_support(message: types.Message):
-    await message.answer("Служба поддержки NewFit: @NewFitSupport\nEmail: alexandr@cbda.ru")
+    await message.answer("Служба поддержки NewFit:\nEmail: alexandr@cbda.ru")
 
 async def show_client_bookings_menu(message: types.Message, effective_user_id: int = None):
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
