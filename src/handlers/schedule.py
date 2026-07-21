@@ -29,6 +29,10 @@ class GenerateSlotsState(StatesGroup):
     choosing_period = State()
     choosing_format = State()
     choosing_step = State()
+    choosing_wd_start = State()
+    choosing_wd_end = State()
+    choosing_we_start = State()
+    choosing_we_end = State()
     confirming = State()
 
 class TemplateState(StatesGroup):
@@ -660,15 +664,103 @@ async def quick_gen_format(callback: types.CallbackQuery, state: FSMContext):
 async def quick_gen_step(callback: types.CallbackQuery, state: FSMContext, effective_user_id: int = None):
     step = int(callback.data.split("_")[2])
     await state.update_data(step=step)
+
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="7.00-8.00", callback_data="gen_wd_start_7"),
+         types.InlineKeyboardButton(text="8.00-9.00", callback_data="gen_wd_start_8")],
+        [types.InlineKeyboardButton(text="9.00-10.00", callback_data="gen_wd_start_9"),
+         types.InlineKeyboardButton(text="10.00-11.00", callback_data="gen_wd_start_10")],
+        [types.InlineKeyboardButton(text="❌ Отмена", callback_data="sche_back")]
+    ])
+    text = "📅 **Будни: выберите время начала занятий:**"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+    await state.set_state(GenerateSlotsState.choosing_wd_start)
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("gen_wd_start_"), GenerateSlotsState.choosing_wd_start)
+async def quick_gen_wd_start(callback: types.CallbackQuery, state: FSMContext):
+    wd_start = int(callback.data.split("_")[3])
+    await state.update_data(wd_start=wd_start)
+
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="19.00-20.00", callback_data="gen_wd_end_20"),
+         types.InlineKeyboardButton(text="20.00-21.00", callback_data="gen_wd_end_21")],
+        [types.InlineKeyboardButton(text="21.00-22.00", callback_data="gen_wd_end_22"),
+         types.InlineKeyboardButton(text="22.00-23.00", callback_data="gen_wd_end_23")],
+        [types.InlineKeyboardButton(text="❌ Отмена", callback_data="sche_back")]
+    ])
+    text = "📅 **Будни: выберите время конца занятий:**"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+    await state.set_state(GenerateSlotsState.choosing_wd_end)
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("gen_wd_end_"), GenerateSlotsState.choosing_wd_end)
+async def quick_gen_wd_end(callback: types.CallbackQuery, state: FSMContext):
+    wd_end = int(callback.data.split("_")[3])
+    await state.update_data(wd_end=wd_end)
+
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="7.00-8.00", callback_data="gen_we_start_7"),
+         types.InlineKeyboardButton(text="8.00-9.00", callback_data="gen_we_start_8")],
+        [types.InlineKeyboardButton(text="9.00-10.00", callback_data="gen_we_start_9"),
+         types.InlineKeyboardButton(text="10.00-11.00", callback_data="gen_we_start_10")],
+        [types.InlineKeyboardButton(text="❌ Отмена", callback_data="sche_back")]
+    ])
+    text = "📅 **Выходной: выберите время начала занятий:**"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+    await state.set_state(GenerateSlotsState.choosing_we_start)
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("gen_we_start_"), GenerateSlotsState.choosing_we_start)
+async def quick_gen_we_start(callback: types.CallbackQuery, state: FSMContext):
+    we_start = int(callback.data.split("_")[3])
+    await state.update_data(we_start=we_start)
+
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="19.00-20.00", callback_data="gen_we_end_20"),
+         types.InlineKeyboardButton(text="20.00-21.00", callback_data="gen_we_end_21")],
+        [types.InlineKeyboardButton(text="21.00-22.00", callback_data="gen_we_end_22"),
+         types.InlineKeyboardButton(text="22.00-23.00", callback_data="gen_we_end_23")],
+        [types.InlineKeyboardButton(text="❌ Отмена", callback_data="sche_back")]
+    ])
+    text = "📅 **Выходной: выберите время конца занятий:**"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+    await state.set_state(GenerateSlotsState.choosing_we_end)
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("gen_we_end_"), GenerateSlotsState.choosing_we_end)
+async def quick_gen_we_end(callback: types.CallbackQuery, state: FSMContext):
+    we_end = int(callback.data.split("_")[3])
+    await state.update_data(we_end=we_end)
+
     data = await state.get_data()
     period = data['period']
+    step = data['step']
+    wd_start = data['wd_start']
+    wd_end = data['wd_end']
+    we_start = data['we_start']
+    we_end = data['we_end']
 
     text = (
         f"📊 **Предпросмотр генерации**\n\n"
         f"🗓 Период: {period} дней\n"
         f"⏱ Шаг: {step} минут\n"
-        f"🏢 Режим: Будни (07:00-23:00), Выходные (09:00-22:00)\n"
-        f"🏷 Формат: Гибрид\n\n"
+        f"🏢 Режим:\n"
+        f" • Будни: {wd_start:02d}.00-{wd_end:02d}.00\n"
+        f" • Выходной: {we_start:02d}.00-{we_end:02d}.00\n"
+        f"🏷 Формат: {data.get('gen_format', 'hybrid')}\n\n"
         f"Слоты будут созданы только на свободное время. Продолжить?"
     )
 
@@ -704,6 +796,11 @@ async def quick_gen_confirm(callback: types.CallbackQuery, state: FSMContext, ef
                 config.rolling_window = data['period']
                 config.slot_duration = data['step']
                 config.last_replenished = datetime.now(UTC).replace(tzinfo=None)
+                # Save the new custom bounds
+                config.wd_start = data.get('wd_start')
+                config.wd_end = data.get('wd_end')
+                config.we_start = data.get('we_start')
+                config.we_end = data.get('we_end')
                 await session.commit()
 
         count = await generate_slots_from_quick_template(
@@ -747,8 +844,14 @@ async def generate_slots_for_single_day(session, profile_id: int, user_id: int, 
 
     # Determine start and end hours for target_date
     is_weekend = target_date.weekday() >= 5
-    start_h = 9 if is_weekend else 7
-    end_h = 22 if is_weekend else 23
+    if config:
+        start_h = config.we_start if is_weekend else config.wd_start
+        end_h = config.we_end if is_weekend else config.wd_end
+        if start_h is None: start_h = 9 if is_weekend else 7
+        if end_h is None: end_h = 22 if is_weekend else 23
+    else:
+        start_h = 9 if is_weekend else 7
+        end_h = 22 if is_weekend else 23
 
     current = datetime.combine(target_date, time(start_h, 0)).replace(tzinfo=moscow_tz)
     now_moscow = datetime.now(moscow_tz)
@@ -809,6 +912,22 @@ async def generate_slots_from_quick_template(user_id: int, days: int, interval: 
             logger.error(f"TrainerProfile not found for user {user_id}")
             return 0
 
+        # Получаем конфиг расписания
+        stmt_config = select(TrainerSchedule).where(TrainerSchedule.trainer_id == user_id)
+        res_config = await session.execute(stmt_config)
+        config = res_config.scalar_one_or_none()
+
+        if config:
+            wd_start = config.wd_start if config.wd_start is not None else 7
+            wd_end = config.wd_end if config.wd_end is not None else 23
+            we_start = config.we_start if config.we_start is not None else 9
+            we_end = config.we_end if config.we_end is not None else 22
+        else:
+            wd_start = 7
+            wd_end = 23
+            we_start = 9
+            we_end = 22
+
         default_price = float(profile.price_single or 2500.0)
         count = 0
 
@@ -824,8 +943,8 @@ async def generate_slots_from_quick_template(user_id: int, days: int, interval: 
             for day_dt in rule:
                 day = day_dt.date()
                 is_weekend = day.weekday() >= 5
-                start_h = 9 if is_weekend else 7
-                end_h = 22 if is_weekend else 23
+                start_h = we_start if is_weekend else wd_start
+                end_h = we_end if is_weekend else wd_end
 
                 current = datetime.combine(day, time(start_h, 0)).replace(tzinfo=moscow_tz)
 
@@ -1611,6 +1730,10 @@ async def catch_invalid_input(message: types.Message):
 @router.message(GenerateSlotsState.choosing_period)
 @router.message(GenerateSlotsState.choosing_format)
 @router.message(GenerateSlotsState.choosing_step)
+@router.message(GenerateSlotsState.choosing_wd_start)
+@router.message(GenerateSlotsState.choosing_wd_end)
+@router.message(GenerateSlotsState.choosing_we_start)
+@router.message(GenerateSlotsState.choosing_we_end)
 @router.message(GenerateSlotsState.confirming)
 async def catch_invalid_gen_input(message: types.Message):
     await message.answer("Пожалуйста, используйте кнопки меню для выбора параметров генерации.")

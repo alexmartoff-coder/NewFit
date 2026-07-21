@@ -283,6 +283,10 @@ async def init_db(engine):
                 await add_column_safe_local(conn, "trainer_schedules", "rolling_window", "INTEGER")
                 await add_column_safe_local(conn, "trainer_schedules", "last_replenished", "TIMESTAMP WITHOUT TIME ZONE")
                 await add_column_safe_local(conn, "trainer_schedules", "updated_at", "TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()")
+                await add_column_safe_local(conn, "trainer_schedules", "wd_start", "INTEGER DEFAULT 7")
+                await add_column_safe_local(conn, "trainer_schedules", "wd_end", "INTEGER DEFAULT 23")
+                await add_column_safe_local(conn, "trainer_schedules", "we_start", "INTEGER DEFAULT 9")
+                await add_column_safe_local(conn, "trainer_schedules", "we_end", "INTEGER DEFAULT 22")
 
                 # trainer_profiles columns
                 await add_column_safe_local(conn, "trainer_profiles", "price_single", "FLOAT DEFAULT 0.0")

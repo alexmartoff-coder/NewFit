@@ -170,6 +170,11 @@ class TrainerSchedule(Base):
     last_replenished = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
+    wd_start = Column(Integer, nullable=True)
+    wd_end = Column(Integer, nullable=True)
+    we_start = Column(Integer, nullable=True)
+    we_end = Column(Integer, nullable=True)
+
     trainer = relationship("User", back_populates="schedule")
 
 
