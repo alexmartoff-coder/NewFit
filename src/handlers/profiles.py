@@ -486,7 +486,7 @@ async def show_settings(message: types.Message):
 
 @router.message(F.text == "Поддержка")
 async def show_support(message: types.Message):
-    await message.answer("Служба поддержки NewFit: @NewFitSupport")
+    await message.answer("Служба поддержки NewFit: @NewFitSupport\nEmail: alexandr@cbda.ru")
 
 async def show_client_bookings_menu(message: types.Message, effective_user_id: int = None):
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
@@ -983,17 +983,29 @@ async def profile_photo_carousel(callback: types.CallbackQuery, is_admin: bool =
 
 @router.message(F.text == "Инструкции")
 async def show_instructions_detailed(message: types.Message):
-    instruction = (
-        "📋 **Инструкция по настройке Google API:**\n\n"
-        "1. Зайдите на [console.cloud.google.com](https://console.cloud.google.com/)\n"
-        "2. Создайте проект 'NewFit'\n"
-        "3. В поиске найдите 'Google Calendar API' и нажмите 'Enable'\n"
-        "4. Перейдите in 'Credentials' -> 'Create Credentials' -> 'OAuth client ID'\n"
-        "5. Выберите 'Web application'\n"
-        "6. Добавьте Authorized redirect URIs: `https://your-bot.railway.app/oauth2callback`\n"
-        "7. Скопируйте Client ID and Client Secret и введите их в боте через меню подключения."
-    )
-    await message.answer(instruction, parse_mode="Markdown", disable_web_page_preview=True)
+    user_id = message.from_user.id
+    async with SessionLocal() as session:
+        user = await session.get(User, user_id)
+
+        if user and user.role in PROFESSIONAL_ROLES:
+            instruction = (
+                "📋 **Инструкция для Профессионала:**\n\n"
+                "1️⃣ **Настройка профиля:** Перейдите в «Мой профиль», чтобы отредактировать свои данные, направления, цены и портфолио.\n"
+                "2️⃣ **Управление расписанием:** В разделе «Моё расписание» вы можете просматривать слоты, использовать «Быструю генерацию» на 7/14/30 дней с настройкой рабочих часов, а также планировать «Отпуск» или «Выходной».\n"
+                "3️⃣ **Записи клиентов:** В «Мои записи» отображаются предстоящие сеансы. При необходимости вы можете отменить запись.\n"
+                "4️⃣ **Повторная запись:** В разделе «Мои клиенты» можно быстро забронировать время для постоянных клиентов.\n"
+                "5️⃣ **Режим клиента:** Нажмите кнопку «Клиент», чтобы перейти в кабинет клиента и записаться на услуги к другим мастерам."
+            )
+        else:
+            instruction = (
+                "📋 **Инструкция для Клиента:**\n\n"
+                "1️⃣ **Поиск мастера:** Нажмите «Выбрать услугу», выберите нужную сферу (Спорт, Бьюти) и запишитесь к лучшему специалисту.\n"
+                "2️⃣ **Управление записями:** В разделе «Мои записи» вы можете видеть все ваши предстоящие сеансы, отменять их, а также оставлять отзывы и оценки мастерам.\n"
+                "3️⃣ **Быстрый повтор:** В один клик используйте «Повторная запись» к вашим любимым мастерам прямо из меню записей.\n"
+                "4️⃣ **Переход в режим профи:** Если вы также являетесь зарегистрированным профессионалом, в вашем меню появится кнопка «Кабинет профи» для переключения кабинетов."
+            )
+
+    await message.answer(instruction, parse_mode="Markdown")
 
 @router.callback_query(F.data.startswith("client_cancel_req_"))
 async def client_cancel_request(callback: types.CallbackQuery):
