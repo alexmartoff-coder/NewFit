@@ -792,16 +792,19 @@ async def quick_gen_confirm(callback: types.CallbackQuery, state: FSMContext, ef
             stmt = select(TrainerSchedule).where(TrainerSchedule.trainer_id == user_id)
             res = await session.execute(stmt)
             config = res.scalar_one_or_none()
-            if config:
-                config.rolling_window = data['period']
-                config.slot_duration = data['step']
-                config.last_replenished = datetime.now(UTC).replace(tzinfo=None)
-                # Save the new custom bounds
-                config.wd_start = data.get('wd_start')
-                config.wd_end = data.get('wd_end')
-                config.we_start = data.get('we_start')
-                config.we_end = data.get('we_end')
-                await session.commit()
+            if not config:
+                config = TrainerSchedule(trainer_id=user_id)
+                session.add(config)
+
+            config.rolling_window = data['period']
+            config.slot_duration = data['step']
+            config.last_replenished = datetime.now(UTC).replace(tzinfo=None)
+            # Save the new custom bounds
+            config.wd_start = data.get('wd_start')
+            config.wd_end = data.get('wd_end')
+            config.we_start = data.get('we_start')
+            config.we_end = data.get('we_end')
+            await session.commit()
 
         count = await generate_slots_from_quick_template(
             user_id=user_id,
@@ -1028,11 +1031,12 @@ async def generate_slots_handler(callback: types.CallbackQuery, effective_user_i
         default_price = profile.price_single if profile else 2500.0
         default_format = profile.work_format if profile else WorkFormat.HYBRID
 
-        # Generate for next 14 days
+        # Generate for the configured rolling window, defaulting to 30 days
+        days_to_generate = config.rolling_window if (config and config.rolling_window) else 30
         count = 0
         now_moscow = datetime.now(moscow_tz)
         start_date = now_moscow.date()
-        for i in range(14):
+        for i in range(days_to_generate):
             current_date = start_date + timedelta(days=i)
             day_of_week = current_date.weekday()
 
