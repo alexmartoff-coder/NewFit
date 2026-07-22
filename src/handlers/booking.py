@@ -735,12 +735,6 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             await callback.bot.send_message(trainer_user_id, trainer_text, parse_mode="Markdown")
         except Exception as e:
             logger.error(f"Failed to notify professional {trainer_user_id}: {e}")
-        else:
-            text = "К сожалению, этот слот уже занят или недоступен."
-            if callback.message.photo:
-                await callback.message.edit_caption(caption=text)
-            else:
-                await callback.message.edit_text(text)
 
     await state.clear()
     await callback.answer()

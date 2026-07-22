@@ -90,6 +90,13 @@ async def init_db(engine):
                         await conn.execute(text("ALTER TABLE time_slots RENAME COLUMN professional_profile_id TO trainer_profile_id"))
                     elif "professional_profile_id" in cols and "trainer_profile_id" in cols:
                         await conn.execute(text("ALTER TABLE time_slots DROP COLUMN professional_profile_id"))
+
+                    # Ensure is_subscribed column exists in trainer_profiles
+                    res2 = await conn.execute(text("PRAGMA table_info('trainer_profiles')"))
+                    cols2 = [c[1] for c in res2.fetchall()]
+                    if "is_subscribed" not in cols2 and len(cols2) > 0:
+                        logger.info("Adding column is_subscribed to trainer_profiles in SQLite")
+                        await conn.execute(text("ALTER TABLE trainer_profiles ADD COLUMN is_subscribed BOOLEAN DEFAULT FALSE"))
             except Exception as e:
                 logger.warning(f"SQLite migration error: {e}")
 
@@ -295,6 +302,7 @@ async def init_db(engine):
                 await add_column_safe_local(conn, "trainer_profiles", "service_prices", "JSON")
                 await add_column_safe_local(conn, "trainer_profiles", "rating", "FLOAT DEFAULT 5.0")
                 await add_column_safe_local(conn, "trainer_profiles", "is_premium", "BOOLEAN DEFAULT FALSE")
+                await add_column_safe_local(conn, "trainer_profiles", "is_subscribed", "BOOLEAN DEFAULT FALSE")
                 await add_column_safe_local(conn, "trainer_profiles", "status", "VARCHAR(20) DEFAULT 'approved'")
                 await add_column_safe_local(conn, "trainer_profiles", "district", "VARCHAR(100)")
                 await add_column_safe_local(conn, "trainer_profiles", "phone", "VARCHAR(20)")

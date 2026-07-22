@@ -5,7 +5,7 @@ from typing import Optional
 import os
 
 class Settings(BaseSettings):
-    BOT_TOKEN: str
+    BOT_TOKEN: str = "mock_token"
     # Remove default localhost URL to avoid confusion.
     # Use SQLite as a fallback or require DATABASE_URL.
     DATABASE_URL: str = "sqlite+aiosqlite:///./test.db"
@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: Optional[str] = None
     GOOGLE_REDIRECT_URI: Optional[str] = None
     ADMIN_IDS: str = ""
+
+    YOOKASSA_SHOP_ID: Optional[str] = None
+    YOOKASSA_SECRET_KEY: Optional[str] = None
+    YOOKASSA_TEST_MODE: bool = True
 
     model_config = SettingsConfigDict(
         env_file=".env",

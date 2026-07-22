@@ -312,6 +312,28 @@ async def show_clients(event: types.Message | types.CallbackQuery, state: FSMCon
         res_clients = await session.execute(stmt_clients)
         unique_clients = res_clients.scalars().all()
 
+        if len(unique_clients) >= 10 and not profile.is_subscribed:
+            # Show subscription prompt instead of clients list
+            text_sub = (
+                "⚠️ **Лимит клиентов превышен!**\n\n"
+                "Вы достигли лимита в **10 клиентов**.\n"
+                "Чтобы продолжить работать со своей базой клиентов и совершать повторные записи, "
+                "вам необходимо оформить подписку NewFit за **4990 ₽/мес**."
+            )
+            kb_sub = types.InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [types.InlineKeyboardButton(text="💳 Оформить подписку", callback_data="pay_sub_4990")]
+                ]
+            )
+            if isinstance(event, types.CallbackQuery):
+                if message.photo:
+                    await message.edit_caption(caption=text_sub, reply_markup=kb_sub, parse_mode="Markdown")
+                else:
+                    await message.edit_text(text=text_sub, reply_markup=kb_sub, parse_mode="Markdown")
+            else:
+                await message.answer(text_sub, reply_markup=kb_sub, parse_mode="Markdown")
+            return
+
         if unique_clients:
             text_clients = "👥 **Ваши клиенты (для повторной записи):**"
 
