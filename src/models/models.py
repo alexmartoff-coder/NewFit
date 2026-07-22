@@ -83,6 +83,7 @@ class TrainerProfile(Base):
     rating: Mapped[float] = mapped_column(Float, default=5.0)
     online_meeting_link: Mapped[Optional[str]] = mapped_column(String(500))
     is_premium: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_subscribed: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String(20), default="approved") # pending, approved, rejected
 
     user: Mapped["User"] = relationship(back_populates="trainer_profile")
