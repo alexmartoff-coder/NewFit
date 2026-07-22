@@ -89,8 +89,8 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
             return
 
         now_utc = datetime.now(UTC).replace(tzinfo=None)
-        # Fetch slots for the next 30 days to match replenishment/generation
-        end_view_utc = now_utc + timedelta(days=30)
+        # Fetch slots for the next 7 days to keep the keyboard under Telegram limits and avoid silent edit failures
+        end_view_utc = now_utc + timedelta(days=7)
 
         # Group by date for better summary
         from collections import defaultdict
