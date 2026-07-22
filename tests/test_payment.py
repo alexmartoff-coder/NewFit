@@ -67,3 +67,9 @@ async def test_payment_webhook_succeeded(db_session):
     # Check updated DB state
     await db_session.refresh(profile)
     assert profile.is_subscribed is True
+    assert profile.subscription_expires_at is not None
+
+    from datetime import datetime, timedelta, timezone
+    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+    assert profile.subscription_expires_at > now_utc
+    assert profile.subscription_expires_at < now_utc + timedelta(days=31)

@@ -5,7 +5,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from src.models.models import Admin, User, TrainerProfile, ClientProfile
+from src.models.models import Admin, User, TrainerProfile, ClientProfile, UserRole, TimeSlot, Booking
 from src.utils.db import SessionLocal
 
 import random
@@ -44,6 +44,7 @@ async def admin_panel(message: Message, is_admin: bool = False):
         [InlineKeyboardButton(text="🎭 Войти как профи", callback_data="admin_impersonate_trainer")],
         [InlineKeyboardButton(text="👤 Войти как клиент", callback_data="admin_impersonate_client")],
         [InlineKeyboardButton(text="🔓 Выйти из режима входа", callback_data="admin_stop_impersonate")],
+        [InlineKeyboardButton(text="👥 Сгенерировать 9 клиентов (тест)", callback_data="admin_gen_9_clients")],
         [InlineKeyboardButton(text="📋 Список админов", callback_data="admin_list")],
         [InlineKeyboardButton(text="🗑 Удалить админа", callback_data="admin_remove")],
         [InlineKeyboardButton(text="🔥 Удалить пользователей", callback_data="admin_delete_all_users")],
@@ -51,6 +52,112 @@ async def admin_panel(message: Message, is_admin: bool = False):
     ])
 
     await message.answer("🛠 **Админ-панель NewFit**\n\nВыберите действие:", reply_markup=keyboard, parse_mode="Markdown")
+
+@router.callback_query(F.data == "admin_gen_9_clients")
+async def admin_gen_9_clients(callback: CallbackQuery, state: FSMContext):
+    # Determine target trainer ID
+    fsm_data = await state.get_data()
+    trainer_user_id = fsm_data.get("impersonate_trainer_id") or callback.from_user.id
+
+    async with SessionLocal() as session:
+        # Fetch TrainerProfile
+        stmt = select(TrainerProfile).where(TrainerProfile.user_id == trainer_user_id)
+        res = await session.execute(stmt)
+        profile = res.scalar_one_or_none()
+
+        if not profile:
+            await callback.message.edit_text(
+                f"❌ Профиль профессионала не найден для ID {trainer_user_id}.\n\n"
+                f"Зарегистрируйтесь как профи или используйте режим 'Войти как профи' в админ-панели.",
+                parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")]
+                ])
+            )
+            await callback.answer()
+            return
+
+        from datetime import datetime, timedelta, timezone
+        import random
+
+        # We will generate 9 unique users
+        generated_count = 0
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        for i in range(1, 10):
+            mock_user_id = 990000000 + i + random.randint(1000, 9999) # Make it highly unique
+
+            # Check if user already exists
+            user_stmt = select(User).where(User.id == mock_user_id)
+            existing_user = (await session.execute(user_stmt)).scalar_one_or_none()
+            if existing_user:
+                continue
+
+            mock_user = User(
+                id=mock_user_id,
+                full_name=f"Тестовый Клиент {i}",
+                role=UserRole.CLIENT,
+                username=f"test_client_{i}_{mock_user_id % 1000}"
+            )
+            session.add(mock_user)
+            await session.flush()
+
+            mock_client_profile = ClientProfile(
+                user_id=mock_user_id,
+                full_name=mock_user.full_name,
+                city=profile.city,
+                status="active"
+            )
+            session.add(mock_client_profile)
+            await session.flush()
+
+            # Create slot
+            start_t = now_utc + timedelta(days=i, hours=10)
+            end_t = start_t + timedelta(hours=1)
+            mock_slot = TimeSlot(
+                trainer_profile_id=profile.id,
+                client_id=mock_user_id,
+                start_time=start_t,
+                end_time=end_t,
+                status="booked",
+                format="OFFLINE",
+                price=profile.price_single or 1000.0
+            )
+            session.add(mock_slot)
+            await session.flush()
+
+            # Create booking
+            mock_booking = Booking(
+                slot_id=mock_slot.id,
+                trainer_profile_id=profile.id,
+                client_id=mock_client_profile.id,
+                start_time=start_t,
+                end_time=end_t,
+                status="confirmed",
+                price=mock_slot.price
+            )
+            session.add(mock_booking)
+            generated_count += 1
+
+        await session.commit()
+
+    text = (
+        f"✅ **Успешно сгенерировано {generated_count} клиентов!**\n\n"
+        f"Для профи ID `{trainer_user_id}` добавлены тестовые пользователи, профили клиентов и бронирования.\n"
+        f"Теперь у этого профиля как минимум 9 клиентов.\n\n"
+        f"Добавьте **10-го реального клиента** (например, записавшись к этому профилю через другого клиента), "
+        f"после чего при переходе в раздел 'Мои клиенты' у профиля сработает платная подписка (появится окно для активации платежа)."
+    )
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")]
+    ])
+
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text=text, reply_markup=kb, parse_mode="Markdown")
+    await callback.answer()
 
 
 @router.callback_query(F.data == "admin_add_user")

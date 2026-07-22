@@ -103,9 +103,11 @@ async def payment_webhook(request_json: dict) -> bool:
                 res = await session.execute(stmt)
                 profile = res.scalar_one_or_none()
                 if profile:
+                    from datetime import datetime, timedelta, timezone
                     profile.is_subscribed = True
+                    profile.subscription_expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=30)
                     await session.commit()
-                    logger.info(f"Subscription (4990 RUB) activated for user_id={user_id} via webhook.")
+                    logger.info(f"Subscription (4990 RUB) activated for user_id={user_id} via webhook. Expires: {profile.subscription_expires_at}")
                     return True
     return False
 
