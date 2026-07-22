@@ -312,17 +312,38 @@ async def show_clients(event: types.Message | types.CallbackQuery, state: FSMCon
         res_clients = await session.execute(stmt_clients)
         unique_clients = res_clients.scalars().all()
 
-        if len(unique_clients) >= 10 and not profile.is_subscribed:
+        is_sub_valid = False
+        if profile.is_subscribed:
+            if profile.subscription_expires_at:
+                now_local = datetime.now(timezone.utc).replace(tzinfo=None)
+                if profile.subscription_expires_at > now_local:
+                    is_sub_valid = True
+                else:
+                    # Expired, reset in DB
+                    profile.is_subscribed = False
+                    await session.commit()
+            else:
+                is_sub_valid = True
+
+        if len(unique_clients) >= 10 and not is_sub_valid:
             # Show subscription prompt instead of clients list
-            text_sub = (
-                "⚠️ **Лимит клиентов превышен!**\n\n"
-                "Вы достигли лимита в **10 клиентов**.\n"
-                "Чтобы продолжить работать со своей базой клиентов и совершать повторные записи, "
-                "вам необходимо оформить подписку NewFit за **4990 ₽/мес**."
-            )
+            if profile.subscription_expires_at and profile.subscription_expires_at <= datetime.now(timezone.utc).replace(tzinfo=None):
+                text_sub = (
+                    "⚠️ **Срок действия вашей подписки истек!**\n\n"
+                    "Ваша ежемесячная подписка NewFit (4990 ₽/мес) закончилась.\n"
+                    "Чтобы продолжить работать со своей базой клиентов и совершать повторные записи, "
+                    "пожалуйста, продлите подписку."
+                )
+            else:
+                text_sub = (
+                    "⚠️ **Лимит клиентов превышен!**\n\n"
+                    "Вы достигли лимита в **10 клиентов**.\n"
+                    "Чтобы продолжить работать со своей базой клиентов и совершать повторные записи, "
+                    "вам необходимо оформить подписку NewFit за **4990 ₽/мес**."
+                )
             kb_sub = types.InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [types.InlineKeyboardButton(text="💳 Оформить подписку", callback_data="pay_sub_4990")]
+                    [types.InlineKeyboardButton(text="💳 Оплатить подписку 4990 ₽", callback_data="pay_sub_4990")]
                 ]
             )
             if isinstance(event, types.CallbackQuery):

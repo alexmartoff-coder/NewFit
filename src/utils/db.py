@@ -97,6 +97,9 @@ async def init_db(engine):
                     if "is_subscribed" not in cols2 and len(cols2) > 0:
                         logger.info("Adding column is_subscribed to trainer_profiles in SQLite")
                         await conn.execute(text("ALTER TABLE trainer_profiles ADD COLUMN is_subscribed BOOLEAN DEFAULT FALSE"))
+                    if "subscription_expires_at" not in cols2 and len(cols2) > 0:
+                        logger.info("Adding column subscription_expires_at to trainer_profiles in SQLite")
+                        await conn.execute(text("ALTER TABLE trainer_profiles ADD COLUMN subscription_expires_at TIMESTAMP"))
             except Exception as e:
                 logger.warning(f"SQLite migration error: {e}")
 
@@ -303,6 +306,7 @@ async def init_db(engine):
                 await add_column_safe_local(conn, "trainer_profiles", "rating", "FLOAT DEFAULT 5.0")
                 await add_column_safe_local(conn, "trainer_profiles", "is_premium", "BOOLEAN DEFAULT FALSE")
                 await add_column_safe_local(conn, "trainer_profiles", "is_subscribed", "BOOLEAN DEFAULT FALSE")
+                await add_column_safe_local(conn, "trainer_profiles", "subscription_expires_at", "TIMESTAMP WITHOUT TIME ZONE")
                 await add_column_safe_local(conn, "trainer_profiles", "status", "VARCHAR(20) DEFAULT 'approved'")
                 await add_column_safe_local(conn, "trainer_profiles", "district", "VARCHAR(100)")
                 await add_column_safe_local(conn, "trainer_profiles", "phone", "VARCHAR(20)")
