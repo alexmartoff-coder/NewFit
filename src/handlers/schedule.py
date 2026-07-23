@@ -68,17 +68,17 @@ async def show_schedule_menu(message: types.Message, is_admin: bool = False, eff
 from src.models.models import TrainerProfile
 
 @router.callback_query(F.data == "sche_view")
-@router.callback_query(F.data.startswith("sche_view_p_"))
+@router.callback_query(F.data.startswith("sche_view_page_"))
 async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
     # This handler can be called directly from a callback or manually from another handler
     user_id = effective_user_id or callback.from_user.id
     moscow_tz = gettz('Europe/Moscow')
 
-    # Parse period to view from callback
-    days_to_view = None
-    if callback.data.startswith("sche_view_p_"):
+    # Parse page/week offset from callback
+    page = 0
+    if callback.data and callback.data.startswith("sche_view_page_"):
         try:
-            days_to_view = int(callback.data.split("_")[3])
+            page = int(callback.data.split("_")[3])
         except (IndexError, ValueError):
             pass
 
@@ -102,12 +102,13 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         res_config = await session.execute(stmt_config)
         config = res_config.scalar_one_or_none()
 
-        if days_to_view is None:
-            days_to_view = config.rolling_window if (config and config.rolling_window) else 7
+        # We display exactly 7 days per page (week)
+        start_day_offset = page * 7
+        end_day_offset = start_day_offset + 7
 
         now_utc = datetime.now(UTC).replace(tzinfo=None)
-        # Fetch slots for the next chosen days
-        end_view_utc = now_utc + timedelta(days=days_to_view)
+        start_view_utc = now_utc + timedelta(days=start_day_offset)
+        end_view_utc = now_utc + timedelta(days=end_day_offset)
 
         # Group by date for better summary
         from collections import defaultdict
@@ -118,7 +119,7 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
             select(TimeSlot)
             .where(
                 TimeSlot.trainer_profile_id == profile.id,
-                TimeSlot.start_time >= now_utc,
+                TimeSlot.start_time >= start_view_utc,
                 TimeSlot.start_time <= end_view_utc
             )
             .options(
@@ -161,19 +162,19 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         kb_back = add_admin_button(kb_back, is_admin=is_admin)
 
         if not slots:
-            text = "📭 У вас пока нет запланированных слотов на ближайшее время."
-            # Render with view-period selector buttons at the top anyway so they can switch to other views if they generated them
-            p_7 = "▪️ 7 дней" if days_to_view == 7 else "7 дней"
-            p_14 = "▪️ 14 дней" if days_to_view == 14 else "14 дней"
-            p_30 = "▪️ 30 дней" if days_to_view == 30 else "30 дней"
+            text = "📭 У вас пока нет запланированных слотов на выбранный период."
+
+            # Show navigation even on empty slots list so they can go back
+            nav_row = []
+            if page > 0:
+                nav_row.append(types.InlineKeyboardButton(text="⬅️ Пред. неделя", callback_data=f"sche_view_page_{page - 1}"))
+            if page < 3: # allow up to 4 weeks (30 days is ~ 4 weeks)
+                nav_row.append(types.InlineKeyboardButton(text="След. неделя ➡️", callback_data=f"sche_view_page_{page + 1}"))
+
             kb_empty = types.InlineKeyboardMarkup(inline_keyboard=[
-                [
-                    types.InlineKeyboardButton(text=p_7, callback_data="sche_view_p_7"),
-                    types.InlineKeyboardButton(text=p_14, callback_data="sche_view_p_14"),
-                    types.InlineKeyboardButton(text=p_30, callback_data="sche_view_p_30")
-                ],
+                nav_row,
                 [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")]
-            ])
+            ] if nav_row else [[types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")]])
             kb_empty = add_admin_button(kb_empty, is_admin=is_admin)
 
             if callback.message.photo:
@@ -193,15 +194,14 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
 
         full_kb = []
 
-        # Period selector row at the very top of the slots view
-        p_7 = "▪️ 7 дней" if days_to_view == 7 else "7 дней"
-        p_14 = "▪️ 14 дней" if days_to_view == 14 else "14 дней"
-        p_30 = "▪️ 30 дней" if days_to_view == 30 else "30 дней"
-        full_kb.append([
-            types.InlineKeyboardButton(text=p_7, callback_data="sche_view_p_7"),
-            types.InlineKeyboardButton(text=p_14, callback_data="sche_view_p_14"),
-            types.InlineKeyboardButton(text=p_30, callback_data="sche_view_p_30")
-        ])
+        # Add weekly pagination row at the very top of the keyboard
+        nav_row = []
+        if page > 0:
+            nav_row.append(types.InlineKeyboardButton(text="⬅️ Пред. неделя", callback_data=f"sche_view_page_{page - 1}"))
+        if page < 3:
+            nav_row.append(types.InlineKeyboardButton(text="След. неделя ➡️", callback_data=f"sche_view_page_{page + 1}"))
+        if nav_row:
+            full_kb.append(nav_row)
 
         for date_obj, day_slots in sorted(grouped.items()):
             # Day separator with Russian day name
@@ -238,8 +238,9 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         full_kb.append([types.InlineKeyboardButton(text="Забронировать время", callback_data="sche_view_book")])
         full_kb.append([types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")])
 
-        actual_days = len(grouped)
-        main_text = f"📅 **Ваше расписание (на {actual_days} дней):**"
+        start_view_msk = start_view_utc.replace(tzinfo=UTC).astimezone(moscow_tz)
+        end_view_msk = (end_view_utc - timedelta(days=1)).replace(tzinfo=UTC).astimezone(moscow_tz)
+        main_text = f"📅 **Ваше расписание ({start_view_msk.strftime('%d.%m')} - {end_view_msk.strftime('%d.%m')}):**"
         kb = types.InlineKeyboardMarkup(inline_keyboard=full_kb)
 
         # Ensure we edit the message to maintain "popover" behavior
