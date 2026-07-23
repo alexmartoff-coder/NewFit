@@ -113,6 +113,9 @@ async def payment_webhook(request_json: dict) -> bool:
 
 @router.callback_query(F.data == "pay_sub_4990")
 async def process_sub_payment_request(callback: types.CallbackQuery):
+    # Отвечаем на колбэк сразу же в начале, чтобы убрать прелоудер/спиннер в интерфейсе Telegram
+    await callback.answer()
+
     user_id = callback.from_user.id
     payment_info = await create_subscription_payment(user_id)
     payment_id = payment_info.get("id")
@@ -130,7 +133,6 @@ async def process_sub_payment_request(callback: types.CallbackQuery):
             prices=[types.LabeledPrice(label="Подписка NewFit", amount=499000)], # 4990.00 RUB в копейках
             start_parameter="sub-payment-4990"
         )
-        await callback.answer()
     except Exception as e:
         logger.error(f"Failed to send Telegram invoice: {e}")
         # Если отправка инвойса не удалась (например, неверный или отсутствующий токен провайдера),
@@ -157,7 +159,6 @@ async def process_sub_payment_request(callback: types.CallbackQuery):
             await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
         else:
             await callback.message.edit_text(text=text, reply_markup=kb, parse_mode="Markdown")
-        await callback.answer()
 
 @router.callback_query(F.data.startswith("verify_mock_sub_"))
 async def verify_mock_sub_payment(callback: types.CallbackQuery):
