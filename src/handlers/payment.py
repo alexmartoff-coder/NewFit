@@ -14,15 +14,13 @@ router = Router()
 async def create_subscription_payment(user_id: int) -> dict:
     """
     Создание платежа для подписки (4990 ₽/мес) в ЮKassa.
-    Если учетные данные не настроены или YOOKASSA_TEST_MODE = True,
-    возвращается тестовый/имитационный объект платежа.
+    Если учетные данные не настроены, возвращается тестовый/имитационный объект платежа.
     """
     shop_id = settings.YOOKASSA_SHOP_ID
     secret_key = settings.YOOKASSA_SECRET_KEY
-    test_mode = settings.YOOKASSA_TEST_MODE
 
-    # Если учетные данные пустые, фиктивные или включен тестовый режим, отдаем имитацию ссылки
-    if not shop_id or not secret_key or shop_id == "dummy" or secret_key == "dummy" or test_mode:
+    # Если учетные данные пустые, фиктивные или не заданы, отдаем имитацию ссылки
+    if not shop_id or not secret_key or shop_id in ["dummy", "placeholder", ""] or secret_key in ["dummy", "placeholder", ""]:
         mock_id = f"mock_sub_{uuid.uuid4().hex[:8]}"
         return {
             "id": mock_id,

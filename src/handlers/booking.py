@@ -644,6 +644,7 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
         moscow_tz = gettz('Europe/Moscow')
 
         booked_time_details = []
+        trainer_time_details = []
         total_price = 0.0
 
         # Loop and book all slots
@@ -685,6 +686,7 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             s_start = slot_start.replace(tzinfo=UTC) if slot_start.tzinfo is None else slot_start.astimezone(UTC)
             start_moscow = s_start.astimezone(moscow_tz)
             booked_time_details.append(f"⏰ `{start_moscow.strftime('%d.%m.%Y %H:%M')}`")
+            trainer_time_details.append(f" • {start_moscow.strftime('%d.%m %H:%M')}\n")
             total_price += slot_price
 
         await session.commit()
@@ -723,10 +725,8 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
                 f"👤 Клиент: {escape_md(client_name)}\n"
                 f"📅 Выбранное время:\n"
             )
-            for slot in slots:
-                s_start_slot = slot.start_time.replace(tzinfo=UTC) if slot.start_time.tzinfo is None else slot.start_time.astimezone(UTC)
-                start_moscow_slot = s_start_slot.astimezone(moscow_tz)
-                trainer_text += f" • {start_moscow_slot.strftime('%d.%m %H:%M')}\n"
+            for t_detail in trainer_time_details:
+                trainer_text += t_detail
 
             trainer_text += (
                 f"\n🏷 {term_format}: {escape_md(slot_format)}\n"
