@@ -68,10 +68,19 @@ async def show_schedule_menu(message: types.Message, is_admin: bool = False, eff
 from src.models.models import TrainerProfile
 
 @router.callback_query(F.data == "sche_view")
+@router.callback_query(F.data.startswith("sche_view_p_"))
 async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
     # This handler can be called directly from a callback or manually from another handler
     user_id = effective_user_id or callback.from_user.id
     moscow_tz = gettz('Europe/Moscow')
+
+    # Parse period to view from callback
+    days_to_view = None
+    if callback.data.startswith("sche_view_p_"):
+        try:
+            days_to_view = int(callback.data.split("_")[3])
+        except (IndexError, ValueError):
+            pass
 
     async with SessionLocal() as session:
         # Resolve profile
@@ -88,9 +97,17 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
                 await callback.message.edit_text(text, reply_markup=kb)
             return
 
+        # Fetch schedule config to read rolling window
+        stmt_config = select(TrainerSchedule).where(TrainerSchedule.trainer_id == user_id)
+        res_config = await session.execute(stmt_config)
+        config = res_config.scalar_one_or_none()
+
+        if days_to_view is None:
+            days_to_view = config.rolling_window if (config and config.rolling_window) else 7
+
         now_utc = datetime.now(UTC).replace(tzinfo=None)
-        # Fetch slots for the next 7 days to keep the keyboard under Telegram limits and avoid silent edit failures
-        end_view_utc = now_utc + timedelta(days=7)
+        # Fetch slots for the next chosen days
+        end_view_utc = now_utc + timedelta(days=days_to_view)
 
         # Group by date for better summary
         from collections import defaultdict
@@ -115,10 +132,6 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         slots = res.scalars().all()
 
         # Check for rolling window replenishment
-        stmt_config = select(TrainerSchedule).where(TrainerSchedule.trainer_id == user_id)
-        res_config = await session.execute(stmt_config)
-        config = res_config.scalar_one_or_none()
-
         if config and config.rolling_window:
             # Maintain the window: check if we have slots for the full duration of the window
             # If we have no slots starting after (window - 1) days, we replenish.
@@ -149,10 +162,24 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
 
         if not slots:
             text = "📭 У вас пока нет запланированных слотов на ближайшее время."
+            # Render with view-period selector buttons at the top anyway so they can switch to other views if they generated them
+            p_7 = "▪️ 7 дней" if days_to_view == 7 else "7 дней"
+            p_14 = "▪️ 14 дней" if days_to_view == 14 else "14 дней"
+            p_30 = "▪️ 30 дней" if days_to_view == 30 else "30 дней"
+            kb_empty = types.InlineKeyboardMarkup(inline_keyboard=[
+                [
+                    types.InlineKeyboardButton(text=p_7, callback_data="sche_view_p_7"),
+                    types.InlineKeyboardButton(text=p_14, callback_data="sche_view_p_14"),
+                    types.InlineKeyboardButton(text=p_30, callback_data="sche_view_p_30")
+                ],
+                [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_back")]
+            ])
+            kb_empty = add_admin_button(kb_empty, is_admin=is_admin)
+
             if callback.message.photo:
-                await callback.message.edit_caption(caption=text, reply_markup=kb_back)
+                await callback.message.edit_caption(caption=text, reply_markup=kb_empty)
             else:
-                await callback.message.edit_text(text, reply_markup=kb_back)
+                await callback.message.edit_text(text, reply_markup=kb_empty)
             return
 
         grouped = defaultdict(list)
@@ -165,6 +192,17 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
         days_ru = {0: "Пн", 1: "Вт", 2: "Ср", 3: "Чт", 4: "Пт", 5: "Сб", 6: "Вс"}
 
         full_kb = []
+
+        # Period selector row at the very top of the slots view
+        p_7 = "▪️ 7 дней" if days_to_view == 7 else "7 дней"
+        p_14 = "▪️ 14 дней" if days_to_view == 14 else "14 дней"
+        p_30 = "▪️ 30 дней" if days_to_view == 30 else "30 дней"
+        full_kb.append([
+            types.InlineKeyboardButton(text=p_7, callback_data="sche_view_p_7"),
+            types.InlineKeyboardButton(text=p_14, callback_data="sche_view_p_14"),
+            types.InlineKeyboardButton(text=p_30, callback_data="sche_view_p_30")
+        ])
+
         for date_obj, day_slots in sorted(grouped.items()):
             # Day separator with Russian day name
             day_name = days_ru.get(date_obj.weekday(), "")
