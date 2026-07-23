@@ -115,36 +115,49 @@ async def payment_webhook(request_json: dict) -> bool:
 async def process_sub_payment_request(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     payment_info = await create_subscription_payment(user_id)
-    url = payment_info.get("confirmation_url")
+    payment_id = payment_info.get("id")
+    provider_token = settings.YOOKASSA_PROVIDER_TOKEN or ""
 
-    # Формируем клавиатуру
-    buttons = [
-        [types.InlineKeyboardButton(text="💳 Оплатить 4990 ₽", url=url)]
-    ]
+    # Пытаемся отправить встроенную форму оплаты Telegram
+    try:
+        await callback.bot.send_invoice(
+            chat_id=user_id,
+            title="Подписка NewFit",
+            description="Ежемесячная подписка NewFit (4990 ₽/мес)",
+            payload=f"sub_payment_{user_id}_{payment_id}",
+            provider_token=provider_token,
+            currency="RUB",
+            prices=[types.LabeledPrice(label="Подписка NewFit", amount=499000)], # 4990.00 RUB в копейках
+            start_parameter="sub-payment-4990"
+        )
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"Failed to send Telegram invoice: {e}")
+        # Если отправка инвойса не удалась (например, неверный или отсутствующий токен провайдера),
+        # мы показываем красивое уведомление и даем возможность протестировать через имитацию
+        text = (
+            "💳 **Встроенная оплата подписки NewFit**\n\n"
+            "Стоимость: 4990 ₽ в месяц.\n"
+            "Для реальной оплаты подписки через Telegram Payments "
+            "необходимо настроить `YOOKASSA_PROVIDER_TOKEN` в файле `.env`.\n\n"
+            "Вы можете протестировать этот шаг с помощью кнопки имитации ниже:"
+        )
 
-    # Если платеж имитационный/тестовый, добавляем кнопку для мгновенного подтверждения
-    if payment_info.get("is_mock"):
-        buttons.append([
-            types.InlineKeyboardButton(
-                text="🤖 Подтвердить оплату (Тест)",
-                callback_data=f"verify_mock_sub_{user_id}"
-            )
-        ])
+        buttons = []
+        if payment_info.get("is_mock") or not provider_token:
+            buttons.append([
+                types.InlineKeyboardButton(
+                    text="🤖 Подтвердить оплату (Тест)",
+                    callback_data=f"verify_mock_sub_{user_id}"
+                )
+            ])
 
-    kb = types.InlineKeyboardMarkup(inline_keyboard=buttons)
-
-    text = (
-        "💳 **Оплата подписки NewFit**\n\n"
-        "Стоимость: 4990 ₽ в месяц.\n"
-        "Подписка необходима для продолжения работы с вашей базой клиентов и расписанием при достижении лимита в 10 клиентов.\n\n"
-        "Пожалуйста, произведите оплату по ссылке ниже:"
-    )
-
-    if callback.message.photo:
-        await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
-    else:
-        await callback.message.edit_text(text=text, reply_markup=kb, parse_mode="Markdown")
-    await callback.answer()
+        kb = types.InlineKeyboardMarkup(inline_keyboard=buttons)
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+        else:
+            await callback.message.edit_text(text=text, reply_markup=kb, parse_mode="Markdown")
+        await callback.answer()
 
 @router.callback_query(F.data.startswith("verify_mock_sub_"))
 async def verify_mock_sub_payment(callback: types.CallbackQuery):
@@ -171,3 +184,43 @@ async def verify_mock_sub_payment(callback: types.CallbackQuery):
             await callback.message.edit_text(text=text)
     else:
         await callback.answer("Не удалось активировать подписку. Попробуйте еще раз.")
+
+# ----- Telegram Payments Handlers -----
+
+@router.pre_checkout_query()
+async def process_pre_checkout_query(pre_checkout_query: types.PreCheckoutQuery):
+    """
+    Подтверждение готовности принять встроенную оплату Telegram Payments.
+    """
+    await pre_checkout_query.answer(ok=True)
+
+@router.message(F.successful_payment)
+async def process_successful_payment(message: types.Message):
+    """
+    Обработчик успешного встроенного платежа Telegram.
+    Активирует подписку в базе данных.
+    """
+    payment_info = message.successful_payment
+    payload = payment_info.invoice_payload
+
+    if payload.startswith("sub_payment_"):
+        parts = payload.split("_")
+        user_id = int(parts[2])
+        payment_id = parts[3] if len(parts) > 3 else "mock"
+
+        async with SessionLocal() as session:
+            stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+            res = await session.execute(stmt)
+            profile = res.scalar_one_or_none()
+            if profile:
+                from datetime import datetime, timedelta, timezone
+                profile.is_subscribed = True
+                profile.subscription_expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=30)
+                await session.commit()
+
+                logger.info(f"Subscription (4990 RUB) activated for user_id={user_id} via Telegram Payments. Payment ID: {payment_id}")
+
+                await message.answer(
+                    "🎉 **Подписка успешно активирована через встроенную оплату Telegram!**\n\n"
+                    "Спасибо за оплату подписки NewFit. Теперь вы можете без ограничений работать со своей базой клиентов."
+                )

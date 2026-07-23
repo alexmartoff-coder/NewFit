@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     YOOKASSA_SHOP_ID: Optional[str] = None
     YOOKASSA_SECRET_KEY: Optional[str] = None
     YOOKASSA_TEST_MODE: bool = True
+    YOOKASSA_PROVIDER_TOKEN: Optional[str] = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
