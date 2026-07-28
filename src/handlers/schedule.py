@@ -917,7 +917,7 @@ async def generate_slots_for_single_day(session, profile_id: int, user_id: int, 
                 TimeSlot.trainer_profile_id == profile_id,
                 TimeSlot.start_time < end_utc,
                 TimeSlot.end_time > start_utc
-            )
+            ).limit(1)
         )
         if overlap.scalar_one_or_none():
             current += timedelta(minutes=slot_duration)
@@ -1009,7 +1009,7 @@ async def generate_slots_from_quick_template(user_id: int, days: int, interval: 
                             TimeSlot.trainer_profile_id == profile.id,
                             TimeSlot.start_time < end_utc,
                             TimeSlot.end_time > start_utc
-                        )
+                        ).limit(1)
                     )
                     if overlap.scalar_one_or_none():
                         current += timedelta(minutes=interval)
