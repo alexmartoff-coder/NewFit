@@ -45,6 +45,8 @@ async def admin_panel(message: Message, is_admin: bool = False):
         [InlineKeyboardButton(text="👤 Войти как клиент", callback_data="admin_impersonate_client")],
         [InlineKeyboardButton(text="🔓 Выйти из режима входа", callback_data="admin_stop_impersonate")],
         [InlineKeyboardButton(text="👥 Сгенерировать 9 клиентов (тест)", callback_data="admin_gen_9_clients")],
+        [InlineKeyboardButton(text="🎫 Подписка: осталось 1 дн. (29 дн. прошло)", callback_data="admin_sub_29_days")],
+        [InlineKeyboardButton(text="🎫 Подписка: срок истек (30 дн. прошло)", callback_data="admin_sub_30_days")],
         [InlineKeyboardButton(text="📋 Список админов", callback_data="admin_list")],
         [InlineKeyboardButton(text="🗑 Удалить админа", callback_data="admin_remove")],
         [InlineKeyboardButton(text="🔥 Удалить пользователей", callback_data="admin_delete_all_users")],
@@ -52,6 +54,54 @@ async def admin_panel(message: Message, is_admin: bool = False):
     ])
 
     await message.answer("🛠 **Админ-панель NewFit**\n\nВыберите действие:", reply_markup=keyboard, parse_mode="Markdown")
+
+@router.callback_query(F.data.in_(["admin_sub_29_days", "admin_sub_30_days"]))
+async def admin_sub_simulate(callback: CallbackQuery, state: FSMContext):
+    fsm_data = await state.get_data()
+    trainer_user_id = fsm_data.get("impersonate_trainer_id") or callback.from_user.id
+
+    async with SessionLocal() as session:
+        stmt = select(TrainerProfile).where(TrainerProfile.user_id == trainer_user_id)
+        res = await session.execute(stmt)
+        profile = res.scalar_one_or_none()
+
+        if not profile:
+            await callback.message.edit_text(
+                f"❌ Профиль профессионала не найден для ID {trainer_user_id}.\n\n"
+                f"Зарегистрируйтесь как профи или используйте режим 'Войти как профи' в админ-панели.",
+                parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")]
+                ])
+            )
+            await callback.answer()
+            return
+
+        from datetime import datetime, timedelta, timezone
+        now_local = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        if callback.data == "admin_sub_29_days":
+            # 29 days passed, 1 day left
+            profile.is_subscribed = True
+            profile.subscription_expires_at = now_local + timedelta(days=1)
+            msg = "🎫 **Имитация 29 дней подписки (остался 1 день)**\n\nПодписка продлена. Истекает через 24 часа."
+        else:
+            # 30 days passed, expired
+            profile.is_subscribed = True
+            profile.subscription_expires_at = now_local - timedelta(minutes=5)
+            msg = "🎫 **Имитация 30 дней подписки (срок действия истек)**\n\nПодписка помечена как истекшая. При просмотре клиентов снова будет запрос оплаты."
+
+        await session.commit()
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")]
+    ])
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=msg, reply_markup=kb, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text=msg, reply_markup=kb, parse_mode="Markdown")
+    await callback.answer()
+
 
 @router.callback_query(F.data == "admin_gen_9_clients")
 async def admin_gen_9_clients(callback: CallbackQuery, state: FSMContext):
