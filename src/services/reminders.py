@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.models.models import Reminder, User, Booking, TrainerProfile, TimeSlot
+from src.models.models import Reminder, User, Booking, TrainerProfile, TimeSlot, UserRole
 from sqlalchemy.orm import selectinload
 from sqlalchemy import select, update
 from aiogram import Bot
@@ -65,20 +65,26 @@ class ReminderService:
             try:
                 now = datetime.now(timezone.utc).replace(tzinfo=None)
                 async with SessionLocal() as session:
-                    # Find pending reminders that are due
-                    stmt = select(Reminder).where(
+                    # Find pending reminders that are due and retrieve their IDs only to avoid MissingGreenlet
+                    stmt = select(Reminder.id).where(
                         Reminder.status == "pending",
                         Reminder.scheduled_for <= now
                     )
                     res = await session.execute(stmt)
-                    reminders = res.scalars().all()
+                    reminder_ids = list(res.scalars().all())
 
-                    if not reminders:
-                        await asyncio.sleep(60)
-                        continue
+                if not reminder_ids:
+                    await asyncio.sleep(60)
+                    continue
 
-                    for r in reminders:
+                for rid in reminder_ids:
+                    async with SessionLocal() as session:
                         try:
+                            # Re-fetch reminder inside its own session
+                            r = await session.get(Reminder, rid)
+                            if not r or r.status != "pending":
+                                continue
+
                             # Fetch booking and trainer info
                             booking_stmt = select(Booking).where(Booking.id == r.booking_id).options(
                                 selectinload(Booking.slot),
@@ -172,7 +178,7 @@ class ReminderService:
                             logger.info(f"Sent {r.reminder_type} reminder to user {r.user_id}")
 
                         except Exception as e:
-                            logger.error(f"Failed to send reminder {r.id}: {e}")
+                            logger.error(f"Failed to send reminder {rid}: {e}")
                             r.status = "failed"
 
                         await session.commit()
