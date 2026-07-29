@@ -108,7 +108,14 @@ async def cat_back_to_start(callback: types.CallbackQuery, state: FSMContext):
         [types.InlineKeyboardButton(text="Падл", callback_data="cat_start_padel")],
         [types.InlineKeyboardButton(text="🏠 В главное меню", callback_data="client_menu")]
     ])
-    await callback.message.edit_text("Какая сфера услуг вас интересует?", reply_markup=kb)
+    if callback.message.photo:
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.message.answer("Какая сфера услуг вас интересует?", reply_markup=kb)
+    else:
+        await callback.message.edit_text("Какая сфера услуг вас интересует?", reply_markup=kb)
     await callback.answer()
 
 @router.callback_query(F.data.startswith("cat_start_"))
@@ -125,13 +132,29 @@ async def process_catalog_sphere_start(callback: types.CallbackQuery, state: FSM
     ])
 
     type_names = {"fitness": "Фитнес", "beauty": "Бьюти", "tennis": "Большой теннис", "padel": "Падл"}
-    await callback.message.edit_text(f"Сфера: {type_names.get(cat_type, cat_type)}\n\nКак вы хотите найти мастера?", reply_markup=kb)
+    text = f"Сфера: {type_names.get(cat_type, cat_type)}\n\nКак вы хотите найти мастера?"
+    if callback.message.photo:
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.message.answer(text, reply_markup=kb)
+    else:
+        await callback.message.edit_text(text, reply_markup=kb)
     await callback.answer()
 
 @router.callback_query(F.data == "search_by_username")
 async def search_by_username_prompt(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(CatalogFilter.waiting_for_username_search)
-    await callback.message.edit_text("Введите Telegram Nickname (username) мастера для поиска (с @ или без):")
+    text = "Введите Telegram Nickname (username) мастера для поиска (с @ или без):"
+    if callback.message.photo:
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.message.answer(text)
+    else:
+        await callback.message.edit_text(text)
     await callback.answer()
 
 @router.message(F.text, CatalogFilter.waiting_for_username_search)
@@ -165,13 +188,29 @@ async def process_username_search(message: types.Message, state: FSMContext):
 @router.callback_query(F.data == "search_by_phone")
 async def search_by_phone_prompt(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(CatalogFilter.waiting_for_phone_search)
-    await callback.message.edit_text("Введите номер телефона мастера для поиска:")
+    text = "Введите номер телефона мастера для поиска:"
+    if callback.message.photo:
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.message.answer(text)
+    else:
+        await callback.message.edit_text(text)
     await callback.answer()
 
 @router.callback_query(F.data == "search_by_name")
 async def search_by_name_prompt(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(CatalogFilter.waiting_for_name_search)
-    await callback.message.edit_text("Введите ФИО (или часть имени) мастера для поиска:")
+    text = "Введите ФИО (или часть имени) мастера для поиска:"
+    if callback.message.photo:
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.message.answer(text)
+    else:
+        await callback.message.edit_text(text)
     await callback.answer()
 
 @router.message(F.text, CatalogFilter.waiting_for_name_search)
@@ -313,7 +352,11 @@ async def filter_city(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(CatalogFilter.entering_city)
     text = "Выберите город для поиска:"
     if callback.message.photo:
-        await callback.message.edit_caption(caption=text, reply_markup=get_catalog_city_kb())
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.message.answer(text, reply_markup=get_catalog_city_kb())
     else:
         await callback.message.edit_text(text, reply_markup=get_catalog_city_kb())
     await callback.answer()
@@ -378,7 +421,11 @@ async def filter_spec(callback: types.CallbackQuery, state: FSMContext, is_admin
 
     text = "Выберите направления (можно несколько):"
     if callback.message.photo:
-        await callback.message.edit_caption(caption=text, reply_markup=kb)
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.message.answer(text, reply_markup=kb)
     else:
         await callback.message.edit_text(text, reply_markup=kb)
     await callback.answer()
@@ -506,7 +553,11 @@ async def filter_reset(callback: types.CallbackQuery, state: FSMContext, is_admi
     kb = add_admin_button(kb, is_admin=is_admin)
     text = "Фильтры сброшены. Выберите снова:"
     if callback.message.photo:
-        await callback.message.edit_caption(caption=text, reply_markup=kb)
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.message.answer(text, reply_markup=kb)
     else:
         await callback.message.edit_text(text, reply_markup=kb)
     await callback.answer()
