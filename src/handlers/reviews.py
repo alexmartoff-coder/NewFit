@@ -2,7 +2,8 @@ import logging
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import select, func, update
-from src.models.models import Review, Booking, TrainerProfile, User
+from sqlalchemy.orm import selectinload
+from src.models.models import Review, Booking, TrainerProfile, User, TimeSlot, UserRole
 from src.utils.db import SessionLocal
 from src.states.review import ReviewStates
 
