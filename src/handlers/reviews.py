@@ -46,7 +46,11 @@ async def start_review(callback: types.CallbackQuery, state: FSMContext):
 
     async with SessionLocal() as session:
         booking = await session.get(Booking, booking_id, options=[
-            selectinload(Booking.slot).selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
+            selectinload(Booking.slot).options(
+                selectinload(TimeSlot.trainer_profile).options(
+                    selectinload(TrainerProfile.user)
+                )
+            )
         ])
 
         role = booking.slot.trainer_profile.user.role if booking and booking.slot else None
@@ -93,7 +97,11 @@ async def save_review(message: types.Message, state: FSMContext, comment: str = 
 
     async with SessionLocal() as session:
         booking = await session.get(Booking, booking_id, options=[
-            selectinload(Booking.slot).selectinload(TimeSlot.trainer_profile).selectinload(TrainerProfile.user)
+            selectinload(Booking.slot).options(
+                selectinload(TimeSlot.trainer_profile).options(
+                    selectinload(TrainerProfile.user)
+                )
+            )
         ])
         if not booking:
             await message.answer("Ошибка: запись не найдена.")
@@ -101,6 +109,17 @@ async def save_review(message: types.Message, state: FSMContext, comment: str = 
             return
 
         client_id = booking.client_id
+
+        # Cache properties BEFORE commit/close/expiration
+        role = booking.slot.trainer_profile.user.role if booking and booking.slot else None
+        slot_format = booking.slot.format if booking and booking.slot else ""
+        is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in slot_format.split(", "))
+
+        term = "мастера"
+        if role == UserRole.BEAUTY:
+            term = "бьюти-мастера"
+        elif is_specific_sport:
+            term = "тренера"
 
         new_review = Review(
             trainer_id=trainer_profile_id,
@@ -125,16 +144,6 @@ async def save_review(message: types.Message, state: FSMContext, comment: str = 
         )
 
         await session.commit()
-
-        role = booking.slot.trainer_profile.user.role if booking and booking.slot else None
-        slot_format = booking.slot.format if booking and booking.slot else ""
-        is_specific_sport = any(s in ["Большой теннис", "Падл"] for s in slot_format.split(", "))
-
-        term = "мастера"
-        if role == UserRole.BEAUTY:
-            term = "бьюти-мастера"
-        elif is_specific_sport:
-            term = "тренера"
 
     await message.answer(f"Спасибо за ваш отзыв! ❤️ Он поможет другим пользователям выбрать лучшего {term}.")
     await state.clear()
