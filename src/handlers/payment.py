@@ -126,11 +126,11 @@ async def process_sub_payment_request(callback: types.CallbackQuery):
         await callback.bot.send_invoice(
             chat_id=user_id,
             title="Подписка NewFit",
-            description="Ежемесячная подписка NewFit (4990 ₽/мес)",
+            description="Проверочный платеж подписки NewFit (10 ₽)",
             payload=f"sub_payment_{user_id}_{payment_id}",
             provider_token=provider_token,
             currency="RUB",
-            prices=[types.LabeledPrice(label="Подписка NewFit", amount=499000)], # 4990.00 RUB в копейках
+            prices=[types.LabeledPrice(label="Подписка NewFit", amount=1000)], # 10.00 RUB в копейках
             start_parameter="sub-payment-4990"
         )
     except Exception as e:
