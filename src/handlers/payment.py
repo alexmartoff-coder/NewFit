@@ -2,6 +2,8 @@ import logging
 import uuid
 import httpx
 from aiogram import Router, types, F
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
 from sqlalchemy import select
 
 from src.utils.config import settings
@@ -10,6 +12,9 @@ from src.models.models import TrainerProfile
 
 logger = logging.getLogger(__name__)
 router = Router()
+
+class PaymentConsentState(StatesGroup):
+    waiting_for_consent = State()
 
 async def create_subscription_payment(user_id: int) -> dict:
     """
@@ -112,14 +117,92 @@ async def payment_webhook(request_json: dict) -> bool:
 # ----- Bot UI Handlers -----
 
 @router.callback_query(F.data == "pay_sub_4990")
-async def process_sub_payment_request(callback: types.CallbackQuery):
+async def process_sub_payment_request(callback: types.CallbackQuery, state: FSMContext):
     # Отвечаем на колбэк сразу же в начале, чтобы убрать прелоудер/спиннер в интерфейсе Telegram
     await callback.answer()
 
+    await state.set_state(PaymentConsentState.waiting_for_consent)
+    await state.update_data(consent=False)
+
+    text = (
+        "💳 **Оформление подписки NewFit**\n\n"
+        "Стоимость: 4990 ₽ в месяц.\n\n"
+        "Для продолжения вам необходимо подтвердить свое согласие с юридическими документами:\n\n"
+        "☐ Я принимаю условия [Политики конфиденциальности](https://cbca.ru/rules/newfit) "
+        "и даю согласие на обработку моих персональных данных."
+    )
+
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="☐ Я согласен на обработку данных", callback_data="toggle_consent")],
+        [types.InlineKeyboardButton(text="🔒 Оплатить подписку 4990 ₽", callback_data="pay_sub_locked")],
+        [types.InlineKeyboardButton(text="🔙 Назад", callback_data="clients_list")]
+    ])
+
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text=text, reply_markup=kb, parse_mode="Markdown")
+
+
+@router.callback_query(PaymentConsentState.waiting_for_consent, F.data == "toggle_consent")
+async def toggle_consent(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    fsm_data = await state.get_data()
+    consented = fsm_data.get("consent", False)
+    consented = not consented
+    await state.update_data(consent=consented)
+
+    text = (
+        "💳 **Оформление подписки NewFit**\n\n"
+        "Стоимость: 4990 ₽ в месяц.\n\n"
+        "Для продолжения вам необходимо подтвердить свое согласие с юридическими документами:\n\n"
+    )
+
+    if consented:
+        text += (
+            "✅ Я принимаю условия [Политики конфиденциальности](https://cbca.ru/rules/newfit) "
+            "и даю согласие на обработку моих персональных данных."
+        )
+        kb = types.InlineKeyboardMarkup(inline_keyboard=[
+            [types.InlineKeyboardButton(text="✅ Я согласен на обработку данных", callback_data="toggle_consent")],
+            [types.InlineKeyboardButton(text="💳 Оплатить подписку 4990 ₽", callback_data="pay_sub_unlocked")],
+            [types.InlineKeyboardButton(text="🔙 Назад", callback_data="clients_list")]
+        ])
+    else:
+        text += (
+            "☐ Я принимаю условия [Политики конфиденциальности](https://cbca.ru/rules/newfit) "
+            "и даю согласие на обработку моих персональных данных."
+        )
+        kb = types.InlineKeyboardMarkup(inline_keyboard=[
+            [types.InlineKeyboardButton(text="☐ Я согласен на обработку данных", callback_data="toggle_consent")],
+            [types.InlineKeyboardButton(text="🔒 Оплатить подписку 4990 ₽", callback_data="pay_sub_locked")],
+            [types.InlineKeyboardButton(text="🔙 Назад", callback_data="clients_list")]
+        ])
+
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text=text, reply_markup=kb, parse_mode="Markdown")
+
+
+@router.callback_query(PaymentConsentState.waiting_for_consent, F.data == "pay_sub_locked")
+async def pay_sub_locked(callback: types.CallbackQuery):
+    await callback.answer(
+        "⚠️ Пожалуйста, сначала подтвердите согласие на обработку данных, нажав на кнопку с галочкой!",
+        show_alert=True
+    )
+
+
+@router.callback_query(PaymentConsentState.waiting_for_consent, F.data == "pay_sub_unlocked")
+async def pay_sub_unlocked(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
     user_id = callback.from_user.id
     payment_info = await create_subscription_payment(user_id)
     payment_id = payment_info.get("id")
     provider_token = settings.YOOKASSA_PROVIDER_TOKEN or ""
+
+    # Clear state as the session is completed and invoice is sent
+    await state.clear()
 
     # Пытаемся отправить встроенную форму оплаты Telegram
     try:
