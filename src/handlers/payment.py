@@ -130,7 +130,7 @@ async def process_sub_payment_request(callback: types.CallbackQuery, state: FSMC
 
     text = (
         "💳 **Оформление подписки NewFit**\n\n"
-        "Стоимость: 4990 ₽ в месяц.\n\n"
+        "Стоимость: 10 ₽ в месяц.\n\n"
         "Для продолжения вам необходимо подтвердить свое согласие с юридическими документами:\n\n"
         "☐ Я принимаю условия [Политики конфиденциальности](https://cbca.ru/rules/newfit) "
         "и даю согласие на обработку моих персональных данных."
@@ -138,7 +138,7 @@ async def process_sub_payment_request(callback: types.CallbackQuery, state: FSMC
 
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="☐ Я согласен на обработку данных", callback_data="toggle_consent")],
-        [types.InlineKeyboardButton(text="🔒 Оплатить подписку 4990 ₽", callback_data="pay_sub_locked")],
+        [types.InlineKeyboardButton(text="🔒 Оплатить подписку 10 ₽", callback_data="pay_sub_locked")],
         [types.InlineKeyboardButton(text="🔙 Назад", callback_data="clients_list")]
     ])
 
@@ -158,7 +158,7 @@ async def toggle_consent(callback: types.CallbackQuery, state: FSMContext):
 
     text = (
         "💳 **Оформление подписки NewFit**\n\n"
-        "Стоимость: 4990 ₽ в месяц.\n\n"
+        "Стоимость: 10 ₽ в месяц.\n\n"
         "Для продолжения вам необходимо подтвердить свое согласие с юридическими документами:\n\n"
     )
 
@@ -169,7 +169,7 @@ async def toggle_consent(callback: types.CallbackQuery, state: FSMContext):
         )
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="✅ Я согласен на обработку данных", callback_data="toggle_consent")],
-            [types.InlineKeyboardButton(text="💳 Оплатить подписку 4990 ₽", callback_data="pay_sub_unlocked")],
+            [types.InlineKeyboardButton(text="💳 Оплатить подписку 10 ₽", callback_data="pay_sub_unlocked")],
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data="clients_list")]
         ])
     else:
@@ -179,7 +179,7 @@ async def toggle_consent(callback: types.CallbackQuery, state: FSMContext):
         )
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="☐ Я согласен на обработку данных", callback_data="toggle_consent")],
-            [types.InlineKeyboardButton(text="🔒 Оплатить подписку 4990 ₽", callback_data="pay_sub_locked")],
+            [types.InlineKeyboardButton(text="🔒 Оплатить подписку 10 ₽", callback_data="pay_sub_locked")],
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data="clients_list")]
         ])
 
@@ -216,6 +216,7 @@ async def pay_sub_unlocked(callback: types.CallbackQuery, state: FSMContext):
 
     amount_kopecks = 1000   # это 10 рублей
 
+    # TODO: После успешного теста заменить amount на 499000 (4990 ₽)
     # Пытаемся отправить встроенную форму оплаты Telegram
     try:
         await callback.bot.send_invoice(
@@ -234,7 +235,7 @@ async def pay_sub_unlocked(callback: types.CallbackQuery, state: FSMContext):
         # мы показываем красивое уведомление и даем возможность протестировать через имитацию
         text = (
             "💳 **Встроенная оплата подписки NewFit**\n\n"
-            "Стоимость: 4990 ₽ в месяц.\n"
+            "Стоимость: 10 ₽ в месяц.\n"
             "Для реальной оплаты подписки через Telegram Payments "
             "необходимо настроить `YOOKASSA_PROVIDER_TOKEN` в файле `.env`.\n\n"
             "Вы можете протестировать этот шаг с помощью кнопки имитации ниже:"
@@ -301,8 +302,8 @@ async def process_successful_payment(message: types.Message):
 
     if payload.startswith("sub_payment_") or payload.startswith("sub_"):
         parts = payload.split("_")
-        user_id = int(parts[1]) if payload.startswith("sub_") else int(parts[2])
-        payment_id = parts[2] if payload.startswith("sub_") else (parts[3] if len(parts) > 3 else "mock")
+        user_id = int(parts[2]) if payload.startswith("sub_payment_") else int(parts[1])
+        payment_id = (parts[3] if len(parts) > 3 else "mock") if payload.startswith("sub_payment_") else parts[2]
 
         async with SessionLocal() as session:
             stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
