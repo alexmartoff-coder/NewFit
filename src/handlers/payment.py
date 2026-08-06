@@ -214,32 +214,25 @@ async def pay_sub_unlocked(callback: types.CallbackQuery, state: FSMContext):
     # Clear state as the session is completed and invoice is sent
     await state.clear()
 
-    amount_kopecks = 1000   # это 10 рублей
+    logger.error("SEND_INVOICE amount=1000 hardcoded")
 
-    # TODO: После успешного теста заменить amount на 499000 (4990 ₽)
     # Пытаемся отправить встроенную форму оплаты Telegram
     try:
         await callback.bot.send_invoice(
             chat_id=user_id,
             title="Подписка NewFit",
-            description="Тестовая оплата подписки 10 ₽",
+            description="Тестовая оплата 10 рублей",
             payload=f"sub_{user_id}_{int(time.time())}",
-            provider_token=provider_token,
+            provider_token=os.getenv("YOOKASSA_PROVIDER_TOKEN"),
             currency="RUB",
-            prices=[LabeledPrice(label="Подписка NewFit", amount=amount_kopecks)],
+            prices=[LabeledPrice(label="Подписка NewFit", amount=1000)],
             start_parameter="subscribe",
         )
     except Exception as e:
         logger.error(f"Failed to send Telegram invoice: {e}")
         # Если отправка инвойса не удалась (например, неверный или отсутствующий токен провайдера),
         # мы показываем красивое уведомление и даем возможность протестировать через имитацию
-        text = (
-            "💳 **Встроенная оплата подписки NewFit**\n\n"
-            "Стоимость: 10 ₽ в месяц.\n"
-            "Для реальной оплаты подписки через Telegram Payments "
-            "необходимо настроить `YOOKASSA_PROVIDER_TOKEN` в файле `.env`.\n\n"
-            "Вы можете протестировать этот шаг с помощью кнопки имитации ниже:"
-        )
+        text = f"Ошибка: {e}"
 
         buttons = []
         if payment_info.get("is_mock") or not provider_token:
