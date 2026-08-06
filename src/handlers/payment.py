@@ -1,10 +1,12 @@
 import os
+import time
 import logging
 import uuid
 import httpx
 from aiogram import Router, types, F
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
+from aiogram.types import LabeledPrice
 from sqlalchemy import select
 
 from src.utils.config import settings
@@ -202,6 +204,7 @@ async def pay_sub_unlocked(callback: types.CallbackQuery, state: FSMContext):
 
     provider_token = os.getenv("YOOKASSA_PROVIDER_TOKEN")
     if not provider_token:
+        logger.error("YOOKASSA_PROVIDER_TOKEN is empty! Cannot send invoice.")
         await callback.message.answer("❌ Платёж временно недоступен")
         return
 
@@ -211,18 +214,19 @@ async def pay_sub_unlocked(callback: types.CallbackQuery, state: FSMContext):
     # Clear state as the session is completed and invoice is sent
     await state.clear()
 
-    # TODO: После успешного теста заменить amount на 499000 (4990 ₽)
+    amount_kopecks = 1000   # это 10 рублей
+
     # Пытаемся отправить встроенную форму оплаты Telegram
     try:
         await callback.bot.send_invoice(
             chat_id=user_id,
-            title="Тестовый платёж NewFit",
-            description="Пробный платёж 10 рублей для настройки системы",
-            payload=f"sub_payment_{user_id}_{payment_id}",
+            title="Подписка NewFit",
+            description="Тестовая оплата подписки 10 ₽",
+            payload=f"sub_{user_id}_{int(time.time())}",
             provider_token=provider_token,
             currency="RUB",
-            prices=[types.LabeledPrice(label="Тестовый платёж", amount=1000)], # 10.00 RUB в копейках
-            start_parameter="sub-payment-10"
+            prices=[LabeledPrice(label="Подписка NewFit", amount=amount_kopecks)],
+            start_parameter="subscribe",
         )
     except Exception as e:
         logger.error(f"Failed to send Telegram invoice: {e}")
@@ -295,10 +299,10 @@ async def process_successful_payment(message: types.Message):
     payment_info = message.successful_payment
     payload = payment_info.invoice_payload
 
-    if payload.startswith("sub_payment_"):
+    if payload.startswith("sub_payment_") or payload.startswith("sub_"):
         parts = payload.split("_")
-        user_id = int(parts[2])
-        payment_id = parts[3] if len(parts) > 3 else "mock"
+        user_id = int(parts[1]) if payload.startswith("sub_") else int(parts[2])
+        payment_id = parts[2] if payload.startswith("sub_") else (parts[3] if len(parts) > 3 else "mock")
 
         async with SessionLocal() as session:
             stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
