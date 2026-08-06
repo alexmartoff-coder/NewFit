@@ -42,7 +42,7 @@ async def create_subscription_payment(user_id: int) -> dict:
     }
     payload = {
         "amount": {
-            "value": "4990.00",
+            "value": "10.00",
             "currency": "RUB"
         },
         "capture": True,
@@ -50,7 +50,7 @@ async def create_subscription_payment(user_id: int) -> dict:
             "type": "redirect",
             "return_url": "https://t.me/newfit_workout_bot"
         },
-        "description": "Подписка NewFit (4990 ₽/мес)",
+        "description": "Подписка NewFit (10 ₽/мес)",
         "metadata": {
             "user_id": str(user_id),
             "type": "subscription"
@@ -210,12 +210,12 @@ async def pay_sub_unlocked(callback: types.CallbackQuery, state: FSMContext):
         await callback.bot.send_invoice(
             chat_id=user_id,
             title="Подписка NewFit",
-            description="Ежемесячная подписка NewFit (4990 ₽/мес)",
+            description="Ежемесячная подписка NewFit (10 ₽/мес)",
             payload=f"sub_payment_{user_id}_{payment_id}",
             provider_token=provider_token,
             currency="RUB",
-            prices=[types.LabeledPrice(label="Подписка NewFit", amount=499000)], # 4990.00 RUB в копейках
-            start_parameter="sub-payment-4990"
+            prices=[types.LabeledPrice(label="Подписка NewFit", amount=1000)], # 10.00 RUB в копейках
+            start_parameter="sub-payment-10"
         )
     except Exception as e:
         logger.error(f"Failed to send Telegram invoice: {e}")
