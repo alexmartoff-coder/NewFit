@@ -198,23 +198,30 @@ async def pay_sub_locked(callback: types.CallbackQuery):
 async def pay_sub_unlocked(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     user_id = callback.from_user.id
+
+    import os
+    PROVIDER_TOKEN = os.getenv("YOOKASSA_PROVIDER_TOKEN")
+    if not PROVIDER_TOKEN:
+        await callback.message.answer("❌ Платёж временно недоступен")
+        return
+
     payment_info = await create_subscription_payment(user_id)
     payment_id = payment_info.get("id")
-    provider_token = settings.YOOKASSA_PROVIDER_TOKEN or ""
 
     # Clear state as the session is completed and invoice is sent
     await state.clear()
 
+    # TODO: После успешного теста заменить amount на 499000 (4990 ₽)
     # Пытаемся отправить встроенную форму оплаты Telegram
     try:
         await callback.bot.send_invoice(
             chat_id=user_id,
-            title="Подписка NewFit",
-            description="Ежемесячная подписка NewFit (10 ₽/мес)",
+            title="Тестовый платёж NewFit",
+            description="Пробный платёж 10 рублей для настройки системы",
             payload=f"sub_payment_{user_id}_{payment_id}",
-            provider_token=provider_token,
+            provider_token=PROVIDER_TOKEN,
             currency="RUB",
-            prices=[types.LabeledPrice(label="Подписка NewFit", amount=1000)], # 10.00 RUB в копейках
+            prices=[types.LabeledPrice(label="Тестовый платёж", amount=1000)], # 10.00 RUB в копейках
             start_parameter="sub-payment-10"
         )
     except Exception as e:
