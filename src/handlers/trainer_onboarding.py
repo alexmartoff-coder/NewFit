@@ -57,7 +57,10 @@ async def provider_role_chosen(event: types.Message | types.CallbackQuery, state
     text = "Шаг 2: Выберите ваш город или введите его:"
 
     if profile:
-        kb_skip = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text=f"Не менять ({profile.city})", callback_data="skip_step")]])
+        kb_skip = types.InlineKeyboardMarkup(inline_keyboard=[
+            [types.InlineKeyboardButton(text=f"Не менять ({profile.city})", callback_data="skip_step")],
+            [types.InlineKeyboardButton(text="❌ Отменить редактирование", callback_data="cancel_onboarding")]
+        ])
         if isinstance(event, types.Message):
             await event.answer(text, reply_markup=kb)
             await event.answer("Или нажмите кнопку ниже, чтобы оставить прежний город:", reply_markup=kb_skip)
@@ -71,6 +74,33 @@ async def provider_role_chosen(event: types.Message | types.CallbackQuery, state
         else:
             await event.message.answer(text, reply_markup=kb)
             await event.answer()
+
+@router.callback_query(F.data == "cancel_onboarding")
+async def cancel_onboarding_handler(callback: types.CallbackQuery, state: FSMContext):
+    await state.clear()
+    await state.update_data(cabinet="pro")
+
+    from src.keyboards.common import get_trainer_main_kb
+    from src.models.models import TrainerProfile, WorkFormat
+
+    user_id = callback.from_user.id
+    async with SessionLocal() as session:
+        stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+        profile = (await session.execute(stmt_p)).scalar_one_or_none()
+        has_online = (profile.work_format in [WorkFormat.ONLINE, WorkFormat.HYBRID]) if profile else False
+
+    # Delete previous onboarding messages if possible to keep chat clean
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+
+    await callback.message.answer(
+        "❌ Редактирование отменено. Изменения не сохранены.",
+        reply_markup=get_trainer_main_kb(is_admin=False, has_online=has_online)
+    )
+    await callback.answer()
+
 
 # --- STEP 3: District Selection ---
 @router.message(TrainerOnboarding.city)
