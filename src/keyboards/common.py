@@ -31,7 +31,7 @@ def get_sphere_kb():
 def get_trainer_main_kb(is_admin: bool = False, has_online: bool = False):
     kb = [
         [KeyboardButton(text="Мой профиль"), KeyboardButton(text="Моё расписание")],
-        [KeyboardButton(text="Мои записи"), KeyboardButton(text="Мои клиенты")],
+        [KeyboardButton(text="Записи клиентов"), KeyboardButton(text="Мои клиенты")],
         [KeyboardButton(text="Клиент")],
     ]
     # Online features temporarily disabled
