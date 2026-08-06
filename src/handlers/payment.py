@@ -1,3 +1,4 @@
+import os
 import logging
 import uuid
 import httpx
@@ -199,8 +200,7 @@ async def pay_sub_unlocked(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     user_id = callback.from_user.id
 
-    import os
-    provider_token = os.getenv("YOOKASSA_PROVIDER_TOKEN")
+    provider_token = os.getenv("YOOKASSA_PROVIDER_TOKEN") or settings.YOOKASSA_PROVIDER_TOKEN
     if not provider_token:
         await callback.message.answer("❌ Платёж временно недоступен")
         return
