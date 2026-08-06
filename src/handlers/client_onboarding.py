@@ -15,6 +15,7 @@ async def client_start_message(message: types.Message, state: FSMContext, is_adm
 @router.callback_query(F.data == "role_client")
 @router.callback_query(F.data == "client_menu")
 async def client_start(event: types.Message | types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
+    await state.update_data(cabinet="client")
     message = event if isinstance(event, types.Message) else event.message
     user_id = effective_user_id or event.from_user.id
 

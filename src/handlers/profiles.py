@@ -22,8 +22,9 @@ class GoogleKeysState(StatesGroup):
     waiting_for_client_secret = State()
 
 @router.message(F.text.in_(["/profile", "Мой профиль"]))
-async def show_profile(message: types.Message, is_admin: bool = False, effective_user_id: int = None):
+async def show_profile(message: types.Message, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     user_id = effective_user_id or message.from_user.id
+    await state.update_data(cabinet="pro")
     async with SessionLocal() as session:
         user = await session.get(User, user_id)
         if not user:
@@ -385,8 +386,9 @@ async def show_clients(event: types.Message | types.CallbackQuery, state: FSMCon
             await message.answer("У вас пока нет базы клиентов.")
 
 @router.message(F.text == "Кабинет профи")
-async def show_pro_cabinet(message: types.Message, is_admin: bool = False, effective_user_id: int = None):
+async def show_pro_cabinet(message: types.Message, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     user_id = effective_user_id or message.from_user.id
+    await state.update_data(cabinet="pro")
     async with SessionLocal() as session:
         user = await session.get(User, user_id)
         if not user or user.role not in PROFESSIONAL_ROLES:
@@ -406,12 +408,23 @@ async def show_pro_cabinet(message: types.Message, is_admin: bool = False, effec
 
 @router.message(F.text == "Мои записи")
 @router.message(F.text == "/bookings")
-async def show_bookings_router(message: types.Message, effective_user_id: int = None):
+async def show_bookings_router(message: types.Message, state: FSMContext, effective_user_id: int = None):
     user_id = effective_user_id or message.from_user.id
     async with SessionLocal() as session:
         user = await session.get(User, user_id)
         if not user:
             await message.answer("Вы не зарегистрированы.")
+            return
+
+        # Check FSM state data for cabinet flag
+        data = await state.get_data()
+        cabinet = data.get("cabinet")
+
+        if cabinet == "client":
+            await show_client_bookings_menu(message, user_id)
+            return
+        elif cabinet == "pro":
+            await show_pro_bookings(message, user_id)
             return
 
         if user.role in PROFESSIONAL_ROLES:
@@ -942,8 +955,8 @@ async def trainer_google_settings(callback: types.CallbackQuery):
     await callback.answer()
 
 @router.callback_query(F.data == "trainer_menu")
-async def trainer_menu_redirect(callback: types.CallbackQuery, is_admin: bool = False, effective_user_id: int = None):
-    await show_profile(callback.message, is_admin=is_admin, effective_user_id=effective_user_id)
+async def trainer_menu_redirect(callback: types.CallbackQuery, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
+    await show_profile(callback.message, state, is_admin=is_admin, effective_user_id=effective_user_id)
     await callback.answer()
 
 @router.callback_query(F.data.startswith("profile_photo_"))

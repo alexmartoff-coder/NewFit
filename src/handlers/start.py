@@ -10,13 +10,14 @@ from sqlalchemy import select, func
 router = Router()
 
 @router.message(CommandStart())
-async def cmd_start(message: types.Message, is_admin: bool = False, effective_user_id: int = None):
+async def cmd_start(message: types.Message, state: FSMContext, is_admin: bool = False, effective_user_id: int = None):
     async with SessionLocal() as session:
         user = await session.get(User, effective_user_id)
 
         # If user exists and has a role, redirect to their menu
         if user and user.role:
             if user.role in [UserRole.TRAINER, UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL]:
+                await state.update_data(cabinet="pro")
                 from src.keyboards.common import get_trainer_main_kb
                 from src.models.models import TrainerProfile, WorkFormat
                 stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user.id)
@@ -31,6 +32,7 @@ async def cmd_start(message: types.Message, is_admin: bool = False, effective_us
                 await message.answer(f"С возвращением! Личный кабинет {role_text}:", reply_markup=kb)
                 return
             elif user.role == UserRole.CLIENT:
+                await state.update_data(cabinet="client")
                 from src.keyboards.common import get_client_main_kb
                 from src.models.models import ClientProfile, Booking, TrainerProfile
 

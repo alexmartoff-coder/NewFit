@@ -724,6 +724,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
 
             await session.commit()
         await state.clear()
+        await state.update_data(cabinet="pro")
         await message.answer("Поздравляем! 🎉 Профиль успешно сохранён.", reply_markup=get_trainer_main_kb(is_admin=is_admin))
     except Exception as e:
         logger.exception("Error in finish_onboarding")
