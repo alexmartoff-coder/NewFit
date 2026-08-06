@@ -406,10 +406,21 @@ async def show_pro_cabinet(message: types.Message, state: FSMContext, is_admin: 
         elif user.role == UserRole.PADEL: role_text = "тренера по падлу"
         await message.answer(f"Личный кабинет {role_text}:", reply_markup=kb)
 
+@router.message(F.text == "Записи клиентов")
+async def show_pro_bookings_direct(message: types.Message):
+    await show_pro_bookings(message, message.from_user.id)
+
+
 @router.message(F.text == "Мои записи")
 @router.message(F.text == "/bookings")
 async def show_bookings_router(message: types.Message, state: FSMContext, effective_user_id: int = None):
     user_id = effective_user_id or message.from_user.id
+
+    # If they click "Мои записи" physical button, it is from client keyboard
+    if message.text == "Мои записи":
+        await show_client_bookings_menu(message, user_id)
+        return
+
     async with SessionLocal() as session:
         user = await session.get(User, user_id)
         if not user:
@@ -1048,7 +1059,7 @@ async def show_instructions_detailed(message: types.Message):
                 "📋 **Инструкция для Профессионала:**\n\n"
                 "1️⃣ **Настройка профиля:** Перейдите в «Мой профиль», чтобы отредактировать свои данные, направления, цены и портфолио.\n"
                 "2️⃣ **Управление расписанием:** В разделе «Моё расписание» вы можете просматривать слоты, использовать «Быструю генерацию» на 7/14/30 дней с настройкой рабочих часов, а также планировать «Отпуск» или «Выходной».\n"
-                "3️⃣ **Записи клиентов:** В «Мои записи» отображаются предстоящие сеансы. При необходимости вы можете отменить запись.\n"
+                "3️⃣ **Записи клиентов:** В «Записи клиентов» отображаются предстоящие сеансы. При необходимости вы можете отменить запись.\n"
                 "4️⃣ **Повторная запись:** В разделе «Мои клиенты» можно быстро забронировать время для постоянных клиентов.\n"
                 "5️⃣ **Режим клиента:** Нажмите кнопку «Клиент», чтобы перейти в кабинет клиента и записаться на услуги к другим мастерам."
             )
