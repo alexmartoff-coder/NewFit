@@ -232,7 +232,7 @@ async def pay_sub_unlocked(callback: types.CallbackQuery, state: FSMContext):
         logger.error(f"Failed to send Telegram invoice: {e}")
         # Если отправка инвойса не удалась (например, неверный или отсутствующий токен провайдера),
         # мы показываем красивое уведомление и даем возможность протестировать через имитацию
-        text = f"Ошибка: {e}"
+        text = f"Ошибка оплаты: {e}"
 
         buttons = []
         if payment_info.get("is_mock") or not provider_token:
@@ -245,9 +245,9 @@ async def pay_sub_unlocked(callback: types.CallbackQuery, state: FSMContext):
 
         kb = types.InlineKeyboardMarkup(inline_keyboard=buttons)
         if callback.message.photo:
-            await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+            await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode=None)
         else:
-            await callback.message.edit_text(text=text, reply_markup=kb, parse_mode="Markdown")
+            await callback.message.edit_text(text=text, reply_markup=kb, parse_mode=None)
 
 @router.callback_query(F.data.startswith("verify_mock_sub_"))
 async def verify_mock_sub_payment(callback: types.CallbackQuery):
@@ -267,11 +267,11 @@ async def verify_mock_sub_payment(callback: types.CallbackQuery):
 
     success = await payment_webhook(webhook_payload)
     if success:
-        text = "🎉 **Подписка успешно активирована!**\n\nСпасибо за оплату подписки NewFit. Теперь вы можете без ограничений просматривать список клиентов и работать с записями."
+        text = "🎉 <b>Подписка успешно активирована!</b>\n\nСпасибо за оплату подписки NewFit. Теперь вы можете без ограничений просматривать список клиентов и работать с записями."
         if callback.message.photo:
-            await callback.message.edit_caption(caption=text)
+            await callback.message.edit_caption(caption=text, parse_mode="HTML")
         else:
-            await callback.message.edit_text(text=text)
+            await callback.message.edit_text(text=text, parse_mode="HTML")
     else:
         await callback.answer("Не удалось активировать подписку. Попробуйте еще раз.")
 
@@ -311,6 +311,7 @@ async def process_successful_payment(message: types.Message):
                 logger.info(f"Subscription (4990 RUB) activated for user_id={user_id} via Telegram Payments. Payment ID: {payment_id}")
 
                 await message.answer(
-                    "🎉 **Подписка успешно активирована через встроенную оплату Telegram!**\n\n"
-                    "Спасибо за оплату подписки NewFit. Теперь вы можете без ограничений работать со своей базой клиентов."
+                    "🎉 <b>Подписка успешно активирована через встроенную оплату Telegram!</b>\n\n"
+                    "Спасибо за оплату подписки NewFit. Теперь вы можете без ограничений работать со своей базой клиентов.",
+                    parse_mode="HTML"
                 )
