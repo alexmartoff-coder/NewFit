@@ -200,8 +200,8 @@ async def pay_sub_unlocked(callback: types.CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
 
     import os
-    PROVIDER_TOKEN = os.getenv("YOOKASSA_PROVIDER_TOKEN")
-    if not PROVIDER_TOKEN:
+    provider_token = os.getenv("YOOKASSA_PROVIDER_TOKEN")
+    if not provider_token:
         await callback.message.answer("❌ Платёж временно недоступен")
         return
 
@@ -219,7 +219,7 @@ async def pay_sub_unlocked(callback: types.CallbackQuery, state: FSMContext):
             title="Тестовый платёж NewFit",
             description="Пробный платёж 10 рублей для настройки системы",
             payload=f"sub_payment_{user_id}_{payment_id}",
-            provider_token=PROVIDER_TOKEN,
+            provider_token=provider_token,
             currency="RUB",
             prices=[types.LabeledPrice(label="Тестовый платёж", amount=1000)], # 10.00 RUB в копейках
             start_parameter="sub-payment-10"
