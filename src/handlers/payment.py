@@ -19,13 +19,14 @@ class PaymentConsentState(StatesGroup):
 async def create_subscription_payment(user_id: int) -> dict:
     """
     Создание платежа для подписки (4990 ₽/мес) в ЮKassa.
-    Если учетные данные не настроены, возвращается тестовый/имитационный объект платежа.
+    Если YOOKASSA_TEST_MODE = True или учетные данные не настроены, возвращается тестовый/имитационный объект платежа.
     """
     shop_id = settings.YOOKASSA_SHOP_ID
     secret_key = settings.YOOKASSA_SECRET_KEY
+    test_mode = settings.YOOKASSA_TEST_MODE
 
-    # Если учетные данные пустые, фиктивные или не заданы, отдаем имитацию ссылки
-    if not shop_id or not secret_key or shop_id in ["dummy", "placeholder", ""] or secret_key in ["dummy", "placeholder", ""]:
+    # Если включен тестовый режим (YOOKASSA_TEST_MODE = True) или учетные данные пустые, фиктивные или не заданы, отдаем имитацию ссылки
+    if test_mode or not shop_id or not secret_key or shop_id in ["dummy", "placeholder", ""] or secret_key in ["dummy", "placeholder", ""]:
         mock_id = f"mock_sub_{uuid.uuid4().hex[:8]}"
         return {
             "id": mock_id,
