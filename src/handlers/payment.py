@@ -208,9 +208,6 @@ async def pay_sub_unlocked(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.answer("❌ Платёж временно недоступен")
         return
 
-    payment_info = await create_subscription_payment(user_id)
-    payment_id = payment_info.get("id")
-
     # Clear state as the session is completed and invoice is sent
     await state.clear()
 
@@ -223,7 +220,7 @@ async def pay_sub_unlocked(callback: types.CallbackQuery, state: FSMContext):
             title="Подписка NewFit",
             description="Тестовая оплата 10 рублей",
             payload=f"sub_{user_id}_{int(time.time())}",
-            provider_token=os.getenv("YOOKASSA_PROVIDER_TOKEN"),
+            provider_token=provider_token,
             currency="RUB",
             prices=[LabeledPrice(label="Подписка NewFit", amount=1000)],
             start_parameter="subscribe",
@@ -234,14 +231,14 @@ async def pay_sub_unlocked(callback: types.CallbackQuery, state: FSMContext):
         # мы показываем красивое уведомление и даем возможность протестировать через имитацию
         text = f"Ошибка оплаты: {e}"
 
-        buttons = []
-        if payment_info.get("is_mock") or not provider_token:
-            buttons.append([
+        buttons = [
+            [
                 types.InlineKeyboardButton(
                     text="🤖 Подтвердить оплату (Тест)",
                     callback_data=f"verify_mock_sub_{user_id}"
                 )
-            ])
+            ]
+        ]
 
         kb = types.InlineKeyboardMarkup(inline_keyboard=buttons)
         if callback.message.photo:
