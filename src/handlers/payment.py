@@ -45,7 +45,7 @@ async def create_subscription_payment(user_id: int) -> dict:
     }
     payload = {
         "amount": {
-            "value": "10.00",
+            "value": "100.00",
             "currency": "RUB"
         },
         "capture": True,
@@ -53,7 +53,7 @@ async def create_subscription_payment(user_id: int) -> dict:
             "type": "redirect",
             "return_url": "https://t.me/newfit_workout_bot"
         },
-        "description": "Подписка NewFit (10 ₽/мес)",
+        "description": "Подписка NewFit (100 ₽/мес)",
         "metadata": {
             "user_id": str(user_id),
             "type": "subscription"
@@ -130,7 +130,7 @@ async def process_sub_payment_request(callback: types.CallbackQuery, state: FSMC
 
     text = (
         "💳 **Оформление подписки NewFit**\n\n"
-        "Стоимость: 10 ₽ в месяц.\n\n"
+        "Стоимость: 100 ₽ в месяц.\n\n"
         "Для продолжения вам необходимо подтвердить свое согласие с юридическими документами:\n\n"
         "☐ Я принимаю условия [Политики конфиденциальности](https://cbca.ru/rules/newfit) "
         "и даю согласие на обработку моих персональных данных."
@@ -138,7 +138,7 @@ async def process_sub_payment_request(callback: types.CallbackQuery, state: FSMC
 
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="☐ Я согласен на обработку данных", callback_data="toggle_consent")],
-        [types.InlineKeyboardButton(text="🔒 Оплатить подписку 10 ₽", callback_data="pay_sub_locked")],
+        [types.InlineKeyboardButton(text="🔒 Оплатить подписку 100 ₽", callback_data="pay_sub_locked")],
         [types.InlineKeyboardButton(text="🔙 Назад", callback_data="clients_list")]
     ])
 
@@ -158,7 +158,7 @@ async def toggle_consent(callback: types.CallbackQuery, state: FSMContext):
 
     text = (
         "💳 **Оформление подписки NewFit**\n\n"
-        "Стоимость: 10 ₽ в месяц.\n\n"
+        "Стоимость: 100 ₽ в месяц.\n\n"
         "Для продолжения вам необходимо подтвердить свое согласие с юридическими документами:\n\n"
     )
 
@@ -169,7 +169,7 @@ async def toggle_consent(callback: types.CallbackQuery, state: FSMContext):
         )
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="✅ Я согласен на обработку данных", callback_data="toggle_consent")],
-            [types.InlineKeyboardButton(text="💳 Оплатить подписку 10 ₽", callback_data="pay_sub_unlocked")],
+            [types.InlineKeyboardButton(text="💳 Оплатить подписку 100 ₽", callback_data="pay_sub_unlocked")],
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data="clients_list")]
         ])
     else:
@@ -179,7 +179,7 @@ async def toggle_consent(callback: types.CallbackQuery, state: FSMContext):
         )
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="☐ Я согласен на обработку данных", callback_data="toggle_consent")],
-            [types.InlineKeyboardButton(text="🔒 Оплатить подписку 10 ₽", callback_data="pay_sub_locked")],
+            [types.InlineKeyboardButton(text="🔒 Оплатить подписку 100 ₽", callback_data="pay_sub_locked")],
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data="clients_list")]
         ])
 
@@ -211,18 +211,18 @@ async def pay_sub_unlocked(callback: types.CallbackQuery, state: FSMContext):
     # Clear state as the session is completed and invoice is sent
     await state.clear()
 
-    logger.error("SEND_INVOICE amount=1000 hardcoded")
+    logger.error("SEND_INVOICE amount=10000 hardcoded")
 
     # Пытаемся отправить встроенную форму оплаты Telegram
     try:
         await callback.bot.send_invoice(
             chat_id=user_id,
             title="Подписка NewFit",
-            description="Тестовая оплата 10 рублей",
+            description="Тестовая оплата 100 рублей",
             payload=f"sub_{user_id}_{int(time.time())}",
             provider_token=provider_token,
             currency="RUB",
-            prices=[LabeledPrice(label="Подписка NewFit", amount=1000)],
+            prices=[LabeledPrice(label="Подписка NewFit", amount=10000)],
             start_parameter="subscribe",
         )
     except Exception as e:
