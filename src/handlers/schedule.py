@@ -749,6 +749,7 @@ async def quick_gen_wd_end(callback: types.CallbackQuery, state: FSMContext):
          types.InlineKeyboardButton(text="8.00-9.00", callback_data="gen_we_start_8")],
         [types.InlineKeyboardButton(text="9.00-10.00", callback_data="gen_we_start_9"),
          types.InlineKeyboardButton(text="10.00-11.00", callback_data="gen_we_start_10")],
+        [types.InlineKeyboardButton(text="🛌 Выходные не рабочие", callback_data="gen_we_start_none")],
         [types.InlineKeyboardButton(text="❌ Отмена", callback_data="sche_back")]
     ])
     text = "📅 **Выходной: выберите время начала занятий:**"
@@ -761,7 +762,40 @@ async def quick_gen_wd_end(callback: types.CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("gen_we_start_"), GenerateSlotsState.choosing_we_start)
 async def quick_gen_we_start(callback: types.CallbackQuery, state: FSMContext):
-    we_start = int(callback.data.split("_")[3])
+    val = callback.data.split("_")[3]
+    if val == "none":
+        await state.update_data(we_start=-1, we_end=-1)
+
+        data = await state.get_data()
+        period = data['period']
+        step = data['step']
+        wd_start = data['wd_start']
+        wd_end = data['wd_end']
+
+        text = (
+            f"📊 **Предпросмотр генерации**\n\n"
+            f"🗓 Период: {period} дней\n"
+            f"⏱ Шаг: {step} минут\n"
+            f"🏢 Режим:\n"
+            f" • Будни: {wd_start:02d}.00-{wd_end:02d}.00\n"
+            f" • Выходной: не рабочие\n"
+            f"🏷 Формат: {data.get('gen_format', 'hybrid')}\n\n"
+            f"Слоты будут созданы только на свободное время. Продолжить?"
+        )
+
+        kb = types.InlineKeyboardMarkup(inline_keyboard=[
+            [types.InlineKeyboardButton(text="🚀 Сгенерировать", callback_data="gen_confirm")],
+            [types.InlineKeyboardButton(text="❌ Отмена", callback_data="sche_back")]
+        ])
+        if callback.message.photo:
+            await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+        else:
+            await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+        await state.set_state(GenerateSlotsState.confirming)
+        await callback.answer()
+        return
+
+    we_start = int(val)
     await state.update_data(we_start=we_start)
 
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
@@ -792,13 +826,15 @@ async def quick_gen_we_end(callback: types.CallbackQuery, state: FSMContext):
     we_start = data['we_start']
     we_end = data['we_end']
 
+    we_text = "не рабочие" if (we_start is None or we_end is None or we_start == we_end) else f"{we_start:02d}.00-{we_end:02d}.00"
+
     text = (
         f"📊 **Предпросмотр генерации**\n\n"
         f"🗓 Период: {period} дней\n"
         f"⏱ Шаг: {step} минут\n"
         f"🏢 Режим:\n"
         f" • Будни: {wd_start:02d}.00-{wd_end:02d}.00\n"
-        f" • Выходной: {we_start:02d}.00-{we_end:02d}.00\n"
+        f" • Выходной: {we_text}\n"
         f"🏷 Формат: {data.get('gen_format', 'hybrid')}\n\n"
         f"Слоты будут созданы только на свободное время. Продолжить?"
     )
@@ -891,6 +927,10 @@ async def generate_slots_for_single_day(session, profile_id: int, user_id: int, 
         end_h = config.we_end if is_weekend else config.wd_end
         if start_h is None: start_h = 9 if is_weekend else 7
         if end_h is None: end_h = 22 if is_weekend else 23
+
+        # If weekends are not working, skip slot generation on SA, SU
+        if is_weekend and (start_h == -1 or end_h == -1 or start_h == end_h):
+            return
     else:
         start_h = 9 if is_weekend else 7
         end_h = 22 if is_weekend else 23
@@ -985,6 +1025,11 @@ async def generate_slots_from_quick_template(user_id: int, days: int, interval: 
             for day_dt in rule:
                 day = day_dt.date()
                 is_weekend = day.weekday() >= 5
+
+                # If weekends are not working, skip slot generation on SA, SU
+                if is_weekend and (we_start == -1 or we_end == -1 or we_start == we_end):
+                    continue
+
                 start_h = we_start if is_weekend else wd_start
                 end_h = we_end if is_weekend else wd_end
 
