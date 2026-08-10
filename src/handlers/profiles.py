@@ -60,17 +60,25 @@ async def show_profile(message: types.Message, state: FSMContext, is_admin: bool
                         text += f"• {escape_md(svc)}: {int(price)}₽\n"
 
                     if profile.price_package > 0:
-                        term_pkg = "услуг" if (user.role == UserRole.BEAUTY or user.role in [UserRole.TENNIS, UserRole.PADEL]) else "занятий"
-                        text += f"💳 Цена (пакет 12 {term_pkg}): {int(profile.price_package)}₽\n"
+                        if user.role == UserRole.BEAUTY:
+                            text += f"💳 Цена (За комплексное обслуживание): {int(profile.price_package)}₽\n"
+                        else:
+                            term_pkg = "услуг" if user.role in [UserRole.TENNIS, UserRole.PADEL] else "занятий"
+                            text += f"💳 Цена (пакет 12 {term_pkg}): {int(profile.price_package)}₽\n"
                 else:
                     specs = ", ".join([s.name for s in profile.specializations]) or "не указаны"
                     text += f"🎯 Специализации: {escape_md(specs)}\n"
 
-                    term_pkg = "услуг" if (user.role == UserRole.BEAUTY or user.role in [UserRole.TENNIS, UserRole.PADEL]) else "занятий"
+                    if user.role == UserRole.BEAUTY:
+                        pkg_label = f"💳 Цена (За комплексное обслуживание): {int(profile.price_package)}₽\n"
+                    else:
+                        term_pkg = "услуг" if user.role in [UserRole.TENNIS, UserRole.PADEL] else "занятий"
+                        pkg_label = f"💳 Цена (пакет 12 {term_pkg}): {int(profile.price_package)}₽\n"
+
                     text += (
                         f"\n💰 Цена (разовое): {int(profile.price_single)}₽\n"
                         f"💰 Цена (онлайн): {int(profile.price_online)}₽\n"
-                        f"💳 Цена (пакет 12 {term_pkg}): {int(profile.price_package)}₽\n"
+                        f"{pkg_label}"
                     )
 
                 text += (

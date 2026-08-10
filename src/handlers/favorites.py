@@ -112,16 +112,24 @@ async def show_favorites(callback: types.CallbackQuery, is_admin: bool = False, 
                     text += f"• {escape_md(svc)}: {int(price)}₽\n"
 
                 if profile.price_package > 0:
-                    term_pkg = "услуг" if (user_data.role == UserRole.BEAUTY or user_data.role in [UserRole.TENNIS, UserRole.PADEL]) else "занятий"
-                    text += f"💳 Цена (пакет 12 {term_pkg}): {int(profile.price_package)}₽\n"
+                    if user_data.role == UserRole.BEAUTY:
+                        text += f"💳 Цена (За комплексное обслуживание): {int(profile.price_package)}₽\n"
+                    else:
+                        term_pkg = "услуг" if user_data.role in [UserRole.TENNIS, UserRole.PADEL] else "занятий"
+                        text += f"💳 Цена (пакет 12 {term_pkg}): {int(profile.price_package)}₽\n"
             else:
                 specs_str = ", ".join([s.name for s in profile.specializations]) or "не указаны"
                 text += f"🎯 Специализации: {escape_md(specs_str)}\n"
 
-                term_pkg = "услуг" if (user_data.role == UserRole.BEAUTY or user_data.role in [UserRole.TENNIS, UserRole.PADEL]) else "занятий"
+                if user_data.role == UserRole.BEAUTY:
+                    pkg_label = f"💳 Комплексное обслуживание: {int(profile.price_package)}₽\n"
+                else:
+                    term_pkg = "услуг" if user_data.role in [UserRole.TENNIS, UserRole.PADEL] else "занятий"
+                    pkg_label = f"💳 12 {term_pkg}: {int(profile.price_package)}₽\n"
+
                 text += (
                     f"💰 Разовое: {int(profile.price_single)}₽\n"
-                    f"💳 12 {term_pkg}: {int(profile.price_package)}₽\n"
+                    f"{pkg_label}"
                 )
 
             text += f"⭐ Рейтинг: {profile.rating:.1f}"
@@ -184,16 +192,24 @@ async def favorite_photo_carousel(callback: types.CallbackQuery, is_admin: bool 
                 text += f"• {escape_md(svc)}: {int(price)}₽\n"
 
             if profile.price_package > 0:
-                term_pkg = "услуг" if (user.role == UserRole.BEAUTY or user.role in [UserRole.TENNIS, UserRole.PADEL]) else "занятий"
-                text += f"💳 Цена (пакет 12 {term_pkg}): {int(profile.price_package)}₽\n"
+                if user.role == UserRole.BEAUTY:
+                    text += f"💳 Цена (За комплексное обслуживание): {int(profile.price_package)}₽\n"
+                else:
+                    term_pkg = "услуг" if user.role in [UserRole.TENNIS, UserRole.PADEL] else "занятий"
+                    text += f"💳 Цена (пакет 12 {term_pkg}): {int(profile.price_package)}₽\n"
         else:
             specs_str = ", ".join([s.name for s in profile.specializations]) or "не указаны"
             text += f"🎯 Специализации: {escape_md(specs_str)}\n"
 
-            term_pkg = "услуг" if (user.role == UserRole.BEAUTY or user.role in [UserRole.TENNIS, UserRole.PADEL]) else "занятий"
+            if user.role == UserRole.BEAUTY:
+                pkg_label = f"💳 Комплексное обслуживание: {int(profile.price_package)}₽\n"
+            else:
+                term_pkg = "услуг" if user.role in [UserRole.TENNIS, UserRole.PADEL] else "занятий"
+                pkg_label = f"💳 12 {term_pkg}: {int(profile.price_package)}₽\n"
+
             text += (
                 f"💰 Разовое: {int(profile.price_single)}₽\n"
-                f"💳 12 {term_pkg}: {int(profile.price_package)}₽\n"
+                f"{pkg_label}"
             )
 
         text += f"⭐ Рейтинг: {profile.rating:.1f}"
