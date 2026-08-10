@@ -45,7 +45,7 @@ async def create_subscription_payment(user_id: int) -> dict:
     }
     payload = {
         "amount": {
-            "value": "100.00",
+            "value": "4990.00",
             "currency": "RUB"
         },
         "capture": True,
@@ -53,7 +53,7 @@ async def create_subscription_payment(user_id: int) -> dict:
             "type": "redirect",
             "return_url": "https://t.me/newfit_workout_bot"
         },
-        "description": "Подписка NewFit (100 ₽/мес)",
+        "description": "Подписка NewFit (4990 ₽/мес)",
         "metadata": {
             "user_id": str(user_id),
             "type": "subscription"
@@ -130,7 +130,7 @@ async def process_sub_payment_request(callback: types.CallbackQuery, state: FSMC
 
     text = (
         "💳 **Оформление подписки NewFit**\n\n"
-        "Стоимость: 100 ₽ в месяц.\n\n"
+        "Стоимость: 4990 ₽ в месяц.\n\n"
         "Для продолжения вам необходимо подтвердить свое согласие с юридическими документами:\n\n"
         "☐ Я принимаю условия [Политики конфиденциальности](https://cbca.ru/rules/newfit) "
         "и даю согласие на обработку моих персональных данных."
@@ -138,7 +138,7 @@ async def process_sub_payment_request(callback: types.CallbackQuery, state: FSMC
 
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="☐ Я согласен на обработку данных", callback_data="toggle_consent")],
-        [types.InlineKeyboardButton(text="🔒 Оплатить подписку 100 ₽", callback_data="pay_sub_locked")],
+        [types.InlineKeyboardButton(text="🔒 Оплатить подписку 4990 ₽", callback_data="pay_sub_locked")],
         [types.InlineKeyboardButton(text="🔙 Назад", callback_data="clients_list")]
     ])
 
@@ -158,7 +158,7 @@ async def toggle_consent(callback: types.CallbackQuery, state: FSMContext):
 
     text = (
         "💳 **Оформление подписки NewFit**\n\n"
-        "Стоимость: 100 ₽ в месяц.\n\n"
+        "Стоимость: 4990 ₽ в месяц.\n\n"
         "Для продолжения вам необходимо подтвердить свое согласие с юридическими документами:\n\n"
     )
 
@@ -169,7 +169,7 @@ async def toggle_consent(callback: types.CallbackQuery, state: FSMContext):
         )
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="✅ Я согласен на обработку данных", callback_data="toggle_consent")],
-            [types.InlineKeyboardButton(text="💳 Оплатить подписку 100 ₽", callback_data="pay_sub_unlocked")],
+            [types.InlineKeyboardButton(text="💳 Оплатить подписку 4990 ₽", callback_data="pay_sub_unlocked")],
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data="clients_list")]
         ])
     else:
@@ -179,7 +179,7 @@ async def toggle_consent(callback: types.CallbackQuery, state: FSMContext):
         )
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="☐ Я согласен на обработку данных", callback_data="toggle_consent")],
-            [types.InlineKeyboardButton(text="🔒 Оплатить подписку 100 ₽", callback_data="pay_sub_locked")],
+            [types.InlineKeyboardButton(text="🔒 Оплатить подписку 4990 ₽", callback_data="pay_sub_locked")],
             [types.InlineKeyboardButton(text="🔙 Назад", callback_data="clients_list")]
         ])
 
@@ -211,40 +211,46 @@ async def pay_sub_unlocked(callback: types.CallbackQuery, state: FSMContext):
     # Clear state as the session is completed and invoice is sent
     await state.clear()
 
-    logger.error("SEND_INVOICE amount=10000 hardcoded")
+    logger.error("SEND_INVOICE amount=499000 hardcoded")
 
     # Пытаемся отправить встроенную форму оплаты Telegram
     try:
         await callback.bot.send_invoice(
             chat_id=user_id,
             title="Подписка NewFit",
-            description="Тестовая оплата 100 рублей",
+            description="Ежемесячная подписка NewFit (4990 ₽/мес)",
             payload=f"sub_{user_id}_{int(time.time())}",
             provider_token=provider_token,
             currency="RUB",
-            prices=[LabeledPrice(label="Подписка NewFit", amount=10000)],
+            prices=[LabeledPrice(label="Подписка NewFit", amount=499000)],
             start_parameter="subscribe",
         )
     except Exception as e:
         logger.error(f"Failed to send Telegram invoice: {e}")
         # Если отправка инвойса не удалась (например, неверный или отсутствующий токен провайдера),
         # мы показываем красивое уведомление и даем возможность протестировать через имитацию
-        text = f"Ошибка оплаты: {e}"
+        text = (
+            "💳 **Встроенная оплата подписки NewFit**\n\n"
+            "Стоимость: 4990 ₽ в месяц.\n"
+            "Для реальной оплаты подписки через Telegram Payments "
+            "необходимо настроить `YOOKASSA_PROVIDER_TOKEN` в файле `.env`.\n\n"
+            "Вы можете протестировать этот шаг с помощью кнопки имитации ниже:"
+        )
 
-        buttons = [
-            [
+        buttons = []
+        if payment_info.get("is_mock") or not provider_token:
+            buttons.append([
                 types.InlineKeyboardButton(
                     text="🤖 Подтвердить оплату (Тест)",
                     callback_data=f"verify_mock_sub_{user_id}"
                 )
-            ]
-        ]
+            ])
 
         kb = types.InlineKeyboardMarkup(inline_keyboard=buttons)
         if callback.message.photo:
-            await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode=None)
+            await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
         else:
-            await callback.message.edit_text(text=text, reply_markup=kb, parse_mode=None)
+            await callback.message.edit_text(text=text, reply_markup=kb, parse_mode="Markdown")
 
 @router.callback_query(F.data.startswith("verify_mock_sub_"))
 async def verify_mock_sub_payment(callback: types.CallbackQuery):
