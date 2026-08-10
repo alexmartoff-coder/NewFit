@@ -785,6 +785,7 @@ async def quick_gen_we_start(callback: types.CallbackQuery, state: FSMContext):
 
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="🚀 Сгенерировать", callback_data="gen_confirm")],
+            [types.InlineKeyboardButton(text="📅 Включить выходные", callback_data="gen_we_enable")],
             [types.InlineKeyboardButton(text="❌ Отмена", callback_data="sche_back")]
         ])
         if callback.message.photo:
@@ -826,7 +827,7 @@ async def quick_gen_we_end(callback: types.CallbackQuery, state: FSMContext):
     we_start = data['we_start']
     we_end = data['we_end']
 
-    we_text = "не рабочие" if (we_start is None or we_end is None or we_start == we_end) else f"{we_start:02d}.00-{we_end:02d}.00"
+    we_text = "не рабочие" if (we_start == -1 or we_end == -1 or we_start is None or we_end is None or we_start == we_end) else f"{we_start:02d}.00-{we_end:02d}.00"
 
     text = (
         f"📊 **Предпросмотр генерации**\n\n"
@@ -839,15 +840,36 @@ async def quick_gen_we_end(callback: types.CallbackQuery, state: FSMContext):
         f"Слоты будут созданы только на свободное время. Продолжить?"
     )
 
-    kb = types.InlineKeyboardMarkup(inline_keyboard=[
-        [types.InlineKeyboardButton(text="🚀 Сгенерировать", callback_data="gen_confirm")],
-        [types.InlineKeyboardButton(text="❌ Отмена", callback_data="sche_back")]
-    ])
+    buttons = [[types.InlineKeyboardButton(text="🚀 Сгенерировать", callback_data="gen_confirm")]]
+    if we_start == -1 or we_end == -1 or we_start is None or we_end is None:
+        buttons.append([types.InlineKeyboardButton(text="📅 Включить выходные", callback_data="gen_we_enable")])
+    buttons.append([types.InlineKeyboardButton(text="❌ Отмена", callback_data="sche_back")])
+
+    kb = types.InlineKeyboardMarkup(inline_keyboard=buttons)
     if callback.message.photo:
         await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
     else:
         await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
     await state.set_state(GenerateSlotsState.confirming)
+    await callback.answer()
+
+@router.callback_query(F.data == "gen_we_enable", GenerateSlotsState.confirming)
+async def gen_we_enable(callback: types.CallbackQuery, state: FSMContext):
+    # Go back to choosing weekend start time
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text="7.00-8.00", callback_data="gen_we_start_7"),
+         types.InlineKeyboardButton(text="8.00-9.00", callback_data="gen_we_start_8")],
+        [types.InlineKeyboardButton(text="9.00-10.00", callback_data="gen_we_start_9"),
+         types.InlineKeyboardButton(text="10.00-11.00", callback_data="gen_we_start_10")],
+        [types.InlineKeyboardButton(text="🛌 Выходные не рабочие", callback_data="gen_we_start_none")],
+        [types.InlineKeyboardButton(text="❌ Отмена", callback_data="sche_back")]
+    ])
+    text = "📅 **Выходной: выберите время начала занятий:**"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+    await state.set_state(GenerateSlotsState.choosing_we_start)
     await callback.answer()
 
 @router.callback_query(F.data == "gen_confirm", GenerateSlotsState.confirming)
