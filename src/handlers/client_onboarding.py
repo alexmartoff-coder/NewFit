@@ -21,14 +21,17 @@ async def client_start(event: types.Message | types.CallbackQuery, state: FSMCon
 
     async with SessionLocal() as session:
         user = await session.get(User, user_id)
+        user_role = user.role if user else None
+        user_full_name = user.full_name if user else None
+
         stmt = select(ClientProfile).where(ClientProfile.user_id == user_id)
         client_profile = (await session.execute(stmt)).scalar_one_or_none()
 
         # If they don't have a client profile but they are a professional, auto-create client profile
-        if user and user.role in PROFESSIONAL_ROLES and not client_profile:
+        if user and user_role in PROFESSIONAL_ROLES and not client_profile:
             client_profile = ClientProfile(
                 user_id=user_id,
-                full_name=user.full_name,
+                full_name=user_full_name,
                 status="active"
             )
             session.add(client_profile)
@@ -38,7 +41,7 @@ async def client_start(event: types.Message | types.CallbackQuery, state: FSMCon
             client_profile = (await session.execute(stmt)).scalar_one()
 
         # If user has a role and profile with a name, skip onboarding
-        if user and user.role in [UserRole.CLIENT, UserRole.TRAINER, UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL] and client_profile and client_profile.full_name:
+        if user and user_role in [UserRole.CLIENT, UserRole.TRAINER, UserRole.BEAUTY, UserRole.TENNIS, UserRole.PADEL] and client_profile and client_profile.full_name:
             count_stmt = select(func.count(Booking.id)).where(Booking.client_id == client_profile.id)
             booking_count = (await session.execute(count_stmt)).scalar_one()
             has_specialists = booking_count > 0
