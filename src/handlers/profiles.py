@@ -331,7 +331,7 @@ async def show_clients(event: types.Message | types.CallbackQuery, state: FSMCon
             if profile.subscription_expires_at and profile.subscription_expires_at <= datetime.now(timezone.utc).replace(tzinfo=None):
                 text_sub = (
                     "⚠️ **Срок действия вашей подписки истек!**\n\n"
-                    "Ваша ежемесячная подписка NewFit (100 ₽/мес) закончилась.\n"
+                    "Ваша ежемесячная подписка NewFit (4990 ₽/мес) закончилась.\n"
                     "Чтобы продолжить работать со своей базой клиентов и совершать повторные записи, "
                     "пожалуйста, продлите подписку."
                 )
@@ -340,11 +340,11 @@ async def show_clients(event: types.Message | types.CallbackQuery, state: FSMCon
                     "⚠️ **Лимит клиентов превышен!**\n\n"
                     "Вы достигли лимита в **10 клиентов**.\n"
                     "Чтобы продолжить работать со своей базой клиентов и совершать повторные записи, "
-                    "вам необходимо оформить подписку NewFit за **100 ₽/мес**."
+                    "вам необходимо оформить подписку NewFit за **4990 ₽/мес**."
                 )
             kb_sub = types.InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [types.InlineKeyboardButton(text="💳 Оплатить подписку 100 ₽", callback_data="pay_sub_4990")]
+                    [types.InlineKeyboardButton(text="💳 Оплатить подписку 4990 ₽", callback_data="pay_sub_4990")]
                 ]
             )
             if isinstance(event, types.CallbackQuery):
