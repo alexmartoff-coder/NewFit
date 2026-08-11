@@ -63,7 +63,7 @@ async def show_profile(message: types.Message, state: FSMContext, is_admin: bool
                         if user.role == UserRole.BEAUTY:
                             text += f"💳 Цена (За комплексное обслуживание): {int(profile.price_package)}₽\n"
                         else:
-                            term_pkg = "услуг" if user.role in [UserRole.TENNIS, UserRole.PADEL] else "занятий"
+                            term_pkg = "занятий"
                             text += f"💳 Цена (пакет 12 {term_pkg}): {int(profile.price_package)}₽\n"
                 else:
                     specs = ", ".join([s.name for s in profile.specializations]) or "не указаны"
@@ -72,7 +72,7 @@ async def show_profile(message: types.Message, state: FSMContext, is_admin: bool
                     if user.role == UserRole.BEAUTY:
                         pkg_label = f"💳 Цена (За комплексное обслуживание): {int(profile.price_package)}₽\n"
                     else:
-                        term_pkg = "услуг" if user.role in [UserRole.TENNIS, UserRole.PADEL] else "занятий"
+                        term_pkg = "занятий"
                         pkg_label = f"💳 Цена (пакет 12 {term_pkg}): {int(profile.price_package)}₽\n"
 
                     text += (
