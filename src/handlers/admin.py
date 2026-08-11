@@ -23,6 +23,7 @@ class AdminStates(StatesGroup):
     waiting_for_impersonate_client_id = State()
     waiting_for_remove_admin_id = State()
     confirm_remove_admin = State()
+    waiting_for_free_sub_user_id = State()
 
 @router.callback_query(F.data == "admin_panel")
 async def admin_button_handler(callback: CallbackQuery, is_admin: bool = False):
@@ -47,6 +48,7 @@ async def admin_panel(message: Message, is_admin: bool = False):
         [InlineKeyboardButton(text="👥 Сгенерировать 9 клиентов (тест)", callback_data="admin_gen_9_clients")],
         [InlineKeyboardButton(text="🎫 Подписка: осталось 1 дн. (29 дн. прошло)", callback_data="admin_sub_29_days")],
         [InlineKeyboardButton(text="🎫 Подписка: срок истек (30 дн. прошло)", callback_data="admin_sub_30_days")],
+        [InlineKeyboardButton(text="🎁 Сделать аккаунт бесплатным", callback_data="admin_grant_free_sub")],
         [InlineKeyboardButton(text="📋 Список админов", callback_data="admin_list")],
         [InlineKeyboardButton(text="🗑 Удалить админа", callback_data="admin_remove")],
         [InlineKeyboardButton(text="🔥 Удалить пользователей", callback_data="admin_delete_all_users")],
@@ -374,6 +376,51 @@ async def confirm_remove_admin(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_text(text, parse_mode="Markdown")
     await state.clear()
     await admin_panel(callback.message, is_admin=True)
+
+@router.callback_query(F.data == "admin_grant_free_sub")
+async def admin_grant_free_sub_prompt(callback: CallbackQuery, state: FSMContext):
+    text = "🎁 **Выдача бесплатного аккаунта**\n\nВведите Telegram ID пользователя (мастера/тренера), которому нужно выдать вечную бесплатную подписку:"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text, parse_mode="Markdown")
+    await state.set_state(AdminStates.waiting_for_free_sub_user_id)
+    await callback.answer()
+
+@router.message(AdminStates.waiting_for_free_sub_user_id)
+async def process_grant_free_sub(message: Message, state: FSMContext):
+    try:
+        target_user_id = int(message.text.strip())
+        async with SessionLocal() as session:
+            stmt = select(TrainerProfile).where(TrainerProfile.user_id == target_user_id)
+            res = await session.execute(stmt)
+            profile = res.scalar_one_or_none()
+
+            if not profile:
+                await message.answer(
+                    f"❌ Профиль профессионала не найден для ID {target_user_id}.\n\n"
+                    f"Пользователь должен быть зарегистрирован в боте как профи.",
+                    parse_mode="Markdown"
+                )
+                await state.clear()
+                return
+
+            profile.is_subscribed = True
+            profile.subscription_expires_at = None  # None indicates perpetual/unlimited free access
+            await session.commit()
+
+        await message.answer(
+            f"✅ **Успешно!**\n\n"
+            f"Пользователю `{target_user_id}` выдана вечная бесплатная подписка (аккаунт разблокирован).",
+            parse_mode="Markdown"
+        )
+    except ValueError:
+        await message.answer("❌ ID должен быть числом.")
+    except Exception as e:
+        await message.answer(f"❌ Произошла ошибка: {e}")
+
+    await state.clear()
+    await admin_panel(message, is_admin=True)
 
 @router.callback_query(F.data == "admin_impersonate_trainer")
 async def impersonate_trainer_prompt(callback: CallbackQuery, state: FSMContext):
