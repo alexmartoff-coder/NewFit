@@ -115,7 +115,7 @@ async def show_favorites(callback: types.CallbackQuery, is_admin: bool = False, 
                     if user_data.role == UserRole.BEAUTY:
                         text += f"💳 Цена (За комплексное обслуживание): {int(profile.price_package)}₽\n"
                     else:
-                        term_pkg = "услуг" if user_data.role in [UserRole.TENNIS, UserRole.PADEL] else "занятий"
+                        term_pkg = "занятий"
                         text += f"💳 Цена (пакет 12 {term_pkg}): {int(profile.price_package)}₽\n"
             else:
                 specs_str = ", ".join([s.name for s in profile.specializations]) or "не указаны"
@@ -124,7 +124,7 @@ async def show_favorites(callback: types.CallbackQuery, is_admin: bool = False, 
                 if user_data.role == UserRole.BEAUTY:
                     pkg_label = f"💳 Комплексное обслуживание: {int(profile.price_package)}₽\n"
                 else:
-                    term_pkg = "услуг" if user_data.role in [UserRole.TENNIS, UserRole.PADEL] else "занятий"
+                    term_pkg = "занятий"
                     pkg_label = f"💳 12 {term_pkg}: {int(profile.price_package)}₽\n"
 
                 text += (
@@ -195,7 +195,7 @@ async def favorite_photo_carousel(callback: types.CallbackQuery, is_admin: bool 
                 if user.role == UserRole.BEAUTY:
                     text += f"💳 Цена (За комплексное обслуживание): {int(profile.price_package)}₽\n"
                 else:
-                    term_pkg = "услуг" if user.role in [UserRole.TENNIS, UserRole.PADEL] else "занятий"
+                    term_pkg = "занятий"
                     text += f"💳 Цена (пакет 12 {term_pkg}): {int(profile.price_package)}₽\n"
         else:
             specs_str = ", ".join([s.name for s in profile.specializations]) or "не указаны"
@@ -204,7 +204,7 @@ async def favorite_photo_carousel(callback: types.CallbackQuery, is_admin: bool 
             if user.role == UserRole.BEAUTY:
                 pkg_label = f"💳 Комплексное обслуживание: {int(profile.price_package)}₽\n"
             else:
-                term_pkg = "услуг" if user.role in [UserRole.TENNIS, UserRole.PADEL] else "занятий"
+                term_pkg = "занятий"
                 pkg_label = f"💳 12 {term_pkg}: {int(profile.price_package)}₽\n"
 
             text += (

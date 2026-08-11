@@ -699,7 +699,7 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
                         if user.role == UserRole.BEAUTY:
                             text += f"💳 Комплексное обслуживание: {int(trainer_profile.price_package)}₽\n"
                         else:
-                            term_pkg = "услуг" if user.role in [UserRole.TENNIS, UserRole.PADEL] else "занятий"
+                            term_pkg = "занятий"
                             text += f"💳 12 {term_pkg}: {int(trainer_profile.price_package)}₽\n"
                 else:
                     current_profile_specs = [s.name for s in trainer_profile.specializations]
@@ -711,7 +711,7 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
                     if user.role == UserRole.BEAUTY:
                         pkg_label = f"💳 Комплексное обслуживание: {int(trainer_profile.price_package)}₽\n"
                     else:
-                        term_pkg = "услуг" if user.role in [UserRole.TENNIS, UserRole.PADEL] else "занятий"
+                        term_pkg = "занятий"
                         pkg_label = f"💳 12 {term_pkg}: {int(trainer_profile.price_package)}₽\n"
 
                     text += (
