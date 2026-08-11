@@ -40,6 +40,25 @@ async def show_profile(message: types.Message, state: FSMContext, is_admin: bool
             profile = res.scalar_one_or_none()
 
             if profile:
+                if profile.status == "pending":
+                    await message.answer(
+                        "⏳ **Ваш профиль находится на модерации**\n\n"
+                        "Администрация проверит ваши данные в ближайшее время. Вы получите уведомление, когда профиль будет одобрен.",
+                        parse_mode="Markdown"
+                    )
+                    return
+                elif profile.status == "rejected":
+                    kb_rej = types.InlineKeyboardMarkup(inline_keyboard=[
+                        [types.InlineKeyboardButton(text="📝 Заполнить заново", callback_data="start_registration")]
+                    ])
+                    await message.answer(
+                        "❌ **Ваш профиль был отклонен модератором**\n\n"
+                        "Пожалуйста, проверьте и исправьте ваши данные, заполнив анкету повторно.",
+                        reply_markup=kb_rej,
+                        parse_mode="Markdown"
+                    )
+                    return
+
                 fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид"}
                 work_fmt = profile.work_format.value if hasattr(profile.work_format, 'value') else str(profile.work_format)
                 work_fmt_ru = fmt_map.get(work_fmt.upper(), work_fmt.lower())
@@ -407,6 +426,27 @@ async def show_pro_cabinet(message: types.Message, state: FSMContext, is_admin: 
 
         stmt_p = select(TrainerProfile).where(TrainerProfile.user_id == user.id)
         profile = (await session.execute(stmt_p)).scalar_one_or_none()
+
+        if profile:
+            if profile.status == "pending":
+                await message.answer(
+                    "⏳ **Ваш профиль находится на модерации**\n\n"
+                    "Администрация проверит ваши данные в ближайшее время. Вы получите уведомление, когда профиль будет одобрен.",
+                    parse_mode="Markdown"
+                )
+                return
+            elif profile.status == "rejected":
+                kb_rej = types.InlineKeyboardMarkup(inline_keyboard=[
+                    [types.InlineKeyboardButton(text="📝 Заполнить заново", callback_data="start_registration")]
+                ])
+                await message.answer(
+                    "❌ **Ваш профиль был отклонен модератором**\n\n"
+                    "Пожалуйста, проверьте и исправьте ваши данные, заполнив анкету повторно.",
+                    reply_markup=kb_rej,
+                    parse_mode="Markdown"
+                )
+                return
+
         has_online = (profile.work_format in [WorkFormat.ONLINE, WorkFormat.HYBRID]) if profile else False
 
         kb = get_trainer_main_kb(is_admin=is_admin, has_online=has_online)
