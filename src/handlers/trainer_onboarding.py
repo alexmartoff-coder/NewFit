@@ -6,6 +6,7 @@ from src.keyboards.common import get_format_kb, get_trainer_main_kb, get_start_r
 from src.keyboards.inline import add_admin_button
 from src.models.models import User, TrainerProfile, UserRole, WorkFormat, Specialization, trainer_specializations, TrainerPhoto, Admin
 from src.utils.db import SessionLocal
+from src.middlewares.admin_middleware import OWNER_IDS
 from sqlalchemy import select, func, delete, insert
 from sqlalchemy.orm import selectinload
 
@@ -705,7 +706,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 user.full_name = data.get('full_name', user.full_name)
                 profile = user.trainer_profile
 
-            is_new_registration = (profile is None)
+            is_new_registration = (profile is None) or (profile and profile.status in ["pending", "rejected"])
 
             if not profile:
                 profile = TrainerProfile(
@@ -727,6 +728,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 profile.specializations = []
                 session.add(profile)
             else:
+                profile.status = "pending" if is_new_registration else "approved"
                 profile.city = data.get('city', profile.city)
                 profile.district = data.get('district', profile.district)
                 profile.phone = data.get('phone', profile.phone)
@@ -768,7 +770,10 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
             if is_new_registration:
                 admin_stmt = select(Admin.user_id)
                 admin_res = await session.execute(admin_stmt)
-                admin_ids = list(admin_res.scalars().all())
+                db_admin_ids = list(admin_res.scalars().all())
+
+                # Combine database admins and config-level OWNER_IDS to notify everyone
+                admin_ids = list(set(db_admin_ids + OWNER_IDS))
 
                 # Escape text for safety
                 from src.utils.text import escape_md
