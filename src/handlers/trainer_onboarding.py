@@ -754,6 +754,14 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 found_specs = (await session.execute(spec_stmt)).scalars().all()
                 profile.specializations = list(found_specs)
 
+            # Cache all required profile and user fields before committing to prevent MissingGreenlet errors
+            cached_full_name = user.full_name or 'Не указано'
+            cached_phone = profile.phone or 'не указан'
+            cached_city = profile.city or 'Не указан'
+            cached_experience = profile.experience or 0
+            cached_specs = [s.name for s in profile.specializations]
+            cached_first_photo_file_id = profile.photos[0].file_id if profile.photos else None
+
             await session.commit()
 
             # Retrieve admin list and cache profile details if it is a new registration
@@ -764,14 +772,14 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
 
                 # Escape text for safety
                 from src.utils.text import escape_md
-                spec_list_str = ", ".join([s.name for s in profile.specializations]) or "не указаны"
+                spec_list_str = ", ".join(cached_specs) or "не указаны"
                 admin_text = (
                     f"🔔 **Новая заявка на регистрацию профиля!**\n\n"
-                    f"👤 **Имя:** {escape_md(user.full_name)}\n"
+                    f"👤 **Имя:** {escape_md(cached_full_name)}\n"
                     f"🆔 **ID:** `{user_id}`\n"
-                    f"📞 **Телефон:** {escape_md(profile.phone) or 'не указан'}\n"
-                    f"📍 **Город:** {escape_md(profile.city)}\n"
-                    f"💪 **Опыт:** {profile.experience} лет\n"
+                    f"📞 **Телефон:** {escape_md(cached_phone)}\n"
+                    f"📍 **Город:** {escape_md(cached_city)}\n"
+                    f"💪 **Опыт:** {cached_experience} лет\n"
                     f"🎯 **Специализации:** {escape_md(spec_list_str)}\n"
                 )
 
@@ -784,8 +792,8 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
 
                 for admin_id in admin_ids:
                     try:
-                        if profile.photos:
-                            await message.bot.send_photo(admin_id, photo=profile.photos[0].file_id, caption=admin_text, reply_markup=kb, parse_mode="Markdown")
+                        if cached_first_photo_file_id:
+                            await message.bot.send_photo(admin_id, photo=cached_first_photo_file_id, caption=admin_text, reply_markup=kb, parse_mode="Markdown")
                         else:
                             await message.bot.send_message(admin_id, text=admin_text, reply_markup=kb, parse_mode="Markdown")
                     except Exception as ex:
