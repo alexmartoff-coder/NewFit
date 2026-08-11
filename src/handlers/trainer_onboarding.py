@@ -374,7 +374,7 @@ async def process_price_online(message: types.Message, state: FSMContext, is_adm
                 kb = None
                 if profile and profile.price_single:
                     kb = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text=f"Не менять ({profile.price_single}₽)", callback_data="skip_step")]])
-                await message.answer("Укажите вашу цену за Оффлайн занятие (в ₽):", reply_markup=add_admin_button(kb, is_admin=is_admin))
+                await message.answer("Укажите вашу цену за занятие (в ₽):", reply_markup=add_admin_button(kb, is_admin=is_admin))
             else:
                 # If ONLINE only, we can use the same price for price_single or skip it
                 await state.update_data(price_single=price)
@@ -636,7 +636,7 @@ async def skip_step_handler(callback: types.CallbackQuery, state: FSMContext, is
             kb = None
             if profile and profile.price_single:
                 kb = types.InlineKeyboardMarkup(inline_keyboard=[[types.InlineKeyboardButton(text=f"Не менять ({profile.price_single}₽)", callback_data="skip_step")]])
-            await callback.message.answer("Укажите вашу цену за Оффлайн занятие (в ₽):", reply_markup=add_admin_button(kb, is_admin=is_admin))
+            await callback.message.answer("Укажите вашу цену за занятие (в ₽):", reply_markup=add_admin_button(kb, is_admin=is_admin))
 
         elif current_state == TrainerOnboarding.price_single:
             await state.update_data(price_single=profile.price_single if profile else 0.0)
