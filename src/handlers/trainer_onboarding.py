@@ -468,7 +468,7 @@ async def process_online_link(message: types.Message, state: FSMContext):
     await state.set_state(TrainerOnboarding.photo)
     await message.answer("Ссылка сохранена. Шаг 12: Загрузите ваше фото в хорошем качестве (портрет):", reply_markup=types.ReplyKeyboardRemove())
 
-# --- PHOTO & VIDEO ---
+# --- PHOTO ---
 @router.message(TrainerOnboarding.photo, F.photo)
 async def process_photo(message: types.Message, state: FSMContext, is_admin: bool = False):
     # Check file size (2 MB limit)
