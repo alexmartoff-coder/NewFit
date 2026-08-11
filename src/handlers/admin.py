@@ -1,11 +1,11 @@
 from aiogram import Router, F
-from sqlalchemy import delete
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from src.models.models import Admin, User, TrainerProfile, ClientProfile, UserRole, TimeSlot, Booking
+from sqlalchemy import select, delete, text
+from sqlalchemy.orm import selectinload
+from src.models.models import Admin, User, TrainerProfile, ClientProfile, UserRole, TimeSlot, Booking, TrainerPhoto
 from src.utils.db import SessionLocal
 
 import random
@@ -24,6 +24,7 @@ class AdminStates(StatesGroup):
     waiting_for_remove_admin_id = State()
     confirm_remove_admin = State()
     waiting_for_free_sub_user_id = State()
+    waiting_for_delete_user_id = State()
 
 @router.callback_query(F.data == "admin_panel")
 async def admin_button_handler(callback: CallbackQuery, is_admin: bool = False):
@@ -51,7 +52,8 @@ async def admin_panel(message: Message, is_admin: bool = False):
         [InlineKeyboardButton(text="🎁 Сделать аккаунт бесплатным", callback_data="admin_grant_free_sub")],
         [InlineKeyboardButton(text="📋 Список админов", callback_data="admin_list")],
         [InlineKeyboardButton(text="🗑 Удалить админа", callback_data="admin_remove")],
-        [InlineKeyboardButton(text="🔥 Удалить пользователей", callback_data="admin_delete_all_users")],
+        [InlineKeyboardButton(text="🗑 Удалить пользователя по ID", callback_data="admin_delete_user_req")],
+        [InlineKeyboardButton(text="🔥 Удалить всех пользователей", callback_data="admin_delete_all_users")],
         [InlineKeyboardButton(text="🔄 Начать с начала", callback_data="admin_start_over")],
     ])
 
@@ -422,6 +424,64 @@ async def process_grant_free_sub(message: Message, state: FSMContext):
     await state.clear()
     await admin_panel(message, is_admin=True)
 
+@router.callback_query(F.data == "admin_delete_user_req")
+async def admin_delete_user_prompt(callback: CallbackQuery, state: FSMContext):
+    text = "🗑 **Удаление пользователя по ID**\n\nВведите Telegram ID пользователя, которого нужно ПОЛНОСТЬЮ удалить из базы данных:"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text, parse_mode="Markdown")
+    await state.set_state(AdminStates.waiting_for_delete_user_id)
+    await callback.answer()
+
+@router.message(AdminStates.waiting_for_delete_user_id)
+async def process_delete_user(message: Message, state: FSMContext):
+    try:
+        target_user_id = int(message.text.strip())
+        async with SessionLocal() as session:
+            # Check if user exists
+            user_stmt = select(User).where(User.id == target_user_id)
+            user = (await session.execute(user_stmt)).scalar_one_or_none()
+
+            if not user:
+                await message.answer(f"❌ Пользователь с ID {target_user_id} не найден.")
+                await state.clear()
+                return
+
+            # Delete related data first
+            # 1. Fetch trainer profile to delete specs & schedules
+            tp_stmt = select(TrainerProfile).where(TrainerProfile.user_id == target_user_id)
+            tp = (await session.execute(tp_stmt)).scalar_one_or_none()
+            if tp:
+                await session.execute(delete(TimeSlot).where(TimeSlot.trainer_profile_id == tp.id))
+                await session.execute(delete(Booking).where(Booking.trainer_profile_id == tp.id))
+                await session.execute(delete(TrainerPhoto).where(TrainerPhoto.trainer_profile_id == tp.id))
+                await session.execute(delete(TrainerProfile).where(TrainerProfile.id == tp.id))
+
+            # 2. Fetch client profile to delete client bookings
+            cp_stmt = select(ClientProfile).where(ClientProfile.user_id == target_user_id)
+            cp = (await session.execute(cp_stmt)).scalar_one_or_none()
+            if cp:
+                await session.execute(delete(Booking).where(Booking.client_id == cp.id))
+                await session.execute(delete(ClientProfile).where(ClientProfile.id == cp.id))
+
+            # Delete reminders, bookings, slots where user is client
+            await session.execute(delete(TimeSlot).where(TimeSlot.client_id == target_user_id))
+            await session.execute(delete(Booking).where(Booking.client_id == target_user_id))
+
+            # Finally delete the user
+            await session.execute(delete(User).where(User.id == target_user_id))
+            await session.commit()
+
+        await message.answer(f"✅ Пользователь с ID `{target_user_id}` и все связанные с ним данные были успешно удалены из базы данных.", parse_mode="Markdown")
+    except ValueError:
+        await message.answer("❌ ID должен быть числом.")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка удаления: {e}")
+
+    await state.clear()
+    await admin_panel(message, is_admin=True)
+
 @router.callback_query(F.data == "admin_impersonate_trainer")
 async def impersonate_trainer_prompt(callback: CallbackQuery, state: FSMContext):
     text = "🎭 **Войти как профи**\n\nВведите Telegram ID мастера:"
@@ -522,8 +582,6 @@ async def delete_users_prompt(callback: CallbackQuery):
         parse_mode="Markdown"
     )
 
-from sqlalchemy import text
-
 @router.callback_query(F.data == "admin_confirm_delete_all")
 async def confirm_delete_all(callback: CallbackQuery):
     async with SessionLocal() as session:
@@ -581,3 +639,80 @@ async def confirm_delete_all(callback: CallbackQuery):
 @router.callback_query(F.data == "admin_back")
 async def back_to_admin(callback: CallbackQuery):
     await admin_panel(callback.message, is_admin=True)
+
+@router.callback_query(F.data.startswith("admin_mod_approve_"))
+async def admin_mod_approve(callback: CallbackQuery):
+    trainer_user_id = int(callback.data.split("_")[3])
+
+    async with SessionLocal() as session:
+        stmt = select(TrainerProfile).where(TrainerProfile.user_id == trainer_user_id).options(
+            selectinload(TrainerProfile.user)
+        )
+        res = await session.execute(stmt)
+        profile = res.scalar_one_or_none()
+
+        if not profile:
+            await callback.answer("❌ Профиль не найден.", show_alert=True)
+            return
+
+        profile.status = "approved"
+        await session.commit()
+
+        # Notify specialist
+        try:
+            from src.keyboards.common import get_trainer_main_kb
+            await callback.bot.send_message(
+                trainer_user_id,
+                "🎉 **Ваш профиль успешно одобрен администратором!**\n\n"
+                "Теперь вы отображаетесь в поиске/каталоге и можете настраивать расписание.",
+                reply_markup=get_trainer_main_kb(is_admin=False),
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            logger.error(f"Failed to notify specialist {trainer_user_id} about approval: {e}")
+
+    # Update admin message
+    new_text = (callback.message.caption or callback.message.text or "") + "\n\n🟢 **Одобрено!**"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=new_text, reply_markup=None, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text=new_text, reply_markup=None, parse_mode="Markdown")
+    await callback.answer("✅ Профиль одобрен.")
+
+
+@router.callback_query(F.data.startswith("admin_mod_reject_"))
+async def admin_mod_reject(callback: CallbackQuery):
+    trainer_user_id = int(callback.data.split("_")[3])
+
+    async with SessionLocal() as session:
+        stmt = select(TrainerProfile).where(TrainerProfile.user_id == trainer_user_id).options(
+            selectinload(TrainerProfile.user)
+        )
+        res = await session.execute(stmt)
+        profile = res.scalar_one_or_none()
+
+        if not profile:
+            await callback.answer("❌ Профиль не найден.", show_alert=True)
+            return
+
+        profile.status = "rejected"
+        await session.commit()
+
+        # Notify specialist
+        try:
+            await callback.bot.send_message(
+                trainer_user_id,
+                "❌ **Ваш профиль был отклонен модератором.**\n\n"
+                "Пожалуйста, убедитесь, что вы заполнили профиль корректно, и отправьте его на проверку повторно.",
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            logger.error(f"Failed to notify specialist {trainer_user_id} about rejection: {e}")
+
+    # Update admin message
+    new_text = (callback.message.caption or callback.message.text or "") + "\n\n🔴 **Отклонено!**"
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=new_text, reply_markup=None, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text=new_text, reply_markup=None, parse_mode="Markdown")
+    await callback.answer("❌ Профиль отклонен.")
