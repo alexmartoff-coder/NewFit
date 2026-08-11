@@ -223,9 +223,12 @@ async def view_slots(callback: types.CallbackQuery, is_admin: bool = False, effe
                         row = []
 
                     client_name = s.booking.client.full_name or "Клиент"
-                    fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
+                    fmt_map = {"OFFLINE": "", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "", "online": "онлайн", "hybrid": "гибрид"}
                     fmt_ru = fmt_map.get(s.format, s.format)
-                    btn_text += f" 👤 {client_name} ({fmt_ru})"
+                    if fmt_ru:
+                        btn_text += f" 👤 {client_name} ({fmt_ru})"
+                    else:
+                        btn_text += f" 👤 {client_name}"
                     full_kb.append([types.InlineKeyboardButton(text=btn_text, callback_data=f"view_slot_{s.id}")])
                 else:
                     row.append(types.InlineKeyboardButton(text=btn_text, callback_data=f"view_slot_{s.id}"))
@@ -310,7 +313,7 @@ async def add_slot_duration(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(duration=duration)
 
     kb = types.InlineKeyboardMarkup(inline_keyboard=[
-        [types.InlineKeyboardButton(text="🏢 Оффлайн", callback_data="as_fmt_OFFLINE")],
+        [types.InlineKeyboardButton(text="🏢 Стандартный", callback_data="as_fmt_OFFLINE")],
         # Online features temporarily disabled
         # [types.InlineKeyboardButton(text="📱 Онлайн в Telegram", callback_data="as_fmt_TG")],
         # [types.InlineKeyboardButton(text="💻 Другой (Zoom/Meet)", callback_data="as_fmt_ONLINE")],
@@ -648,8 +651,8 @@ async def quick_gen_period(callback: types.CallbackQuery, state: FSMContext, eff
         from src.models.models import User, UserRole
         user = await session.get(User, user_id)
 
-        # For Beauty, skip format selection and jump to step selection
-        if user and str(user.role) == UserRole.BEAUTY.value:
+        # For all roles, skip format selection and jump to step selection
+        if True:
             await state.update_data(gen_format="OFFLINE")
 
             kb = types.InlineKeyboardMarkup(inline_keyboard=[
@@ -666,20 +669,22 @@ async def quick_gen_period(callback: types.CallbackQuery, state: FSMContext, eff
             await callback.answer()
             return
 
-    kb = types.InlineKeyboardMarkup(inline_keyboard=[
-        [types.InlineKeyboardButton(text="Оффлайн", callback_data="gen_f_OFFLINE")],
-        # Online features temporarily disabled
-        # [types.InlineKeyboardButton(text="Онлайн", callback_data="gen_f_ONLINE")],
-        # [types.InlineKeyboardButton(text="Гибрид", callback_data="gen_f_HYBRID")],
-        [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_quick_gen")]
-    ])
-    text = "Выберите формат занятий для генерации:"
-    if callback.message.photo:
-        await callback.message.edit_caption(caption=text, reply_markup=kb)
-    else:
-        await callback.message.edit_text(text, reply_markup=kb)
-    await state.set_state(GenerateSlotsState.choosing_format)
-    await callback.answer()
+    # This block is now unreachable as format selection is skipped for all roles.
+    # kb = types.InlineKeyboardMarkup(inline_keyboard=[
+    #     [types.InlineKeyboardButton(text="Стандартный", callback_data="gen_f_OFFLINE")],
+    #     # Online features temporarily disabled
+    #     # [types.InlineKeyboardButton(text="Онлайн", callback_data="gen_f_ONLINE")],
+    #     # [types.InlineKeyboardButton(text="Гибрид", callback_data="gen_f_HYBRID")],
+    #     [types.InlineKeyboardButton(text="🔙 Назад", callback_data="sche_quick_gen")]
+    # ])
+    # text = "Выберите формат занятий для генерации:"
+    # if callback.message.photo:
+    #     await callback.message.edit_caption(caption=text, reply_markup=kb)
+    # else:
+    #     await callback.message.edit_text(text, reply_markup=kb)
+    # await state.set_state(GenerateSlotsState.choosing_format)
+    # await callback.answer()
+    pass
 
 @router.callback_query(F.data.startswith("gen_f_"), GenerateSlotsState.choosing_format)
 async def quick_gen_format(callback: types.CallbackQuery, state: FSMContext):
@@ -1497,7 +1502,7 @@ async def view_slot_info_details(callback: types.CallbackQuery):
         s_end = slot.end_time.replace(tzinfo=UTC).astimezone(moscow_tz)
 
         status_map = {"free": "Свободен 🟢", "booked": "Забронирован 🔴", "blocked": "Заблокирован ⚪"}
-        fmt_map = {"OFFLINE": "оффлайн", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "оффлайн", "online": "онлайн", "hybrid": "гибрид"}
+        fmt_map = {"OFFLINE": "", "ONLINE": "онлайн", "HYBRID": "гибрид", "offline": "", "online": "онлайн", "hybrid": "гибрид"}
 
         status_text = status_map.get(slot.status, slot.status)
         fmt_text = fmt_map.get(slot.format, slot.format)
@@ -1520,7 +1525,8 @@ async def view_slot_info_details(callback: types.CallbackQuery):
             client_name = slot.booking.client.full_name if (slot.booking and slot.booking.client) else "Клиент"
             details += f"👤 *Клиент:* {escape_md(client_name)}\n"
 
-        details += f"📍 *Формат:* {fmt_text}\n"
+        if fmt_text:
+            details += f"📍 *Формат:* {fmt_text}\n"
         details += f"💰 *Цена:* {int(slot.price)}₽\n"
 
         # Online platforms temporarily disabled

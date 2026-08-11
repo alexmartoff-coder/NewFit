@@ -70,10 +70,7 @@ async def catalog_photo_carousel(callback: types.CallbackQuery, is_admin: bool =
             specs_str = ", ".join(current_profile_specs) or "не указаны"
             text += f"🎯 Специализации: {escape_md(specs_str)}\n"
 
-        text += (
-            f"⭐ Рейтинг: {profile.rating:.1f}\n"
-            f"📝 Формат: {escape_md(work_fmt_ru)}"
-        )
+        text += f"⭐ Рейтинг: {profile.rating:.1f}"
 
         kb = types.InlineKeyboardMarkup(
             inline_keyboard=[
@@ -722,10 +719,7 @@ async def apply_filters(event: types.CallbackQuery | types.Message, state: FSMCo
                         f"{pkg_label}"
                     )
 
-                text += (
-                    f"⭐ Рейтинг: {trainer_profile.rating:.1f}\n"
-                    f"📝 Формат: {escape_md(work_fmt_ru)}"
-                )
+                text += f"⭐ Рейтинг: {trainer_profile.rating:.1f}"
                 kb = types.InlineKeyboardMarkup(
                     inline_keyboard=[
                         [types.InlineKeyboardButton(text="Забронировать время", callback_data=f"book_{trainer_profile.user_id}")],

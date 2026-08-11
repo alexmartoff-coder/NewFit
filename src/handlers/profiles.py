@@ -81,11 +81,7 @@ async def show_profile(message: types.Message, state: FSMContext, is_admin: bool
                         f"{pkg_label}"
                     )
 
-                text += (
-                    f"⭐ Рейтинг: {profile.rating:.1f}\n"
-                    f"🏷 Формат: {escape_md(work_fmt_ru)}\n"
-                    f"🔗 Ссылка: {escape_md(profile.online_meeting_link) if profile.online_meeting_link else 'не указана'}\n"
-                )
+                text += f"⭐ Рейтинг: {profile.rating:.1f}\n"
                 kb = types.InlineKeyboardMarkup(inline_keyboard=[
                     [types.InlineKeyboardButton(text="📝 Редактировать профиль", callback_data="start_registration")]
                 ])
