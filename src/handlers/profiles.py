@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from dateutil.tz import gettz, UTC
 
-from aiogram import Router, types, F
+from aiogram import Router, types, F, exceptions
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from sqlalchemy import select
@@ -83,7 +83,8 @@ async def show_profile(message: types.Message, state: FSMContext, is_admin: bool
 
                 text += f"⭐ Рейтинг: {profile.rating:.1f}\n"
                 kb = types.InlineKeyboardMarkup(inline_keyboard=[
-                    [types.InlineKeyboardButton(text="📝 Редактировать профиль", callback_data="start_registration")]
+                    [types.InlineKeyboardButton(text="📝 Редактировать профиль", callback_data="start_registration")],
+                    [types.InlineKeyboardButton(text="🗑 Удалить аккаунт", callback_data="profile_delete_account_req")]
                 ])
                 kb = add_admin_button(kb, is_admin=is_admin)
 
@@ -136,8 +137,13 @@ async def show_profile(message: types.Message, state: FSMContext, is_admin: bool
             stmt_t = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
             has_trainer_profile = (await session.execute(stmt_t)).scalar_one_or_none() is not None
 
+            kb_delete = types.InlineKeyboardMarkup(inline_keyboard=[
+                [types.InlineKeyboardButton(text="🗑 Удалить аккаунт", callback_data="profile_delete_account_req")]
+            ])
+            await message.answer(f"🏋️‍♀️ **Личный кабинет клиента**\n\n👤 Имя: {escape_md(user.full_name)}", reply_markup=kb_delete, parse_mode="Markdown")
+
             kb = get_client_main_kb(is_admin=is_admin, has_specialists=has_specialists, is_pro=has_trainer_profile)
-            await message.answer(f"🏋️‍♀️ **Личный кабинет клиента**\n\n👤 Имя: {escape_md(user.full_name)}", reply_markup=kb, parse_mode="Markdown")
+            await message.answer("Управление кабинетом:", reply_markup=kb)
 
 @router.message(F.text == "🖥 Онлайн тренировка")
 async def show_online_training(message: types.Message, effective_user_id: int = None):
@@ -1030,7 +1036,8 @@ async def profile_photo_carousel(callback: types.CallbackQuery, is_admin: bool =
         text += f"\n⭐ Рейтинг: {profile.rating:.1f}\n"
 
         kb = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="📝 Редактировать профиль", callback_data="start_registration")]
+            [types.InlineKeyboardButton(text="📝 Редактировать профиль", callback_data="start_registration")],
+            [types.InlineKeyboardButton(text="🗑 Удалить аккаунт", callback_data="profile_delete_account_req")]
         ])
 
         if len(profile.photos) > 1:
@@ -1146,3 +1153,75 @@ async def client_cancel_booking(callback: types.CallbackQuery):
             await callback.message.delete()
         except Exception:
             pass
+
+@router.callback_query(F.data == "profile_delete_account_req")
+async def profile_delete_account_request(callback: types.CallbackQuery):
+    text = (
+        "⚠️ **Удаление аккаунта**\n\n"
+        "Вы действительно хотите навсегда удалить ваш аккаунт и все связанные с ним данные?\n"
+        "Это действие необратимо."
+    )
+    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(text="✅ Да, удалить", callback_data="profile_delete_account_confirm"),
+            types.InlineKeyboardButton(text="❌ Нет, оставить", callback_data="profile_delete_account_cancel")
+        ]
+    ])
+    if callback.message.photo:
+        await callback.message.edit_caption(caption=text, reply_markup=kb, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(text=text, reply_markup=kb, parse_mode="Markdown")
+    await callback.answer()
+
+@router.callback_query(F.data == "profile_delete_account_cancel")
+async def profile_delete_account_cancel(callback: types.CallbackQuery, state: FSMContext):
+    # Go back to profile view
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await show_profile(callback.message, state)
+    await callback.answer()
+
+from sqlalchemy import delete
+@router.callback_query(F.data == "profile_delete_account_confirm")
+async def profile_delete_account_confirm(callback: types.CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    async with SessionLocal() as session:
+        # Delete related data first
+        # 1. Fetch trainer profile to delete specs, slots, photos, bookings, schedule
+        tp_stmt = select(TrainerProfile).where(TrainerProfile.user_id == user_id)
+        tp = (await session.execute(tp_stmt)).scalar_one_or_none()
+        if tp:
+            await session.execute(delete(TimeSlot).where(TimeSlot.trainer_profile_id == tp.id))
+            await session.execute(delete(Booking).where(Booking.trainer_profile_id == tp.id))
+            await session.execute(delete(TrainerPhoto).where(TrainerPhoto.trainer_profile_id == tp.id))
+            await session.execute(delete(TrainerProfile).where(TrainerProfile.id == tp.id))
+
+        # 2. Fetch client profile to delete client bookings
+        cp_stmt = select(ClientProfile).where(ClientProfile.user_id == user_id)
+        cp = (await session.execute(cp_stmt)).scalar_one_or_none()
+        if cp:
+            await session.execute(delete(Booking).where(Booking.client_id == cp.id))
+            await session.execute(delete(ClientProfile).where(ClientProfile.id == cp.id))
+
+        # Delete reminders, bookings, slots where user is client
+        await session.execute(delete(TimeSlot).where(TimeSlot.client_id == user_id))
+        await session.execute(delete(Booking).where(Booking.client_id == user_id))
+
+        # Finally delete the user
+        await session.execute(delete(User).where(User.id == user_id))
+        await session.commit()
+
+    await state.clear()
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await callback.message.answer(
+        "👋 **Ваш аккаунт и данные были успешно удалены.**\n\n"
+        "Спасибо, что пользовались NewFit! Вы можете заново зарегистрироваться в любое время, отправив команду /start.",
+        reply_markup=types.ReplyKeyboardRemove(),
+        parse_mode="Markdown"
+    )
+    await callback.answer()

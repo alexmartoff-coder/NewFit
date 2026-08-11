@@ -4,7 +4,7 @@ from aiogram.fsm.context import FSMContext
 from src.states.trainer_onboarding import TrainerOnboarding
 from src.keyboards.common import get_format_kb, get_trainer_main_kb, get_start_reg_kb, get_spec_kb, get_city_kb, get_sphere_kb, get_district_kb
 from src.keyboards.inline import add_admin_button
-from src.models.models import User, TrainerProfile, UserRole, WorkFormat, Specialization, trainer_specializations, TrainerPhoto
+from src.models.models import User, TrainerProfile, UserRole, WorkFormat, Specialization, trainer_specializations, TrainerPhoto, Admin
 from src.utils.db import SessionLocal
 from sqlalchemy import select, func, delete, insert
 from sqlalchemy.orm import selectinload
@@ -705,6 +705,8 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 user.full_name = data.get('full_name', user.full_name)
                 profile = user.trainer_profile
 
+            is_new_registration = (profile is None)
+
             if not profile:
                 profile = TrainerProfile(
                     user=user, city=data.get('city', 'Не указан'),
@@ -718,7 +720,7 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                     service_prices=data.get('service_prices'),
                     video_presentation_url=data.get('video_url'),
                     online_meeting_link=data.get('online_link'),
-                    status="approved"
+                    status="pending" if is_new_registration else "approved"
                 )
                 # Initialize collections for new object to avoid lazy load checks
                 profile.photos = []
@@ -753,9 +755,53 @@ async def finish_onboarding(message: types.Message, state: FSMContext, user_id: 
                 profile.specializations = list(found_specs)
 
             await session.commit()
+
+            # Retrieve admin list and cache profile details if it is a new registration
+            if is_new_registration:
+                admin_stmt = select(Admin.user_id)
+                admin_res = await session.execute(admin_stmt)
+                admin_ids = list(admin_res.scalars().all())
+
+                # Escape text for safety
+                from src.utils.text import escape_md
+                spec_list_str = ", ".join([s.name for s in profile.specializations]) or "не указаны"
+                admin_text = (
+                    f"🔔 **Новая заявка на регистрацию профиля!**\n\n"
+                    f"👤 **Имя:** {escape_md(user.full_name)}\n"
+                    f"🆔 **ID:** `{user_id}`\n"
+                    f"📞 **Телефон:** {escape_md(profile.phone) or 'не указан'}\n"
+                    f"📍 **Город:** {escape_md(profile.city)}\n"
+                    f"💪 **Опыт:** {profile.experience} лет\n"
+                    f"🎯 **Специализации:** {escape_md(spec_list_str)}\n"
+                )
+
+                kb = types.InlineKeyboardMarkup(inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(text="✅ Одобрить", callback_data=f"admin_mod_approve_{user_id}"),
+                        types.InlineKeyboardButton(text="❌ Отклонить", callback_data=f"admin_mod_reject_{user_id}")
+                    ]
+                ])
+
+                for admin_id in admin_ids:
+                    try:
+                        if profile.photos:
+                            await message.bot.send_photo(admin_id, photo=profile.photos[0].file_id, caption=admin_text, reply_markup=kb, parse_mode="Markdown")
+                        else:
+                            await message.bot.send_message(admin_id, text=admin_text, reply_markup=kb, parse_mode="Markdown")
+                    except Exception as ex:
+                        logger.error(f"Failed to send moderation notice to admin {admin_id}: {ex}")
+
         await state.clear()
-        await state.update_data(cabinet="pro")
-        await message.answer("Поздравляем! 🎉 Профиль успешно сохранён.", reply_markup=get_trainer_main_kb(is_admin=is_admin))
+        if is_new_registration:
+            await message.answer(
+                "🎉 **Ваш профиль успешно отправлен на модерацию!**\n\n"
+                "Администрация проверит ваши данные в ближайшее время. Вы получите уведомление, когда ваш профиль будет одобрен.",
+                reply_markup=types.ReplyKeyboardRemove(),
+                parse_mode="Markdown"
+            )
+        else:
+            await state.update_data(cabinet="pro")
+            await message.answer("Поздравляем! 🎉 Профиль успешно сохранён.", reply_markup=get_trainer_main_kb(is_admin=is_admin))
     except Exception as e:
         logger.exception("Error in finish_onboarding")
         await message.answer("❌ Ошибка при сохранении профиля.")
