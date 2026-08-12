@@ -58,10 +58,14 @@ async def start_booking(callback: types.CallbackQuery, state: FSMContext, is_adm
 
         if not available_dates:
             text = "К сожалению, у этого профессионала нет свободных слотов на ближайшее время."
+            kb_no_slots = types.InlineKeyboardMarkup(inline_keyboard=[
+                [types.InlineKeyboardButton(text="🔙 Назад к профилю", callback_data=f"catalog_photo_0_{trainer_user_id}")],
+                [types.InlineKeyboardButton(text="🏠 Вернуться к выбору услуг", callback_data="cat_back_to_start")]
+            ])
             if callback.message.photo:
-                await callback.message.edit_caption(caption=text)
+                await callback.message.edit_caption(caption=text, reply_markup=kb_no_slots)
             else:
-                await callback.message.edit_text(text)
+                await callback.message.edit_text(text, reply_markup=kb_no_slots)
             await callback.answer()
             return
 
