@@ -685,15 +685,16 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
 
             s_start = slot_start.replace(tzinfo=UTC) if slot_start.tzinfo is None else slot_start.astimezone(UTC)
             start_moscow = s_start.astimezone(moscow_tz)
-            booked_time_details.append(f"⏰ `{start_moscow.strftime('%d.%m.%Y %H:%M')}`")
+            booked_time_details.append(f"⏰ <code>{start_moscow.strftime('%d.%m.%Y %H:%M')}</code>")
             trainer_time_details.append(f" • {start_moscow.strftime('%d.%m %H:%M')}\n")
             total_price += slot_price
 
         await session.commit()
 
-        # Format confirmation messages
+        # Format confirmation messages using safe HTML escaping
+        import html
         times_formatted_msg = "\n".join(booked_time_details)
-        text = f"✅ *Запись успешно подтверждена!*\n\nВы успешно записаны {term_lesson} к мастеру {escape_md(trainer_name)}.\n\nВыбранное время:\n{times_formatted_msg}\n\n📅 Мы пришлем вам напоминание за 24 и 2 часа до начала."
+        text = f"✅ <b>Запись успешно подтверждена!</b>\n\nВы успешно записаны {term_lesson} к мастеру {html.escape(trainer_name)}.\n\nВыбранное время:\n{times_formatted_msg}\n\n📅 Мы пришлем вам напоминание за 24 и 2 часа до начала."
 
         # Show main menu keyboard to client
         from src.keyboards.common import get_client_main_kb
@@ -715,24 +716,24 @@ async def confirm_booking(callback: types.CallbackQuery, state: FSMContext, effe
             chat_id=callback.message.chat.id,
             text=text,
             reply_markup=kb,
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
 
         # Notify professional
         try:
             trainer_text = (
-                f"🆕 *Новая запись!*\n\n"
-                f"👤 Клиент: {escape_md(client_name)}\n"
+                f"🆕 <b>Новая запись!</b>\n\n"
+                f"👤 Клиент: {html.escape(client_name)}\n"
                 f"📅 Выбранное время:\n"
             )
             for t_detail in trainer_time_details:
                 trainer_text += t_detail
 
             trainer_text += (
-                f"\n🏷 {term_format}: {escape_md(slot_format)}\n"
+                f"\n🏷 {term_format}: {html.escape(slot_format)}\n"
                 f"💰 Общая цена: {int(total_price)}₽"
             )
-            await callback.bot.send_message(trainer_user_id, trainer_text, parse_mode="Markdown")
+            await callback.bot.send_message(trainer_user_id, trainer_text, parse_mode="HTML")
         except Exception as e:
             logger.error(f"Failed to notify professional {trainer_user_id}: {e}")
 

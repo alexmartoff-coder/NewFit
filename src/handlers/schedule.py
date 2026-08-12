@@ -1734,14 +1734,15 @@ async def sche_cancel_confirm_final(callback: types.CallbackQuery):
         # 1. Notify Client
         if client_user_id:
             try:
+                import html
                 msg_to_client = (
-                    f"❌ **Запись отменена мастером**\n\n"
-                    f"Ваша запись к мастеру {escape_md(trainer_name)} отменена.\n"
-                    f"📅 Время: `{slot_time_str}` (МСК)\n"
-                    f"🏷 Услуга: {escape_md(slot_format)}\n\n"
+                    f"❌ <b>Запись отменена мастером</b>\n\n"
+                    f"Ваша запись к мастеру {html.escape(trainer_name)} отменена.\n"
+                    f"📅 Время: <code>{slot_time_str}</code> (МСК)\n"
+                    f"🏷 Услуга: {html.escape(slot_format)}\n\n"
                     f"Вы можете выбрать другое время в каталоге."
                 )
-                await callback.bot.send_message(client_user_id, msg_to_client, parse_mode="Markdown")
+                await callback.bot.send_message(client_user_id, msg_to_client, parse_mode="HTML")
             except Exception as e:
                 logger.error(f"Failed to notify client {client_user_id} about cancellation: {e}")
 

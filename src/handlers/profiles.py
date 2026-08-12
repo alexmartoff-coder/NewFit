@@ -1170,14 +1170,15 @@ async def client_cancel_booking(callback: types.CallbackQuery):
 
         # 1. Notify Specialist
         try:
+            import html
             msg_to_trainer = (
-                f"❌ **Запись отменена клиентом**\n\n"
-                f"Клиент {escape_md(client_name)} отменил запись.\n"
-                f"📅 Время: `{slot_time_str}` (МСК)\n"
-                f"🏷 Услуга: {escape_md(slot_format)}\n\n"
+                f"❌ <b>Запись отменена клиентом</b>\n\n"
+                f"Клиент {html.escape(client_name)} отменил запись.\n"
+                f"📅 Время: <code>{slot_time_str}</code> (МСК)\n"
+                f"🏷 Услуга: {html.escape(slot_format)}\n\n"
                 f"Слот снова свободен в вашем расписании."
             )
-            await callback.bot.send_message(trainer_user_id, msg_to_trainer, parse_mode="Markdown")
+            await callback.bot.send_message(trainer_user_id, msg_to_trainer, parse_mode="HTML")
         except Exception as e:
             logger.error(f"Failed to notify trainer {trainer_user_id} about client cancellation: {e}")
 
