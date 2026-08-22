@@ -1,10 +1,15 @@
+import os
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from src.utils.db import init_db, engine
 
 logger = logging.getLogger(__name__)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates", "stitch_newfin_bilibin_design_system")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -21,143 +26,126 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-@app.get("/", response_class=HTMLResponse)
-async def root():
-    html_content = """
-    <!DOCTYPE html>
-    <html lang="ru">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>NewFit - Экосистема спорта и бьюти</title>
-        <style>
-            :root {
-                --primary: #4f46e5;
-                --primary-hover: #4338ca;
-                --bg: #0f172a;
-                --card-bg: #1e293b;
-                --text: #f8fafc;
-                --text-muted: #94a3b8;
-                --accent: #10b981;
-            }
-            body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-                background-color: var(--bg);
-                color: var(--text);
-                margin: 0;
-                padding: 0;
-                display: flex;
-                flex-direction: column;
-                min-height: 100vh;
-                align-items: center;
-                justify-content: center;
-            }
-            .container {
-                max-width: 600px;
-                width: 90%;
-                background-color: var(--card-bg);
-                border-radius: 16px;
-                padding: 32px;
-                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-                text-align: center;
-                border: 1px solid #334155;
-            }
-            .badge {
-                display: inline-block;
-                background: rgba(16, 185, 129, 0.2);
-                color: var(--accent);
-                font-size: 14px;
-                font-weight: 600;
-                padding: 6px 16px;
-                border-radius: 20px;
-                margin-bottom: 20px;
-                border: 1px solid rgba(16, 185, 129, 0.3);
-            }
-            h1 {
-                font-size: 32px;
-                margin: 0 0 12px 0;
-                background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 100%);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-            }
-            p {
-                color: var(--text-muted);
-                line-height: 1.6;
-                font-size: 16px;
-                margin-bottom: 28px;
-            }
-            .grid {
-                display: grid;
-                grid-template-columns: repeat(2, 1fr);
-                gap: 12px;
-                margin-bottom: 28px;
-                text-align: left;
-            }
-            .grid-item {
-                background: rgba(255, 255, 255, 0.03);
-                padding: 14px;
-                border-radius: 10px;
-                border: 1px solid #334155;
-                font-size: 14px;
-            }
-            .grid-item strong {
-                display: block;
-                color: var(--text);
-                margin-bottom: 4px;
-            }
-            .btn {
-                display: inline-block;
-                background-color: var(--primary);
-                color: #ffffff;
-                text-decoration: none;
-                font-weight: 600;
-                padding: 12px 28px;
-                border-radius: 10px;
-                transition: background-color 0.2s;
-            }
-            .btn:hover {
-                background-color: var(--primary-hover);
-            }
-            footer {
-                margin-top: 24px;
-                font-size: 13px;
-                color: var(--text-muted);
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="badge">● Web-версия запущенa</div>
-            <h1>NewFit Web Platform</h1>
-            <p>Добро пожаловать в веб-платформу NewFit — единую экосистему для записи на тренировки (Фитнес, Большой теннис, Падл) и услуги бьюти-сферы.</p>
+# Mount static files directory if it exists
+if os.path.exists(TEMPLATES_DIR):
+    app.mount("/design-system", StaticFiles(directory=TEMPLATES_DIR), name="design-system")
 
-            <div class="grid">
-                <div class="grid-item">
-                    <strong>⭐ Тренеры & Специалисты</strong>
-                    Запись, расписание и модерация
-                </div>
-                <div class="grid-item">
-                    <strong>👤 Клиенты</strong>
-                    Поиск по городам и фильтры
-                </div>
-                <div class="grid-item">
-                    <strong>📅 Расписание</strong>
-                    Управление слотами и датами
-                </div>
-                <div class="grid-item">
-                    <strong>💳 B2B Подписки</strong>
-                    Управление тарифами
-                </div>
-            </div>
-
-            <a href="/docs" class="btn">Открыть Swagger API Documentation</a>
-        </div>
-        <footer>&copy; NewFit Ecosystem. Все права защищены.</footer>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html_content)
+def render_screen(folder_name: str) -> HTMLResponse:
+    file_path = os.path.join(TEMPLATES_DIR, folder_name, "code.html")
+    if not os.path.exists(file_path):
+        # Fallback if folder_name doesn't have code.html directly
+        file_path = os.path.join(TEMPLATES_DIR, folder_name)
+    if not os.path.exists(file_path) or not os.path.isfile(file_path):
+        raise HTTPException(status_code=404, detail=f"Screen '{folder_name}' not found")
+    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+        content = f.read()
+    return HTMLResponse(content=content)
 
 @app.get("/health")
 async def health_check():
     return JSONResponse(content={"status": "ok", "app": "NewFit Web"})
+
+# --- Main App Routes Linked to SPECIFICATION.md ---
+
+@app.get("/", response_class=HTMLResponse)
+async def welcome_page():
+    """Welcome / Role Selection Screen (Flow 1)"""
+    return render_screen("_14")
+
+@app.get("/welcome-alt", response_class=HTMLResponse)
+async def welcome_alt_page():
+    """Alternative Welcome Screen"""
+    return render_screen("_15")
+
+@app.get("/catalog", response_class=HTMLResponse)
+async def catalog_page():
+    """Specialists Catalog Screen (Flow 3)"""
+    return render_screen("newfit")
+
+@app.get("/specialist", response_class=HTMLResponse)
+@app.get("/specialist/{specialist_id}", response_class=HTMLResponse)
+async def specialist_profile_page(specialist_id: str = None):
+    """Specialist Public Profile Screen"""
+    return render_screen("_1")
+
+@app.get("/booking", response_class=HTMLResponse)
+@app.get("/booking/{slot_id}", response_class=HTMLResponse)
+async def booking_page(slot_id: str = None):
+    """Slot Booking Screen (Flow 3)"""
+    return render_screen("_2")
+
+@app.get("/pro/schedule", response_class=HTMLResponse)
+async def pro_schedule_page():
+    """Pro Specialist Schedule Screen (Flow 4)"""
+    return render_screen("_3")
+
+@app.get("/pro/clients", response_class=HTMLResponse)
+async def pro_clients_page():
+    """Pro Specialist My Clients Screen"""
+    return render_screen("_4")
+
+@app.get("/pro/profile/edit", response_class=HTMLResponse)
+async def pro_profile_edit_page():
+    """Pro Profile Edit Screen (Flow 2)"""
+    return render_screen("_5")
+
+@app.get("/pro/schedule/generate", response_class=HTMLResponse)
+async def pro_schedule_generate_page():
+    """Pro Slot Generator Screen (Flow 4)"""
+    return render_screen("_6")
+
+@app.get("/pro/unlock", response_class=HTMLResponse)
+async def pro_unlock_page():
+    """Pro Subscription B2B Gate Screen (Flow 5)"""
+    return render_screen("pro")
+
+@app.get("/client/favorites", response_class=HTMLResponse)
+async def client_favorites_page():
+    """Client Favorites Screen"""
+    return render_screen("_11")
+
+@app.get("/client/bookings", response_class=HTMLResponse)
+async def client_bookings_page():
+    """Client My Bookings Screen"""
+    return render_screen("_12")
+
+@app.get("/client/profile", response_class=HTMLResponse)
+async def client_profile_page():
+    """Client Profile Screen"""
+    return render_screen("_13")
+
+@app.get("/client/profile/view", response_class=HTMLResponse)
+async def client_profile_view_page():
+    """Client Profile Alternate Screen"""
+    return render_screen("_16")
+
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_dashboard_page():
+    """Admin Dashboard Screen"""
+    return render_screen("_7")
+
+@app.get("/admin/subscriptions", response_class=HTMLResponse)
+async def admin_subscriptions_page():
+    """Admin Subscriptions Control Screen"""
+    return render_screen("_8")
+
+@app.get("/admin/moderation", response_class=HTMLResponse)
+async def admin_moderation_page():
+    """Admin Moderation Queue Screen"""
+    return render_screen("_9")
+
+@app.get("/admin/devtools", response_class=HTMLResponse)
+async def admin_devtools_page():
+    """Admin Developer Tools Screen"""
+    return render_screen("_10")
+
+@app.get("/shader", response_class=HTMLResponse)
+async def shader_page():
+    """Shader Visual Screen"""
+    return render_screen("shader")
+
+# --- Direct Access Route for Any Design System Screen Folder ---
+
+@app.get("/screen/{folder_name}", response_class=HTMLResponse)
+async def direct_screen_page(folder_name: str):
+    return render_screen(folder_name)
