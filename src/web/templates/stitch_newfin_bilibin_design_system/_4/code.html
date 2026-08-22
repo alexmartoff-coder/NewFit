@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pro Cabinet - My Clients</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:wght@400;700&amp;family=Manrope:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed-dim": "#b4cdb8",
+                        "background": "#f8fce5",
+                        "surface-container-low": "#f2f6e0",
+                        "tertiary-container": "#ddecff",
+                        "secondary-container": "#cde6d1",
+                        "tsar-red": "#A62C21",
+                        "tertiary-fixed": "#d5e4f7",
+                        "surface-tint": "#4b6700",
+                        "surface-variant": "#e1e5cf",
+                        "on-primary-fixed": "#141f00",
+                        "tertiary-fixed-dim": "#b9c8da",
+                        "on-tertiary-container": "#5c6b7b",
+                        "surface-bright": "#f8fce5",
+                        "primary-fixed": "#b8f600",
+                        "tertiary": "#516070",
+                        "primary-container": "#beff00",
+                        "on-secondary-container": "#516857",
+                        "surface-container-lowest": "#ffffff",
+                        "parchment-base": "#F9F7F2",
+                        "error-container": "#ffdad6",
+                        "primary": "#4b6700",
+                        "error": "#ba1a1a",
+                        "inverse-on-surface": "#eff3dd",
+                        "inverse-primary": "#a1d800",
+                        "surface-container-highest": "#e1e5cf",
+                        "surface-dim": "#d8dcc7",
+                        "on-primary-fixed-variant": "#384e00",
+                        "secondary-fixed": "#d0e9d4",
+                        "on-secondary-fixed-variant": "#364c3c",
+                        "on-error": "#ffffff",
+                        "on-surface": "#191d10",
+                        "ink-black": "#121212",
+                        "on-tertiary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "primary-fixed-dim": "#a1d800",
+                        "on-secondary-fixed": "#0b2013",
+                        "surface": "#f8fce5",
+                        "surface-container-high": "#e6ead4",
+                        "on-error-container": "#93000a",
+                        "secondary": "#4d6453",
+                        "surface-container": "#ecf0da",
+                        "on-primary-container": "#547300",
+                        "on-tertiary-fixed": "#0e1d2a",
+                        "outline": "#737a61",
+                        "on-background": "#191d10",
+                        "paper-shadow": "#EBE7DE",
+                        "folklore-gold": "#C5A059",
+                        "inverse-surface": "#2e3223",
+                        "on-secondary": "#ffffff",
+                        "on-surface-variant": "#434933",
+                        "on-tertiary-fixed-variant": "#3a4857",
+                        "outline-variant": "#c3caad"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "margin-desktop": "64px",
+                        "unit": "4px",
+                        "max-width": "1280px",
+                        "gutter": "24px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Manrope"],
+                        "headline-md": ["Libre Caslon Text"],
+                        "headline-lg-mobile": ["Libre Caslon Text"],
+                        "headline-xl": ["Libre Caslon Text"],
+                        "label-sm": ["Manrope"],
+                        "headline-lg": ["Libre Caslon Text"],
+                        "body-lg": ["Manrope"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "headline-xl": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "label-sm": ["13px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined[data-weight="fill"] {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #F9F7F2; /* parchment-base */
+        }
+        .ornamental-border {
+            border: 1px solid rgba(77, 100, 83, 0.2); /* secondary_color at 20% */
+            position: relative;
+        }
+        .ornamental-border::before {
+            content: '';
+            position: absolute;
+            top: 2px; left: 2px; right: 2px; bottom: 2px;
+            border: 1px solid rgba(77, 100, 83, 0.1); /* thinner inner line */
+            pointer-events: none;
+        }
+        .woodblock-bg {
+            background-color: #4d6453; /* secondary_color */
+            color: #ffffff;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-parchment-base min-h-screen text-on-background font-body-md pb-24 md:pb-0">
+<!-- TopAppBar -->
+<header class="w-full top-0 bg-parchment-base dark:bg-surface-dim border-b border-secondary/20 dark:border-secondary-fixed-dim/20 flat no shadows z-40 sticky">
+<div class="flex justify-between items-center px-margin-mobile md:px-margin-desktop py-4 max-w-max-width mx-auto">
+<div class="flex items-center gap-4 cursor-pointer active:opacity-80 transition-opacity">
+<div class="w-10 h-10 rounded-full overflow-hidden border border-secondary/20">
+<img alt="Specialist Profile" class="w-full h-full object-cover" data-alt="A small, circular portrait of a professional fitness specialist looking confident, illuminated by soft studio lighting against a clean white background, creating a modern and trustworthy impression." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCeUq_HxiJsJhU-OkDNvmOOPQZXlAXwdgu4jeeBrRqp05Ymy7n-fFCZ5qEsmxaYW6c1dtLmoab_mRZb8HNaHgArDsHoZbPHbJzfb3eiFXhpGoNnu8v7-YKAAuBY55f7_Jhg1rL1YeyRppogTWr6np-JmPrak_wQHFYhmIay4UiYsPvZB8Okigi44ycLA72-OBh_o-hRZFl3BbMfOW5N3iIuqUo66ALvTRKYKCxq6fRXH59gtJlykXX4"/>
+</div>
+<h1 class="font-headline-md text-headline-md text-primary dark:text-primary-fixed">NewFit Specialist</h1>
+</div>
+<button class="font-label-sm text-label-sm text-on-surface-variant hover:bg-paper-shadow/50 transition-colors px-3 py-1.5 rounded cursor-pointer active:opacity-80 transition-opacity border border-secondary/20 bg-transparent flex items-center gap-2">
+<span>Switch to Client</span>
+<span class="material-symbols-outlined text-[18px]">sync_alt</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="max-w-max-width mx-auto px-margin-mobile md:px-margin-desktop py-8">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
+<div>
+<h2 class="font-headline-xl text-headline-xl text-ink-black mb-2">My Clients</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Manage your roster and track upcoming sessions.</p>
+</div>
+<!-- Search Bar (Underlined Style) -->
+<div class="w-full md:w-72 relative">
+<label class="sr-only" for="client-search">Search clients</label>
+<div class="absolute inset-y-0 left-0 pl-0 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-secondary">search</span>
+</div>
+<input class="block w-full pl-8 pr-3 py-2 border-0 border-b border-secondary/30 bg-transparent focus:ring-0 focus:border-primary font-body-md text-body-md placeholder:text-on-surface-variant/50 transition-colors" id="client-search" placeholder="Find a client..." type="text"/>
+</div>
+</div>
+<!-- Client List (Bento-style Grid) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter">
+<!-- Client Card 1 -->
+<div class="ornamental-border bg-surface-container-low rounded-DEFAULT p-4 flex flex-col justify-between h-full transition-transform hover:-translate-y-1 duration-300">
+<div class="flex items-start gap-4 mb-6">
+<div class="w-16 h-16 rounded-full overflow-hidden border border-secondary/20 flex-shrink-0">
+<img alt="Client Photo" class="w-full h-full object-cover" data-alt="A portrait of a healthy, active individual looking determined and focused, lit by natural morning light, conveying a sense of energy and commitment to wellness in a modern setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCA6inu0eG_ROR7HpO_fcVSUoxiq7_926l7_J5FndIcPtBmeeFLgpHLUEMENvxvR2GtT1tg7dWI_RNslepxwiwfVPVzF-SKQrlVOX38jG3_1tXCuLNvlouc5hq1jSeyzjBgd_7KNviDtWJXNuaJhlLaQUz6veZxBF1-Ow4qh0n3K2sNjmKcRICrt8mpIdSBjP0pBoyZG1Rm5ST__1Bi3Hu7PrY11fCHwq0LGsn6wu4vvmhiK42aUdry"/>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-ink-black leading-tight mb-1">Elena Rostov</h3>
+<p class="font-label-sm text-label-sm text-secondary uppercase">Premium Member</p>
+</div>
+</div>
+<div class="flex justify-between items-end border-t border-secondary/10 pt-4 mt-auto">
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-1">Total Sessions</p>
+<p class="font-body-lg text-body-lg font-semibold text-primary">24</p>
+</div>
+<div class="text-right">
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-1">Next Session</p>
+<p class="font-body-md text-body-md text-ink-black flex items-center gap-1 justify-end">
+<span class="material-symbols-outlined text-[16px] text-folklore-gold">event</span>
+                            Oct 24, 10:00 AM
+                        </p>
+</div>
+</div>
+</div>
+<!-- Client Card 2 -->
+<div class="ornamental-border bg-surface-container-low rounded-DEFAULT p-4 flex flex-col justify-between h-full transition-transform hover:-translate-y-1 duration-300">
+<div class="flex items-start gap-4 mb-6">
+<div class="w-16 h-16 rounded-full overflow-hidden border border-secondary/20 flex-shrink-0">
+<img alt="Client Photo" class="w-full h-full object-cover" data-alt="A portrait of a male fitness client with a relaxed, friendly expression, illuminated by soft indoor lighting, projecting an approachable and dedicated attitude towards training." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCDk38Y46thSjJiLjAu4YT77mNzK02C-VHoW1MqnvEG2bxeqmvAdSJom7eK2oWmZv2KMmLHaNTVCR98-bfLwz-cY_WUJSqkARlTG8ksNiN8nRVbDNfg5HPQ4O67dQ3RZpOwhAlUyB-nROj8S--7Dzfu8u4oyqEFdOITVBxlgn5LHYoX79_S5602no5qRK43BF6DGYTv4FtQCJ3sJsZpq1cc5wy7Iz4LpvMALeKlN5TDoRif1cOfs6UI"/>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-ink-black leading-tight mb-1">Ivan Sokolov</h3>
+<p class="font-label-sm text-label-sm text-secondary uppercase">Standard Member</p>
+</div>
+</div>
+<div class="flex justify-between items-end border-t border-secondary/10 pt-4 mt-auto">
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-1">Total Sessions</p>
+<p class="font-body-lg text-body-lg font-semibold text-primary">8</p>
+</div>
+<div class="text-right">
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-1">Next Session</p>
+<p class="font-body-md text-body-md text-ink-black flex items-center gap-1 justify-end">
+<span class="material-symbols-outlined text-[16px] text-folklore-gold">event</span>
+                            Oct 26, 14:30 PM
+                        </p>
+</div>
+</div>
+</div>
+<!-- Client Card 3 -->
+<div class="ornamental-border bg-surface-container-low rounded-DEFAULT p-4 flex flex-col justify-between h-full transition-transform hover:-translate-y-1 duration-300">
+<div class="flex items-start gap-4 mb-6">
+<div class="w-16 h-16 rounded-full overflow-hidden border border-secondary/20 flex-shrink-0">
+<img alt="Client Photo" class="w-full h-full object-cover" data-alt="A close-up portrait of a youthful, energetic client smiling warmly, softly lit against a neutral background, evoking a sense of holistic wellness and balanced lifestyle." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDf6TCHmT2RxiEAIH2uI_nWCa47HNJURlIJ18OSfn-i154E0flkQ4TOS8o2Iw-sL8ft_JO5fxGkXTkUB8YOyn2oU6_H0nVcbltF4TLfxlU7S9px7hlrUMepqIh3n8Fdl3ZPXc3ZrUQZkU-NmrVwnAzCPTj3Nz7Vpg0BbS9_zYNd6l3pvUd2Y3zzcRfk-X-F5xB7puECBaAckdtIb4H5yXLdA0TE1X2gmuXdxL45JZcHlr1YiTrkjcm_"/>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-ink-black leading-tight mb-1">Katerina Volkova</h3>
+<p class="font-label-sm text-label-sm text-secondary uppercase">Trial Member</p>
+</div>
+</div>
+<div class="flex justify-between items-end border-t border-secondary/10 pt-4 mt-auto">
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-1">Total Sessions</p>
+<p class="font-body-lg text-body-lg font-semibold text-primary">2</p>
+</div>
+<div class="text-right">
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-1">Next Session</p>
+<p class="font-body-md text-body-md text-on-surface-variant italic text-sm">Not scheduled</p>
+</div>
+</div>
+</div>
+<!-- Subscription Hint (Bento Grid filler) -->
+<div class="border border-folklore-gold/50 bg-surface-bright rounded-DEFAULT p-6 flex flex-col items-center justify-center text-center h-full relative overflow-hidden">
+<div class="absolute inset-0 opacity-5 pointer-events-none" style="background-image: repeating-linear-gradient(45deg, #C5A059 0, #C5A059 1px, transparent 0, transparent 50%); background-size: 10px 10px;"></div>
+<span class="material-symbols-outlined text-folklore-gold text-[32px] mb-3" data-weight="fill">verified</span>
+<h4 class="font-headline-md text-headline-md text-ink-black mb-2">Pro Tier Limit Approaching</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">You have 9 out of 10 clients in your current plan.</p>
+<button class="bg-primary text-ink-black font-label-sm text-label-sm uppercase px-6 py-2 rounded-DEFAULT hover:opacity-90 transition-opacity">Upgrade Plan</button>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="fixed bottom-0 w-full z-50 border-t border-secondary/10 dark:border-outline-variant/10 flat no shadows md:hidden">
+<div class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center pb-safe pt-2 px-2 bg-parchment-base dark:bg-surface-container">
+<!-- Schedule: Inactive -->
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed-dim px-4 py-1 hover:text-primary dark:hover:text-primary-fixed transition-colors active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined mb-1">calendar_today</span>
+<span class="font-label-sm text-label-sm">Schedule</span>
+</a>
+<!-- Clients: Active -->
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-full px-4 py-1 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined mb-1" data-weight="fill">groups</span>
+<span class="font-label-sm text-label-sm font-bold">Clients</span>
+</a>
+<!-- Profile: Inactive -->
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed-dim px-4 py-1 hover:text-primary dark:hover:text-primary-fixed transition-colors active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined mb-1">account_circle</span>
+<span class="font-label-sm text-label-sm">Profile</span>
+</a>
+</div>
+</nav>
+<!-- Side Navigation for Desktop (Hidden on mobile) -->
+<aside class="hidden md:flex flex-col w-64 fixed left-0 top-20 h-[calc(100vh-80px)] border-r border-secondary/10 p-6 bg-parchment-base">
+<nav class="space-y-4">
+<a class="flex items-center gap-3 px-4 py-3 rounded-DEFAULT text-secondary hover:bg-surface-container-low transition-colors font-label-sm text-label-sm uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+                Schedule
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-DEFAULT bg-primary-container text-on-primary-container font-label-sm text-label-sm uppercase tracking-wider font-bold" href="#">
+<span class="material-symbols-outlined" data-weight="fill">groups</span>
+                Clients
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-DEFAULT text-secondary hover:bg-surface-container-low transition-colors font-label-sm text-label-sm uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined">account_circle</span>
+                Profile
+            </a>
+</nav>
+<div class="mt-auto pt-6 border-t border-secondary/10">
+<div class="p-4 bg-surface-container-low rounded-DEFAULT ornamental-border">
+<p class="font-label-sm text-label-sm text-secondary uppercase mb-1">Plan Status</p>
+<p class="font-body-md text-body-md text-ink-black mb-2">Basic (9/10 Clients)</p>
+<div class="w-full bg-surface-variant h-1.5 rounded-full overflow-hidden">
+<div class="bg-tsar-red h-full w-[90%]"></div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Adjust main content margin for desktop sidebar -->
+<style>
+        @media (min-width: 768px) {
+            main {
+                margin-left: 16rem; /* 64 * 4px = 256px */
+                max-width: calc(100% - 16rem);
+            }
+        }
+    </style>
+</body></html>

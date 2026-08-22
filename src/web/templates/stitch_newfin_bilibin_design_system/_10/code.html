@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NewFit Admin - Developer Tools</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&amp;family=Manrope:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "ink-black": "#121212",
+                        "on-secondary-fixed": "#0b2013",
+                        "surface-container-high": "#e6ead4",
+                        "on-error-container": "#93000a",
+                        "primary-container": "#beff00",
+                        "surface-bright": "#f8fce5",
+                        "surface": "#f8fce5",
+                        "surface-container-highest": "#e1e5cf",
+                        "on-primary-fixed-variant": "#384e00",
+                        "primary-fixed": "#b8f600",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed": "#141f00",
+                        "folklore-gold": "#C5A059",
+                        "primary-fixed-dim": "#a1d800",
+                        "on-background": "#191d10",
+                        "on-surface": "#191d10",
+                        "secondary-container": "#cde6d1",
+                        "on-tertiary-fixed": "#0e1d2a",
+                        "inverse-primary": "#a1d800",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface-tint": "#4b6700",
+                        "secondary-fixed": "#d0e9d4",
+                        "tertiary-container": "#ddecff",
+                        "background": "#f8fce5",
+                        "tertiary-fixed": "#d5e4f7",
+                        "surface-dim": "#d8dcc7",
+                        "on-surface-variant": "#434933",
+                        "on-tertiary-fixed-variant": "#3a4857",
+                        "on-secondary-fixed-variant": "#364c3c",
+                        "primary": "#4b6700",
+                        "on-primary-container": "#547300",
+                        "on-secondary-container": "#516857",
+                        "inverse-surface": "#2e3223",
+                        "outline": "#737a61",
+                        "surface-container": "#ecf0da",
+                        "inverse-on-surface": "#eff3dd",
+                        "secondary-fixed-dim": "#b4cdb8",
+                        "tsar-red": "#A62C21",
+                        "error-container": "#ffdad6",
+                        "outline-variant": "#c3caad",
+                        "paper-shadow": "#EBE7DE",
+                        "surface-container-low": "#f2f6e0",
+                        "on-tertiary-container": "#5c6b7b",
+                        "tertiary-fixed-dim": "#b9c8da",
+                        "on-secondary": "#ffffff",
+                        "secondary": "#4d6453",
+                        "parchment-base": "#F9F7F2",
+                        "surface-variant": "#e1e5cf",
+                        "on-error": "#ffffff",
+                        "tertiary": "#516070",
+                        "on-tertiary": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "margin-mobile": "16px",
+                        "unit": "4px",
+                        "max-width": "1280px",
+                        "margin-desktop": "64px",
+                        "gutter": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-xl": ["Libre Caslon Text"],
+                        "label-sm": ["Manrope"],
+                        "headline-lg-mobile": ["Libre Caslon Text"],
+                        "body-md": ["Manrope"],
+                        "body-lg": ["Manrope"],
+                        "headline-md": ["Libre Caslon Text"],
+                        "headline-lg": ["Libre Caslon Text"]
+                    },
+                    "fontSize": {
+                        "headline-xl": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "label-sm": ["13px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .woodblock-texture {
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E");
+        }
+        .ornamental-border {
+            border: 1px solid rgba(77, 100, 83, 0.2); /* secondary color */
+            position: relative;
+        }
+        .ornamental-border::before {
+            content: '';
+            position: absolute;
+            top: 4px; left: 4px; right: 4px; bottom: 4px;
+            border: 1px solid rgba(77, 100, 83, 0.1);
+            pointer-events: none;
+        }
+        .bracket-btn {
+            position: relative;
+        }
+        .bracket-btn::before, .bracket-btn::after {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-color: #C5A059; /* folklore-gold */
+            border-style: solid;
+        }
+        .bracket-btn::before {
+            top: -1px; left: -1px;
+            border-width: 2px 0 0 2px;
+        }
+        .bracket-btn::after {
+            bottom: -1px; right: -1px;
+            border-width: 0 2px 2px 0;
+        }
+        .input-ledger {
+            border: none;
+            border-bottom: 1px solid rgba(77, 100, 83, 0.3);
+            background: transparent;
+            border-radius: 0;
+            padding-left: 0;
+            padding-right: 0;
+        }
+        .input-ledger:focus {
+            box-shadow: none;
+            border-bottom-color: #4b6700;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-parchment-base text-on-surface font-body-md min-h-screen flex flex-col md:flex-row">
+<!-- NavigationDrawer (Desktop) -->
+<nav class="hidden md:flex h-screen w-64 fixed left-0 top-0 bg-surface-container-low border-r border-secondary/10 flex flex-col py-8 gap-4 z-40">
+<div class="px-4 mb-4">
+<h2 class="font-headline-lg text-headline-lg text-secondary">Ecosystem Control</h2>
+</div>
+<div class="flex flex-col gap-unit px-4">
+<a class="flex items-center gap-unit p-4 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-all rounded-full" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">verified_user</span>
+<span class="font-body-md text-body-md">Moderation</span>
+</a>
+<a class="flex items-center gap-unit p-4 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-all rounded-full" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">card_membership</span>
+<span class="font-body-md text-body-md">Subscriptions</span>
+</a>
+<a class="flex items-center gap-unit p-4 cursor-pointer bg-secondary-container text-on-secondary-container rounded-full" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">build</span>
+<span class="font-body-md text-body-md">Tools</span>
+</a>
+<a class="flex items-center gap-unit p-4 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-all rounded-full" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">group</span>
+<span class="font-body-md text-body-md">User Management</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-1 md:ml-64 flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<header class="w-full top-0 bg-parchment-base border-b border-secondary/20 z-30 sticky">
+<div class="flex justify-between items-center px-margin-mobile md:px-margin-desktop py-4 w-full max-w-max-width mx-auto">
+<div class="flex items-center gap-4">
+<!-- Mobile Menu Button (mock) -->
+<button class="md:hidden text-secondary">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="font-headline-md text-headline-md font-semibold text-secondary">NewFit Admin</h1>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden md:flex items-center gap-2 cursor-pointer active:opacity-80">
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center overflow-hidden">
+<span class="material-symbols-outlined text-secondary text-sm">person</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary">Admin Profile</span>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<div class="flex-1 p-margin-mobile md:p-margin-desktop max-w-max-width mx-auto w-full relative z-10">
+<!-- Page Header -->
+<div class="mb-12 text-center md:text-left">
+<h1 class="font-headline-xl text-headline-xl md:text-headline-xl text-ink-black mb-2">Developer Tools</h1>
+<p class="font-body-lg text-body-lg text-secondary max-w-2xl">Advanced ecosystem controls and testing parameters for the NewFit platform.</p>
+<!-- Decorative Divider -->
+<div class="w-full h-px bg-gradient-to-r from-transparent via-secondary/30 to-transparent mt-8 relative">
+<div class="absolute left-1/2 -translate-x-1/2 -top-1.5 w-3 h-3 rotate-45 border border-secondary/40 bg-parchment-base"></div>
+</div>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+<!-- System Actions Card (Spans 8 cols) -->
+<div class="md:col-span-8 bg-surface rounded-lg p-8 ornamental-border shadow-sm">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">terminal</span>
+<h2 class="font-headline-md text-headline-md text-ink-black">System Actions</h2>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+<!-- Action 1: Generate Test Clients -->
+<div class="border border-secondary/10 p-6 bg-parchment-base flex flex-col items-start gap-4 hover:border-secondary/30 transition-colors">
+<div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary">group_add</span>
+</div>
+<div>
+<h3 class="font-label-sm text-label-sm text-ink-black mb-1 uppercase tracking-widest">Load Testing</h3>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mb-4">Populate database with synthetic client profiles for capacity limits.</p>
+</div>
+<button class="mt-auto px-6 py-3 bg-[#beff00] text-ink-black font-label-sm text-label-sm uppercase tracking-wider hover:bg-[#a1d800] transition-colors w-full sm:w-auto">
+                                Generate 9 Test Clients
+                            </button>
+</div>
+<!-- Action 2: Clear Cache -->
+<div class="border border-secondary/10 p-6 bg-parchment-base flex flex-col items-start gap-4 hover:border-secondary/30 transition-colors">
+<div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary">cleaning_services</span>
+</div>
+<div>
+<h3 class="font-label-sm text-label-sm text-ink-black mb-1 uppercase tracking-widest">Memory Management</h3>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mb-4">Flush Redis cache and rebuild static assets across all edge nodes.</p>
+</div>
+<button class="mt-auto px-6 py-3 border border-folklore-gold text-ink-black font-label-sm text-label-sm uppercase tracking-wider hover:bg-surface-container-low transition-colors bracket-btn w-full sm:w-auto">
+                                Clear Cache
+                            </button>
+</div>
+</div>
+</div>
+<!-- Danger Zone Card (Spans 4 cols) -->
+<div class="md:col-span-4 bg-[#f8fce5] border border-tsar-red/20 rounded-lg overflow-hidden flex flex-col">
+<div class="bg-tsar-red/5 p-6 border-b border-tsar-red/10 flex items-center gap-2 text-tsar-red">
+<span class="material-symbols-outlined">warning</span>
+<h2 class="font-label-sm text-label-sm uppercase tracking-widest font-bold">Danger Zone</h2>
+</div>
+<div class="p-6 flex-1 flex flex-col">
+<h3 class="font-headline-md text-headline-md text-ink-black mb-2">User Deletion</h3>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mb-6">Permanently remove a user record and all associated relational data via Telegram ID.</p>
+<div class="mt-auto space-y-6">
+<div class="flex flex-col gap-1">
+<label class="font-label-sm text-label-sm text-secondary" for="tg-id">Telegram ID</label>
+<input class="input-ledger font-body-md text-body-md text-ink-black w-full focus:ring-0" id="tg-id" placeholder="e.g. 123456789" type="text"/>
+</div>
+<button class="w-full py-3 bg-white border border-tsar-red/30 text-tsar-red font-label-sm text-label-sm uppercase tracking-wider hover:bg-tsar-red hover:text-white transition-colors flex justify-center items-center gap-2">
+<span class="material-symbols-outlined text-sm">delete_forever</span>
+                                Execute Deletion
+                            </button>
+</div>
+</div>
+</div>
+<!-- System Status Metric (Spans full 12 cols, decorative) -->
+<div class="md:col-span-12 mt-4 bg-secondary text-white p-8 rounded-lg woodblock-texture flex flex-col md:flex-row items-center justify-between gap-6 shadow-md border border-secondary/50">
+<div class="flex items-center gap-4">
+<div class="w-16 h-16 rounded-full border-2 border-white/20 flex items-center justify-center relative">
+<div class="absolute inset-2 border border-white/10 rounded-full animate-ping opacity-20"></div>
+<span class="material-symbols-outlined text-3xl">dns</span>
+</div>
+<div>
+<h3 class="font-label-sm text-label-sm opacity-80 uppercase tracking-widest">Ecosystem Status</h3>
+<p class="font-headline-md text-headline-md">Optimal Performance</p>
+</div>
+</div>
+<div class="flex gap-8">
+<div class="text-center">
+<p class="font-headline-lg text-headline-lg font-bold">12ms</p>
+<p class="font-label-sm text-label-sm opacity-70 uppercase tracking-widest">Latency</p>
+</div>
+<div class="w-px bg-white/20 h-12 self-center hidden sm:block"></div>
+<div class="text-center">
+<p class="font-headline-lg text-headline-lg font-bold">99.9%</p>
+<p class="font-label-sm text-label-sm opacity-70 uppercase tracking-widest">Uptime</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer -->
+<footer class="w-full py-8 bg-parchment-base border-t border-secondary/10 flex flex-col items-center justify-center gap-2 mt-auto">
+<p class="font-label-sm text-label-sm font-bold text-secondary">© 2024 NewFit Slavic Modernity Ecosystem</p>
+<div class="flex gap-4 mt-2">
+<a class="font-label-sm text-label-sm text-on-surface-variant opacity-70 hover:text-primary transition-opacity hover:opacity-100" href="#">Security Policy</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant opacity-70 hover:text-primary transition-opacity hover:opacity-100" href="#">API Docs</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant opacity-70 hover:text-primary transition-opacity hover:opacity-100" href="#">Support</a>
+</div>
+</footer>
+</main>
+</body></html>
