@@ -114,7 +114,7 @@ The UI should feel like a premium, illustrated book—airy and intellectual—ye
 
 ## Colors
 
-The palette is anchored by a "Parchment" neutral base, moving away from sterile whites to a warmer, more organic canvas.
+The palette is anchored by a "Parchment" neutral base, moving away from sterile whites to a warmer, more organic canvas. 
 
 - **Primary (Lime Green):** Taken directly from the logo, used sparingly for high-priority actions (CTA buttons, active selection) to provide a modern, high-visibility contrast against the traditional background.
 - **Secondary (Forest Green):** A deep, earthy tone used for structural elements and grounding the UI.
@@ -142,7 +142,7 @@ The layout follows a **Fixed Grid** model on desktop to mimic the structured pag
 This system avoids heavy shadows and physical extrusion. Depth is conveyed through **Tonal Layering** and **Fine Outlines**:
 
 - **Tiers:** The background is `parchment-base`. Surfaces (cards, drawers) use a slightly lighter off-white or the `paper-shadow` color to create a stacked effect.
-- **Borders:** Instead of shadows, use 1px solid borders in `secondary_color` (Forest Green) at 10-20% opacity.
+- **Borders:** Instead of shadows, use 1px solid borders in `secondary_color` (Forest Green) at 10-20% opacity. 
 - **Ornamental Elevation:** Key containers (like the specialist profile card) feature a "double-line" border—a thin outer line and an even thinner inner line—mimicking the framing techniques used in Bilibin's plates.
 
 ## Shapes
@@ -154,7 +154,7 @@ Interactive elements like buttons and input fields use the `Soft` setting, while
 ## Components
 
 ### Buttons
-- **Primary:** Solid `primary_color_hex` (Lime) with `ink-black` text. No shadow.
+- **Primary:** Solid `primary_color_hex` (Lime) with `ink-black` text. No shadow. 
 - **Secondary:** Transparent background with a `folklore-gold` 1.5px border and decorative "corner brackets" (2px L-shapes at the corners).
 
 ### Chips & Badges

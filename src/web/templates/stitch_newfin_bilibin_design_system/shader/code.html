@@ -58,22 +58,22 @@ float noise(vec2 st) {
 
 void main() {
     vec2 uv = v_texCoord;
-
+    
     // Create a soft, flowing movement
     float move = u_time * 0.05;
-
+    
     // Background colors from "Slavic Modernity" palette
     // surface: #f8fce5 (248, 252, 229) -> vec3(0.97, 0.99, 0.90)
     // surface-dim: #d8dcc7 (216, 220, 199) -> vec3(0.85, 0.86, 0.78)
     vec3 color1 = vec3(0.97, 0.99, 0.90);
     vec3 color2 = vec3(0.85, 0.86, 0.78);
-
+    
     // Procedural "linen" texture or soft fog
     float flow = sin(uv.x * 2.0 + move) * 0.5 + 0.5;
     flow += cos(uv.y * 3.0 - move * 0.8) * 0.3;
-
+    
     vec3 finalColor = mix(color1, color2, flow * 0.4);
-
+    
     // Add a very subtle grain/paper texture
     float grain = noise(uv * u_resolution.xy) * 0.03;
     finalColor += grain;

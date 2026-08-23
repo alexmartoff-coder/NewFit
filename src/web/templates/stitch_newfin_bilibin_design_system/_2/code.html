@@ -120,12 +120,12 @@
         }
         .bilibin-bracket::before { top: 0; left: 0; border-right: none; border-bottom: none; }
         .bilibin-bracket::after { bottom: 0; right: 0; border-left: none; border-top: none; }
-
+        
         /* Slot styles */
         .slot-available { background-color: theme('colors.surface-container'); border: 1px solid theme('colors.outline-variant'); color: theme('colors.on-surface'); }
         .slot-selected { background-color: theme('colors.primary-container'); border: 1px solid theme('colors.primary'); color: theme('colors.on-primary-container'); font-weight: 600;}
         .slot-booked { background-color: theme('colors.surface-variant'); color: theme('colors.on-surface-variant'); opacity: 0.5; text-decoration: line-through; pointer-events: none;}
-
+        
         .hide-scroll::-webkit-scrollbar {
             display: none;
         }
@@ -293,7 +293,7 @@
             if (btn.classList.contains('slot-available')) {
                 btn.classList.remove('slot-available');
                 btn.classList.add('slot-selected');
-
+                
                 // Add checkmark icon
                 const icon = document.createElement('span');
                 icon.className = 'material-symbols-outlined absolute top-1 right-1 text-[14px] text-primary';
@@ -305,7 +305,7 @@
             } else {
                 btn.classList.remove('slot-selected');
                 btn.classList.add('slot-available');
-
+                
                 // Remove checkmark
                 const icon = btn.querySelector('.material-symbols-outlined');
                 if(icon) icon.remove();

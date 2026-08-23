@@ -125,7 +125,7 @@
             background-color: theme('colors.parchment-base');
             color: theme('colors.on-background');
         }
-
+        
         #shader-canvas {
             position: fixed;
             top: 0;
@@ -142,7 +142,7 @@
             opacity: 0;
             transform: translateY(20px);
         }
-
+        
         .role-card.animate-in {
             opacity: 1;
             transform: translateY(0);
@@ -152,22 +152,22 @@
             transform: translateY(-4px) scale(1.02);
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
         }
-
+        
         .role-card.selected {
             border-color: theme('colors.primary');
             background-color: theme('colors.surface-container-low');
             box-shadow: inset 0 0 0 2px theme('colors.primary'), 0 10px 25px -5px rgba(75, 103, 0, 0.2);
         }
-
+        
         .role-card.selected .icon-wrapper {
             background-color: theme('colors.primary-container');
             color: theme('colors.on-primary-container');
         }
-
+        
         .role-card:not(.selected):hover {
             animation: pulseGlow 2s infinite;
         }
-
+        
         /* Ornamental Border Elements */
         .ornament-corner {
             position: absolute;
@@ -176,12 +176,12 @@
             border: 1px solid theme('colors.secondary');
             opacity: 0.3;
         }
-
+        
         .ornament-tl { top: -8px; left: -8px; border-right: none; border-bottom: none; }
         .ornament-tr { top: -8px; right: -8px; border-left: none; border-bottom: none; }
         .ornament-bl { bottom: -8px; left: -8px; border-right: none; border-top: none; }
         .ornament-br { bottom: -8px; right: -8px; border-left: none; border-top: none; }
-
+        
         /* Double line border */
         .double-border {
             position: relative;
@@ -194,7 +194,7 @@
             border: 1px solid rgba(77, 100, 83, 0.1); /* secondary/10 */
             pointer-events: none;
         }
-
+        
         .stagger-1 { animation-delay: 0.2s; }
         .stagger-2 { animation-delay: 0.4s; }
         .stagger-3 { transition-delay: 0.6s; }
@@ -303,22 +303,22 @@
 
                 void main() {
                     vec2 uv = v_texCoord;
-
+                    
                     // Create a soft, flowing movement
                     float move = u_time * 0.05;
-
+                    
                     // Background colors from "Slavic Modernity" palette
                     // surface: #f8fce5 (248, 252, 229) -> vec3(0.97, 0.99, 0.90)
                     // surface-dim: #d8dcc7 (216, 220, 199) -> vec3(0.85, 0.86, 0.78)
                     vec3 color1 = vec3(0.97, 0.99, 0.90);
                     vec3 color2 = vec3(0.85, 0.86, 0.78);
-
+                    
                     // Procedural "linen" texture or soft fog
                     float flow = sin(uv.x * 2.0 + move) * 0.5 + 0.5;
                     flow += cos(uv.y * 3.0 - move * 0.8) * 0.3;
-
+                    
                     vec3 finalColor = mix(color1, color2, flow * 0.4);
-
+                    
                     // Add a very subtle grain/paper texture
                     float grain = noise(uv * u_resolution.xy) * 0.03;
                     finalColor += grain;
@@ -395,7 +395,7 @@
         setTimeout(() => {
             document.getElementById('card-client').classList.add('animate-in');
         }, 600);
-
+        
         setTimeout(() => {
             document.getElementById('card-pro').classList.add('animate-in');
         }, 800);
@@ -404,21 +404,21 @@
 
         function selectRole(role) {
             selectedRole = role;
-
+            
             // Update cards
             const cards = document.querySelectorAll('.role-card');
             cards.forEach(card => card.classList.remove('selected'));
-
+            
             // Add selected class to clicked card
             const selectedCard = event.currentTarget;
             selectedCard.classList.add('selected');
-
+            
             // Update button
             const btn = document.getElementById('continueBtn');
             btn.disabled = false;
             btn.classList.remove('bg-surface-variant', 'text-on-surface-variant', 'opacity-50', 'cursor-not-allowed');
             btn.classList.add('bg-primary', 'text-ink-black', 'hover:bg-primary/90', 'shadow-md');
-
+            
             // Simple animation for the button
             btn.style.transform = 'scale(0.98)';
             setTimeout(() => btn.style.transform = 'scale(1)', 150);

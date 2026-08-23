@@ -107,23 +107,23 @@
             background-color: theme('colors.parchment-base');
             color: theme('colors.on-background');
         }
-
+        
         .role-card {
             transition: all 0.3s ease;
             cursor: pointer;
         }
-
+        
         .role-card.selected {
             border-color: theme('colors.primary');
             background-color: theme('colors.surface-container-low');
             box-shadow: inset 0 0 0 2px theme('colors.primary');
         }
-
+        
         .role-card.selected .icon-wrapper {
             background-color: theme('colors.primary-container');
             color: theme('colors.on-primary-container');
         }
-
+        
         /* Ornamental Border Elements */
         .ornament-corner {
             position: absolute;
@@ -132,12 +132,12 @@
             border: 1px solid theme('colors.secondary');
             opacity: 0.3;
         }
-
+        
         .ornament-tl { top: -8px; left: -8px; border-right: none; border-bottom: none; }
         .ornament-tr { top: -8px; right: -8px; border-left: none; border-bottom: none; }
         .ornament-bl { bottom: -8px; left: -8px; border-right: none; border-top: none; }
         .ornament-br { bottom: -8px; right: -8px; border-left: none; border-top: none; }
-
+        
         /* Double line border */
         .double-border {
             position: relative;
@@ -230,21 +230,21 @@
 
         function selectRole(role) {
             selectedRole = role;
-
+            
             // Update cards
             const cards = document.querySelectorAll('.role-card');
             cards.forEach(card => card.classList.remove('selected'));
-
+            
             // Add selected class to clicked card
             const selectedCard = event.currentTarget;
             selectedCard.classList.add('selected');
-
+            
             // Update button
             const btn = document.getElementById('continueBtn');
             btn.disabled = false;
             btn.classList.remove('bg-surface-variant', 'text-on-surface-variant', 'opacity-50', 'cursor-not-allowed');
             btn.classList.add('bg-primary', 'text-ink-black', 'hover:bg-primary/90', 'shadow-md');
-
+            
             // Simple animation for the button
             btn.style.transform = 'scale(0.98)';
             setTimeout(() => btn.style.transform = 'scale(1)', 150);

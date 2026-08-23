@@ -108,7 +108,7 @@
             color: #547300;
             border-color: #beff00;
         }
-
+        
         /* Input underline styling */
         .input-underline {
             border: none;
@@ -128,7 +128,7 @@
             background-color: #4b6700;
             border-color: #4b6700;
         }
-
+        
         .ornamental-border {
             position: relative;
         }
@@ -292,7 +292,7 @@
         document.getElementById('weekend-off').addEventListener('change', function() {
             const timeContainer = document.getElementById('weekend-times');
             const inputs = timeContainer.querySelectorAll('input');
-
+            
             if (this.checked) {
                 timeContainer.classList.add('opacity-50', 'pointer-events-none');
                 inputs.forEach(input => input.disabled = true);
