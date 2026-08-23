@@ -214,7 +214,7 @@
       min-height: max(884px, 100dvh);
     }
   </style>
-  </head>
+</head>
 <body class="bg-parchment-base text-on-surface font-body-md antialiased pb-24 md:pb-0">
 <!-- TopAppBar -->
 <header class="w-full top-0 sticky bg-surface dark:bg-inverse-surface border-b border-secondary/20 dark:border-outline-variant/20 z-40 transition-colors duration-200 ease-in-out md:hidden">
@@ -235,10 +235,10 @@
 <h1 class="font-headline-lg text-headline-lg text-primary">Мои записи</h1>
 </div>
 <nav class="flex gap-8 items-center">
-<a class="font-body-lg text-body-lg text-on-surface-variant hover:text-primary transition-colors" href="#">Главная</a>
-<a class="font-body-lg text-body-lg text-on-surface-variant hover:text-primary transition-colors" href="#">Избранное</a>
-<a class="font-body-lg text-body-lg text-primary font-semibold border-b-2 border-primary pb-1" href="#">Записи</a>
-<a class="font-body-lg text-body-lg text-on-surface-variant hover:text-primary transition-colors flex items-center gap-2" href="#">
+<a class="font-body-lg text-body-lg text-on-surface-variant hover:text-primary transition-colors" href="/catalog">Главная</a>
+<a class="font-body-lg text-body-lg text-on-surface-variant hover:text-primary transition-colors" href="/client/favorites">Избранное</a>
+<a class="font-body-lg text-body-lg text-primary font-semibold border-b-2 border-primary pb-1" href="/client/bookings">Записи</a>
+<a class="font-body-lg text-body-lg text-on-surface-variant hover:text-primary transition-colors flex items-center gap-2" href="/client/profile">
 <span class="material-symbols-outlined" data-icon="person">person</span> Профиль
             </a>
 </nav>
@@ -352,19 +352,19 @@
 </main>
 <!-- BottomNavBar -->
 <nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 bg-parchment-base dark:bg-inverse-surface border-t border-secondary/10 dark:border-outline-variant/10 rounded-t-full md:hidden">
-<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="#">
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="/catalog">
 <span class="material-symbols-outlined font-headline-md text-headline-md text-folklore-gold" data-icon="home">home</span>
 <span class="font-label-sm text-label-sm">Главная</span>
 </a>
-<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="#">
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="/client/favorites">
 <span class="material-symbols-outlined font-headline-md text-headline-md text-folklore-gold" data-icon="bookmark">bookmark</span>
 <span class="font-label-sm text-label-sm">Избранное</span>
 </a>
-<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-full px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="#">
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-full px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="/client/bookings">
 <span class="material-symbols-outlined font-headline-md text-headline-md text-folklore-gold" data-icon="event_available">event_available</span>
 <span class="font-label-sm text-label-sm">Записи</span>
 </a>
-<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="#">
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="/client/profile">
 <span class="material-symbols-outlined font-headline-md text-headline-md text-folklore-gold" data-icon="person">person</span>
 <span class="font-label-sm text-label-sm">Профиль</span>
 </a>

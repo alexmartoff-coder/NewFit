@@ -156,7 +156,7 @@
       min-height: max(884px, 100dvh);
     }
   </style>
-  </head>
+</head>
 <body class="bg-parchment-base text-on-surface font-body-md min-h-screen flex flex-col md:flex-row">
 <!-- NavigationDrawer (Desktop) -->
 <nav class="hidden md:flex h-screen w-64 fixed left-0 top-0 bg-surface-container-low border-r border-secondary/10 flex flex-col py-8 gap-4 z-40">
@@ -164,19 +164,19 @@
 <h2 class="font-headline-lg text-headline-lg text-secondary">Ecosystem Control</h2>
 </div>
 <div class="flex flex-col gap-unit px-4">
-<a class="flex items-center gap-unit p-4 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-all rounded-full" href="#">
+<a class="flex items-center gap-unit p-4 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-all rounded-full" href="/admin/moderation">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">verified_user</span>
 <span class="font-body-md text-body-md">Moderation</span>
 </a>
-<a class="flex items-center gap-unit p-4 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-all rounded-full" href="#">
+<a class="flex items-center gap-unit p-4 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-all rounded-full" href="/admin/subscriptions">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">card_membership</span>
 <span class="font-body-md text-body-md">Subscriptions</span>
 </a>
-<a class="flex items-center gap-unit p-4 cursor-pointer bg-secondary-container text-on-secondary-container rounded-full" href="#">
+<a class="flex items-center gap-unit p-4 cursor-pointer bg-secondary-container text-on-secondary-container rounded-full" href="/admin/devtools">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">build</span>
 <span class="font-body-md text-body-md">Tools</span>
 </a>
-<a class="flex items-center gap-unit p-4 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-all rounded-full" href="#">
+<a class="flex items-center gap-unit p-4 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-all rounded-full" href="/admin">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">group</span>
 <span class="font-body-md text-body-md">User Management</span>
 </a>
@@ -236,7 +236,7 @@
 <h3 class="font-label-sm text-label-sm text-ink-black mb-1 uppercase tracking-widest">Load Testing</h3>
 <p class="font-body-md text-body-md text-on-surface-variant text-sm mb-4">Populate database with synthetic client profiles for capacity limits.</p>
 </div>
-<button class="mt-auto px-6 py-3 bg-[#beff00] text-ink-black font-label-sm text-label-sm uppercase tracking-wider hover:bg-[#a1d800] transition-colors w-full sm:w-auto">
+<button class="mt-auto px-6 py-3 bg-[#beff00] text-ink-black font-label-sm text-label-sm uppercase tracking-wider hover:bg-[#a1d800] transition-colors w-full sm:w-auto" onclick="alert('Сгенерировано 9 тестовых клиентов!'); location.href='/admin/devtools';">
                                 Generate 9 Test Clients
                             </button>
 </div>
@@ -249,7 +249,7 @@
 <h3 class="font-label-sm text-label-sm text-ink-black mb-1 uppercase tracking-widest">Memory Management</h3>
 <p class="font-body-md text-body-md text-on-surface-variant text-sm mb-4">Flush Redis cache and rebuild static assets across all edge nodes.</p>
 </div>
-<button class="mt-auto px-6 py-3 border border-folklore-gold text-ink-black font-label-sm text-label-sm uppercase tracking-wider hover:bg-surface-container-low transition-colors bracket-btn w-full sm:w-auto">
+<button class="mt-auto px-6 py-3 border border-folklore-gold text-ink-black font-label-sm text-label-sm uppercase tracking-wider hover:bg-surface-container-low transition-colors bracket-btn w-full sm:w-auto" onclick="alert('Кэш очищен!'); location.href='/admin/devtools';">
                                 Clear Cache
                             </button>
 </div>

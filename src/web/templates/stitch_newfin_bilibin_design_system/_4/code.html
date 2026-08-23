@@ -133,7 +133,7 @@
       min-height: max(884px, 100dvh);
     }
   </style>
-  </head>
+</head>
 <body class="bg-parchment-base min-h-screen text-on-background font-body-md pb-24 md:pb-0">
 <!-- TopAppBar -->
 <header class="w-full top-0 bg-parchment-base dark:bg-surface-dim border-b border-secondary/20 dark:border-secondary-fixed-dim/20 flat no shadows z-40 sticky">
@@ -144,7 +144,7 @@
 </div>
 <h1 class="font-headline-md text-headline-md text-primary dark:text-primary-fixed">NewFit Specialist</h1>
 </div>
-<button class="font-label-sm text-label-sm text-on-surface-variant hover:bg-paper-shadow/50 transition-colors px-3 py-1.5 rounded cursor-pointer active:opacity-80 transition-opacity border border-secondary/20 bg-transparent flex items-center gap-2">
+<button class="font-label-sm text-label-sm text-on-surface-variant hover:bg-paper-shadow/50 transition-colors px-3 py-1.5 rounded cursor-pointer active:opacity-80 transition-opacity border border-secondary/20 bg-transparent flex items-center gap-2" onclick="location.href='/catalog';">
 <span>Switch to Client</span>
 <span class="material-symbols-outlined text-[18px]">sync_alt</span>
 </button>
@@ -246,7 +246,7 @@
 <span class="material-symbols-outlined text-folklore-gold text-[32px] mb-3" data-weight="fill">verified</span>
 <h4 class="font-headline-md text-headline-md text-ink-black mb-2">Pro Tier Limit Approaching</h4>
 <p class="font-body-md text-body-md text-on-surface-variant mb-4">You have 9 out of 10 clients in your current plan.</p>
-<button class="bg-primary text-ink-black font-label-sm text-label-sm uppercase px-6 py-2 rounded-DEFAULT hover:opacity-90 transition-opacity">Upgrade Plan</button>
+<button class="bg-primary text-ink-black font-label-sm text-label-sm uppercase px-6 py-2 rounded-DEFAULT hover:opacity-90 transition-opacity" onclick="location.href='/pro/unlock';">Upgrade Plan</button>
 </div>
 </div>
 </main>
@@ -254,17 +254,17 @@
 <nav class="fixed bottom-0 w-full z-50 border-t border-secondary/10 dark:border-outline-variant/10 flat no shadows md:hidden">
 <div class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center pb-safe pt-2 px-2 bg-parchment-base dark:bg-surface-container">
 <!-- Schedule: Inactive -->
-<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed-dim px-4 py-1 hover:text-primary dark:hover:text-primary-fixed transition-colors active:scale-95 transition-transform duration-150" href="#">
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed-dim px-4 py-1 hover:text-primary dark:hover:text-primary-fixed transition-colors active:scale-95 transition-transform duration-150" href="/pro/schedule">
 <span class="material-symbols-outlined mb-1">calendar_today</span>
 <span class="font-label-sm text-label-sm">Schedule</span>
 </a>
 <!-- Clients: Active -->
-<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-full px-4 py-1 active:scale-95 transition-transform duration-150" href="#">
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-full px-4 py-1 active:scale-95 transition-transform duration-150" href="/pro/clients">
 <span class="material-symbols-outlined mb-1" data-weight="fill">groups</span>
 <span class="font-label-sm text-label-sm font-bold">Clients</span>
 </a>
 <!-- Profile: Inactive -->
-<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed-dim px-4 py-1 hover:text-primary dark:hover:text-primary-fixed transition-colors active:scale-95 transition-transform duration-150" href="#">
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed-dim px-4 py-1 hover:text-primary dark:hover:text-primary-fixed transition-colors active:scale-95 transition-transform duration-150" href="/pro/profile/edit">
 <span class="material-symbols-outlined mb-1">account_circle</span>
 <span class="font-label-sm text-label-sm">Profile</span>
 </a>
@@ -273,15 +273,15 @@
 <!-- Side Navigation for Desktop (Hidden on mobile) -->
 <aside class="hidden md:flex flex-col w-64 fixed left-0 top-20 h-[calc(100vh-80px)] border-r border-secondary/10 p-6 bg-parchment-base">
 <nav class="space-y-4">
-<a class="flex items-center gap-3 px-4 py-3 rounded-DEFAULT text-secondary hover:bg-surface-container-low transition-colors font-label-sm text-label-sm uppercase tracking-wider" href="#">
+<a class="flex items-center gap-3 px-4 py-3 rounded-DEFAULT text-secondary hover:bg-surface-container-low transition-colors font-label-sm text-label-sm uppercase tracking-wider" href="/pro/schedule">
 <span class="material-symbols-outlined">calendar_today</span>
                 Schedule
             </a>
-<a class="flex items-center gap-3 px-4 py-3 rounded-DEFAULT bg-primary-container text-on-primary-container font-label-sm text-label-sm uppercase tracking-wider font-bold" href="#">
+<a class="flex items-center gap-3 px-4 py-3 rounded-DEFAULT bg-primary-container text-on-primary-container font-label-sm text-label-sm uppercase tracking-wider font-bold" href="/pro/clients">
 <span class="material-symbols-outlined" data-weight="fill">groups</span>
                 Clients
             </a>
-<a class="flex items-center gap-3 px-4 py-3 rounded-DEFAULT text-secondary hover:bg-surface-container-low transition-colors font-label-sm text-label-sm uppercase tracking-wider" href="#">
+<a class="flex items-center gap-3 px-4 py-3 rounded-DEFAULT text-secondary hover:bg-surface-container-low transition-colors font-label-sm text-label-sm uppercase tracking-wider" href="/pro/profile/edit">
 <span class="material-symbols-outlined">account_circle</span>
                 Profile
             </a>

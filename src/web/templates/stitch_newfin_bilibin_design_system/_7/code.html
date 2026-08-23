@@ -123,7 +123,7 @@
       min-height: max(884px, 100dvh);
     }
   </style>
-  </head>
+</head>
 <body class="bg-parchment-base text-on-background antialiased flex">
 <!-- NavigationDrawer (Desktop) -->
 <nav class="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 border-r border-secondary/10 bg-surface-container-low py-8 gap-4 z-50">
@@ -132,25 +132,25 @@
 </div>
 <ul class="flex flex-col gap-2 px-4">
 <li>
-<a class="flex items-center gap-unit p-4 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="#">
+<a class="flex items-center gap-unit p-4 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="/admin/moderation">
 <span class="material-symbols-outlined" data-icon="verified_user">verified_user</span>
 <span class="font-label-sm text-label-sm">Moderation</span>
 </a>
 </li>
 <li>
-<a class="flex items-center gap-unit p-4 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="#">
+<a class="flex items-center gap-unit p-4 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="/admin/subscriptions">
 <span class="material-symbols-outlined" data-icon="card_membership">card_membership</span>
 <span class="font-label-sm text-label-sm">Subscriptions</span>
 </a>
 </li>
 <li>
-<a class="flex items-center gap-unit p-4 cursor-pointer bg-secondary-container text-on-secondary-container rounded-full" href="#">
+<a class="flex items-center gap-unit p-4 cursor-pointer bg-secondary-container text-on-secondary-container rounded-full" href="/admin/devtools">
 <span class="material-symbols-outlined" data-icon="build">build</span>
 <span class="font-label-sm text-label-sm">Tools</span>
 </a>
 </li>
 <li>
-<a class="flex items-center gap-unit p-4 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="#">
+<a class="flex items-center gap-unit p-4 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="/admin">
 <span class="material-symbols-outlined" data-icon="group">group</span>
 <span class="font-label-sm text-label-sm">User Management</span>
 </a>
@@ -194,7 +194,7 @@
 </div>
 <p class="font-body-md text-body-md text-on-surface-variant mb-6">Profiles awaiting review before going live.</p>
 </div>
-<button class="bg-primary text-ink-black font-label-sm text-label-sm py-3 px-6 rounded w-fit hover:opacity-90 transition-opacity">
+<button class="bg-primary text-ink-black font-label-sm text-label-sm py-3 px-6 rounded w-fit hover:opacity-90 transition-opacity" onclick="location.href='/admin/moderation';">
                     Review All
                 </button>
 </div>
@@ -216,7 +216,7 @@
 </div>
 </div>
 </div>
-<button class="bg-transparent border-[1.5px] border-folklore-gold text-ink-black font-label-sm text-label-sm py-3 px-6 rounded w-fit hover:bg-surface-container-high transition-colors relative">
+<button class="bg-transparent border-[1.5px] border-folklore-gold text-ink-black font-label-sm text-label-sm py-3 px-6 rounded w-fit hover:bg-surface-container-high transition-colors relative" onclick="location.href='/admin/subscriptions';">
 <div class="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-folklore-gold rounded-tl-sm"></div>
 <div class="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-folklore-gold rounded-tr-sm"></div>
 <div class="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-folklore-gold rounded-bl-sm"></div>
@@ -262,16 +262,16 @@
 </footer>
 <!-- Bottom Navigation (Mobile) -->
 <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-surface-container-low border-t border-secondary/10 z-50 px-4 py-2 flex justify-between items-center">
-<a class="flex flex-col items-center p-2 text-on-surface-variant opacity-70" href="#">
+<a class="flex flex-col items-center p-2 text-on-surface-variant opacity-70" href="/admin/moderation">
 <span class="material-symbols-outlined" data-icon="verified_user">verified_user</span>
 </a>
-<a class="flex flex-col items-center p-2 text-on-surface-variant opacity-70" href="#">
+<a class="flex flex-col items-center p-2 text-on-surface-variant opacity-70" href="/admin/subscriptions">
 <span class="material-symbols-outlined" data-icon="card_membership">card_membership</span>
 </a>
-<a class="flex flex-col items-center p-2 bg-secondary-container text-on-secondary-container rounded-full px-4" href="#">
+<a class="flex flex-col items-center p-2 bg-secondary-container text-on-secondary-container rounded-full px-4" href="/admin/devtools">
 <span class="material-symbols-outlined" data-icon="build">build</span>
 </a>
-<a class="flex flex-col items-center p-2 text-on-surface-variant opacity-70" href="#">
+<a class="flex flex-col items-center p-2 text-on-surface-variant opacity-70" href="/admin">
 <span class="material-symbols-outlined" data-icon="group">group</span>
 </a>
 </nav>

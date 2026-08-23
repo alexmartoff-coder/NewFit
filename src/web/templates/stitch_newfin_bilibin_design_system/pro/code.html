@@ -257,13 +257,13 @@
       min-height: max(884px, 100dvh);
     }
   </style>
-  </head>
+</head>
 <body class="bg-parchment-base text-on-surface min-h-screen flex flex-col antialiased">
 <!-- Header (Suppressed top navigation as per layout rules for transactional/linear intent) -->
 <main class="flex-grow flex items-center justify-center p-margin-mobile md:p-margin-desktop py-12 md:py-24">
 <div class="w-full max-w-2xl">
 <!-- Back Action -->
-<a class="inline-flex items-center text-secondary hover:text-primary transition-colors mb-8 group" href="#">
+<a class="inline-flex items-center text-secondary hover:text-primary transition-colors mb-8 group" href="/pro/clients">
 <span class="material-symbols-outlined mr-2 transition-transform group-hover:-translate-x-1">arrow_back</span>
 <span class="font-label-sm text-label-sm uppercase">Back to Dashboard</span>
 </a>
@@ -328,7 +328,7 @@
                                 Я согласен с <a class="text-secondary border-b border-secondary/50 hover:text-primary hover:border-primary transition-colors pb-0.5" href="https://cbca.ru/rules/newfit" target="_blank">Политикой конфиденциальности</a>
 </label>
 </div>
-<button class="w-full bg-primary-container text-ink-black font-label-sm text-label-sm uppercase py-4 px-8 tracking-widest transition-all duration-300 btn-disabled" id="pay-button">
+<button class="w-full bg-primary-container text-ink-black font-label-sm text-label-sm uppercase py-4 px-8 tracking-widest transition-all duration-300 btn-disabled" id="pay-button" onclick="alert('Подписка NewFit Pro активирована!'); location.href='/pro/schedule';">
                             Pay 4990 ₽
                         </button>
 </div>

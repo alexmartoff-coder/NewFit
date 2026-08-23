@@ -222,7 +222,7 @@
       min-height: max(884px, 100dvh);
     }
   </style>
-  </head>
+</head>
 <body class="font-body-md min-h-screen pb-24 md:pb-0">
 <!-- TopAppBar for Mobile/Desktop -->
 <header class="bg-surface dark:bg-inverse-surface w-full top-0 sticky border-b border-secondary/20 dark:border-outline-variant/20 z-40 transition-colors duration-200 ease-in-out md:hidden flex justify-between items-center px-margin-mobile py-4">
@@ -262,7 +262,7 @@
 <div class="relative z-10">
 <h3 class="font-headline-md text-headline-md text-on-surface mb-2">Стать Специалистом</h3>
 <p class="font-body-sm text-body-md text-secondary mb-4">Откройте новые возможности. Предлагайте свои услуги и находите клиентов в NewFit.</p>
-<button class="w-full bg-primary-container text-ink-black py-3 rounded-lg font-label-sm text-label-sm transition-transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">
+<button class="w-full bg-primary-container text-ink-black py-3 rounded-lg font-label-sm text-label-sm transition-transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2" onclick="location.href='/pro/schedule';">
                         Перейти в Pro-режим
                         <span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
 </button>
@@ -296,7 +296,7 @@
 </div>
 </div>
 <div class="flex justify-end pt-4">
-<button class="bg-transparent border-[1.5px] border-folklore-gold text-on-surface px-6 py-2 font-label-sm text-label-sm relative overflow-hidden group" type="button">
+<button class="bg-transparent border-[1.5px] border-folklore-gold text-on-surface px-6 py-2 font-label-sm text-label-sm relative overflow-hidden group" onclick="alert('Профиль обновлен!'); location.href='/client/profile';" type="button">
 <!-- Corner Brackets -->
 <span class="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-folklore-gold"></span>
 <span class="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-folklore-gold"></span>
@@ -350,7 +350,7 @@
 </main>
 <!-- BottomNavBar Mobile Only -->
 <nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 bg-parchment-base dark:bg-inverse-surface border-t border-secondary/10 dark:border-outline-variant/10 rounded-t-full md:hidden">
-<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="#">
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="/catalog">
 <span class="material-symbols-outlined" data-icon="home">home</span>
 <span class="font-label-sm text-label-sm mt-1">\u0413\u043b\u0430\u0432\u043d\u0430\u044f</span>
 </a>
@@ -358,11 +358,11 @@
 <span class="material-symbols-outlined" data-icon="bookmark">bookmark</span>
 <span class="font-label-sm text-label-sm mt-1">\u0418\u0437\u0431\u0440\u0430\u043d\u043d\u043e\u0435</span>
 </a>
-<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="#">
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="/client/bookings">
 <span class="material-symbols-outlined" data-icon="event_available">event_available</span>
 <span class="font-label-sm text-label-sm mt-1">\u0417\u0430\u043f\u0438\u0441\u0438</span>
 </a>
-<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-full px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="#">
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-full px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="/client/profile">
 <span class="material-symbols-outlined" data-icon="person">person</span>
 <span class="font-label-sm text-label-sm mt-1">\u041f\u0440\u043e\u0444\u0438\u043b\u044c</span>
 </a>

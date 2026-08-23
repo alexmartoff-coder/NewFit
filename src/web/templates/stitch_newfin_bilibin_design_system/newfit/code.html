@@ -126,7 +126,7 @@
 <img alt="NewFit Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuABh_y012qv1xdU0C9o1OMgy20PoTTajsiLyNjDEvYjZ89wU4MxMu_KBIGsS6SJ5PcAD2_BIe4iklUA4LqIJuttqz496vU2wevZBpPcpWS0bFST_QpMpouVw4TKkO6cIUWnTaN-XnnpkntCMvXxTfAZXYUd_H9giC-2vKSxShROxi0dOQYRn8GDfE9faEqRjaFYbkQmM02UquQ2cjZ5MCcMGSYPzmLeflOv5GY31cPk6KreU7xDDSkwLimXH3JkrbuLGg"/>
 <h1 class="font-headline-md text-headline-md dark:text-surface-bright text-ink-black tracking-tight uppercase">NEWFIT</h1>
 </div>
-<button class="font-label-sm text-label-sm text-primary dark:text-primary-fixed-dim border border-folklore-gold rounded-full px-4 py-1 hover:bg-paper-shadow/50 transition-colors active:scale-95">
+<button class="font-label-sm text-label-sm text-primary dark:text-primary-fixed-dim border border-folklore-gold rounded-full px-4 py-1 hover:bg-paper-shadow/50 transition-colors active:scale-95" onclick="location.href='/pro/schedule';">
             Switch to Pro
         </button>
 </header>
@@ -182,7 +182,7 @@
 <span class="font-label-sm text-xs text-tertiary">Starting from</span>
 <span class="font-body-md font-semibold text-ink-black">3,000 ₽</span>
 </div>
-<button class="bg-primary hover:bg-primary/90 text-ink-black font-label-sm px-6 py-2 rounded-full transition-colors shadow-sm">
+<button class="bg-primary hover:bg-primary/90 text-ink-black font-label-sm px-6 py-2 rounded-full transition-colors shadow-sm" onclick="location.href='/specialist';">
                             Book
                         </button>
 </div>
@@ -211,7 +211,7 @@
 <span class="font-label-sm text-xs text-tertiary">Starting from</span>
 <span class="font-body-md font-semibold text-ink-black">2,500 ₽</span>
 </div>
-<button class="bg-primary hover:bg-primary/90 text-ink-black font-label-sm px-6 py-2 rounded-full transition-colors shadow-sm">
+<button class="bg-primary hover:bg-primary/90 text-ink-black font-label-sm px-6 py-2 rounded-full transition-colors shadow-sm" onclick="location.href='/specialist';">
                             Book
                         </button>
 </div>
@@ -240,7 +240,7 @@
 <span class="font-label-sm text-xs text-tertiary">Starting from</span>
 <span class="font-body-md font-semibold text-ink-black">4,500 ₽</span>
 </div>
-<button class="bg-primary hover:bg-primary/90 text-ink-black font-label-sm px-6 py-2 rounded-full transition-colors shadow-sm">
+<button class="bg-primary hover:bg-primary/90 text-ink-black font-label-sm px-6 py-2 rounded-full transition-colors shadow-sm" onclick="location.href='/specialist';">
                             Book
                         </button>
 </div>
@@ -251,22 +251,22 @@
 <!-- BottomNavBar (Mobile Only) -->
 <nav class="fixed bottom-0 left-0 w-full flex justify-around items-center h-20 px-2 pb-safe shadow-[0_-4px_12px_rgba(0,0,0,0.03)] bg-parchment-base/95 backdrop-blur-md z-50 md:hidden border-t border-secondary/10">
 <!-- Catalog (Active) -->
-<a class="flex flex-col items-center justify-center text-primary dark:text-primary-fixed-dim font-bold bg-primary-container/30 rounded-full px-4 py-1 transform scale-90 duration-200" href="#">
+<a class="flex flex-col items-center justify-center text-primary dark:text-primary-fixed-dim font-bold bg-primary-container/30 rounded-full px-4 py-1 transform scale-90 duration-200" href="/catalog">
 <span class="material-symbols-outlined mb-1" data-icon="search" data-weight="fill">search</span>
 <span class="font-label-sm text-[10px]">Catalog</span>
 </a>
 <!-- Bookings -->
-<a class="flex flex-col items-center justify-center text-secondary dark:text-on-surface-variant hover:text-primary-fixed-variant transition-all px-4 py-1" href="#">
+<a class="flex flex-col items-center justify-center text-secondary dark:text-on-surface-variant hover:text-primary-fixed-variant transition-all px-4 py-1" href="/client/bookings">
 <span class="material-symbols-outlined mb-1" data-icon="calendar_today">calendar_today</span>
 <span class="font-label-sm text-[10px]">Bookings</span>
 </a>
 <!-- Favorites -->
-<a class="flex flex-col items-center justify-center text-secondary dark:text-on-surface-variant hover:text-primary-fixed-variant transition-all px-4 py-1" href="#">
+<a class="flex flex-col items-center justify-center text-secondary dark:text-on-surface-variant hover:text-primary-fixed-variant transition-all px-4 py-1" href="/client/favorites">
 <span class="material-symbols-outlined mb-1" data-icon="favorite">favorite</span>
 <span class="font-label-sm text-[10px]">Favorites</span>
 </a>
 <!-- Profile -->
-<a class="flex flex-col items-center justify-center text-secondary dark:text-on-surface-variant hover:text-primary-fixed-variant transition-all px-4 py-1" href="#">
+<a class="flex flex-col items-center justify-center text-secondary dark:text-on-surface-variant hover:text-primary-fixed-variant transition-all px-4 py-1" href="/client/profile">
 <span class="material-symbols-outlined mb-1" data-icon="person">person</span>
 <span class="font-label-sm text-[10px]">Profile</span>
 </a>
@@ -274,28 +274,28 @@
 <!-- SideNav equivalent for Desktop (Hidden on mobile) - Conceptual layout for larger screens -->
 <nav class="hidden md:flex fixed left-0 top-16 h-full w-20 flex-col items-center py-8 bg-parchment-base border-r border-secondary/10 space-y-8 z-30">
 <!-- Catalog (Active) -->
-<a class="flex flex-col items-center justify-center text-primary font-bold group" href="#">
+<a class="flex flex-col items-center justify-center text-primary font-bold group" href="/catalog">
 <div class="bg-primary-container/30 p-3 rounded-xl mb-1">
 <span class="material-symbols-outlined" data-icon="search" data-weight="fill">search</span>
 </div>
 <span class="font-label-sm text-xs opacity-0 group-hover:opacity-100 absolute left-full ml-2 bg-ink-black text-on-primary px-2 py-1 rounded whitespace-nowrap transition-opacity">Catalog</span>
 </a>
 <!-- Bookings -->
-<a class="flex flex-col items-center justify-center text-secondary hover:text-primary transition-colors group" href="#">
+<a class="flex flex-col items-center justify-center text-secondary hover:text-primary transition-colors group" href="/client/bookings">
 <div class="p-3 mb-1">
 <span class="material-symbols-outlined" data-icon="calendar_today">calendar_today</span>
 </div>
 <span class="font-label-sm text-xs opacity-0 group-hover:opacity-100 absolute left-full ml-2 bg-ink-black text-on-primary px-2 py-1 rounded whitespace-nowrap transition-opacity">Bookings</span>
 </a>
 <!-- Favorites -->
-<a class="flex flex-col items-center justify-center text-secondary hover:text-primary transition-colors group" href="#">
+<a class="flex flex-col items-center justify-center text-secondary hover:text-primary transition-colors group" href="/client/favorites">
 <div class="p-3 mb-1">
 <span class="material-symbols-outlined" data-icon="favorite">favorite</span>
 </div>
 <span class="font-label-sm text-xs opacity-0 group-hover:opacity-100 absolute left-full ml-2 bg-ink-black text-on-primary px-2 py-1 rounded whitespace-nowrap transition-opacity">Favorites</span>
 </a>
 <!-- Profile -->
-<a class="flex flex-col items-center justify-center text-secondary hover:text-primary transition-colors group mt-auto mb-20" href="#">
+<a class="flex flex-col items-center justify-center text-secondary hover:text-primary transition-colors group mt-auto mb-20" href="/client/profile">
 <div class="p-3 mb-1">
 <span class="material-symbols-outlined" data-icon="person">person</span>
 </div>

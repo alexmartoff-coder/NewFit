@@ -130,7 +130,7 @@
       min-height: max(884px, 100dvh);
     }
   </style>
-  </head>
+</head>
 <body class="antialiased min-h-screen pb-24 md:pb-0">
 <!-- TopAppBar (Web) -->
 <header class="hidden md:flex justify-between items-center px-margin-desktop py-6 w-full bg-surface dark:bg-inverse-surface sticky top-0 z-40">
@@ -140,10 +140,10 @@
 </div>
 <div class="flex items-center gap-8">
 <nav class="flex gap-6">
-<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Главная</a>
-<a class="font-label-sm text-label-sm text-primary border-b-2 border-primary pb-1" href="#">Избранное</a>
-<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Записи</a>
-<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Профиль</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="/catalog">Главная</a>
+<a class="font-label-sm text-label-sm text-primary border-b-2 border-primary pb-1" href="/client/favorites">Избранное</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="/client/bookings">Записи</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="/client/profile">Профиль</a>
 </nav>
 <div class="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center text-primary font-bold overflow-hidden border border-secondary/20">
 <span class="material-symbols-outlined">person</span>
@@ -240,19 +240,19 @@
 </main>
 <!-- BottomNavBar (Mobile) - From JSON -->
 <nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 bg-parchment-base dark:bg-inverse-surface border-t border-secondary/10 dark:border-outline-variant/10 rounded-t-full pb-safe">
-<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="#">
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="/catalog">
 <span class="material-symbols-outlined mb-1" data-icon="home">home</span>
 <span class="font-label-sm text-label-sm text-[10px]">Главная</span>
 </a>
-<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-full px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="#">
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-full px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="/client/favorites">
 <span class="material-symbols-outlined mb-1" data-icon="bookmark" data-weight="fill" style="font-variation-settings: 'FILL' 1;">bookmark</span>
 <span class="font-label-sm text-label-sm text-[10px]">Избранное</span>
 </a>
-<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="#">
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="/client/bookings">
 <span class="material-symbols-outlined mb-1" data-icon="event_available">event_available</span>
 <span class="font-label-sm text-label-sm text-[10px]">Записи</span>
 </a>
-<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="#">
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="/client/profile">
 <span class="material-symbols-outlined mb-1" data-icon="person">person</span>
 <span class="font-label-sm text-label-sm text-[10px]">Профиль</span>
 </a>

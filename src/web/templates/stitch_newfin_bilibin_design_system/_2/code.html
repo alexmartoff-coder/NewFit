@@ -138,7 +138,7 @@
 <body class="antialiased flex flex-col min-h-screen">
 <!-- TopAppBar -->
 <header class="bg-parchment-base dark:bg-ink-black text-primary dark:text-primary-fixed font-headline-md text-headline-md dark:text-surface-bright flex justify-between items-center px-margin-mobile h-16 w-full max-w-max-width mx-auto border-b border-secondary/20 dark:border-outline-variant/20 sticky top-0 z-50">
-<button aria-label="Назад" class="hover:bg-paper-shadow/50 dark:hover:bg-surface-container-highest/20 transition-colors p-2 rounded-full flex items-center justify-center group">
+<button aria-label="Назад" class="hover:bg-paper-shadow/50 dark:hover:bg-surface-container-highest/20 transition-colors p-2 rounded-full flex items-center justify-center group" onclick="location.href='/specialist';">
 <span class="material-symbols-outlined text-on-surface-variant group-active:scale-95 duration-150" data-icon="arrow_back">arrow_back</span>
 </button>
 <h1 class="font-headline-lg-mobile text-headline-lg-mobile text-ink-black dark:text-surface-bright tracking-tight flex-1 text-center font-extrabold mr-10">Запись на тренировку</h1>
@@ -279,7 +279,7 @@
 </div>
 </div>
 <!-- Action Button -->
-<button class="w-full bg-primary text-ink-black font-label-sm text-label-sm uppercase tracking-widest py-4 px-6 rounded-DEFAULT hover:bg-inverse-primary active:scale-[0.98] transition-all flex justify-center items-center gap-2">
+<button class="w-full bg-primary text-ink-black font-label-sm text-label-sm uppercase tracking-widest py-4 px-6 rounded-DEFAULT hover:bg-inverse-primary active:scale-[0.98] transition-all flex justify-center items-center gap-2" onclick="alert('Занятие успешно забронировано!'); location.href='/client/bookings';">
                     Забронировать время
                     <span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
 </button>
