@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NewFit Admin - Moderation Queue</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:wght@400;700&amp;family=Manrope:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "ink-black": "#121212",
+                      "on-secondary-fixed": "#0b2013",
+                      "surface-container-high": "#e6ead4",
+                      "on-error-container": "#93000a",
+                      "primary-container": "#beff00",
+                      "surface-bright": "#f8fce5",
+                      "surface": "#f8fce5",
+                      "surface-container-highest": "#e1e5cf",
+                      "on-primary-fixed-variant": "#384e00",
+                      "primary-fixed": "#b8f600",
+                      "on-primary": "#ffffff",
+                      "on-primary-fixed": "#141f00",
+                      "folklore-gold": "#C5A059",
+                      "primary-fixed-dim": "#a1d800",
+                      "on-background": "#191d10",
+                      "on-surface": "#191d10",
+                      "secondary-container": "#cde6d1",
+                      "on-tertiary-fixed": "#0e1d2a",
+                      "inverse-primary": "#a1d800",
+                      "surface-container-lowest": "#ffffff",
+                      "error": "#ba1a1a",
+                      "surface-tint": "#4b6700",
+                      "secondary-fixed": "#d0e9d4",
+                      "tertiary-container": "#ddecff",
+                      "background": "#f8fce5",
+                      "tertiary-fixed": "#d5e4f7",
+                      "surface-dim": "#d8dcc7",
+                      "on-surface-variant": "#434933",
+                      "on-tertiary-fixed-variant": "#3a4857",
+                      "on-secondary-fixed-variant": "#364c3c",
+                      "primary": "#4b6700",
+                      "on-primary-container": "#547300",
+                      "on-secondary-container": "#516857",
+                      "inverse-surface": "#2e3223",
+                      "outline": "#737a61",
+                      "surface-container": "#ecf0da",
+                      "inverse-on-surface": "#eff3dd",
+                      "secondary-fixed-dim": "#b4cdb8",
+                      "tsar-red": "#A62C21",
+                      "error-container": "#ffdad6",
+                      "outline-variant": "#c3caad",
+                      "paper-shadow": "#EBE7DE",
+                      "surface-container-low": "#f2f6e0",
+                      "on-tertiary-container": "#5c6b7b",
+                      "tertiary-fixed-dim": "#b9c8da",
+                      "on-secondary": "#ffffff",
+                      "secondary": "#4d6453",
+                      "parchment-base": "#F9F7F2",
+                      "surface-variant": "#e1e5cf",
+                      "on-error": "#ffffff",
+                      "tertiary": "#516070",
+                      "on-tertiary": "#ffffff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "margin-mobile": "16px",
+                      "unit": "4px",
+                      "max-width": "1280px",
+                      "margin-desktop": "64px",
+                      "gutter": "24px"
+              },
+              "fontFamily": {
+                      "headline-xl": [
+                              "Libre Caslon Text"
+                      ],
+                      "label-sm": [
+                              "Manrope"
+                      ],
+                      "headline-lg-mobile": [
+                              "Libre Caslon Text"
+                      ],
+                      "body-md": [
+                              "Manrope"
+                      ],
+                      "body-lg": [
+                              "Manrope"
+                      ],
+                      "headline-md": [
+                              "Libre Caslon Text"
+                      ],
+                      "headline-lg": [
+                              "Libre Caslon Text"
+                      ]
+              },
+              "fontSize": {
+                      "headline-xl": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-sm": [
+                              "13px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        /* Art Nouveau borders */
+        .ornamental-border {
+            border: 1px solid rgba(77, 100, 83, 0.2);
+            box-shadow: inset 0 0 0 2px #F9F7F2, inset 0 0 0 3px rgba(77, 100, 83, 0.1);
+        }
+
+        .corner-brackets {
+            position: relative;
+        }
+        .corner-brackets::before, .corner-brackets::after {
+            content: '';
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-color: #C5A059;
+            border-style: solid;
+            pointer-events: none;
+        }
+        .corner-brackets::before {
+            top: -1px; left: -1px;
+            border-width: 1.5px 0 0 1.5px;
+        }
+        .corner-brackets::after {
+            bottom: -1px; right: -1px;
+            border-width: 0 1.5px 1.5px 0;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-parchment-base text-on-surface font-body-md min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="bg-parchment-base border-b border-secondary/20 w-full top-0">
+<div class="flex justify-between items-center px-margin-desktop py-4 w-full max-w-max-width mx-auto hidden md:flex">
+<div class="flex items-center gap-4">
+<div class="font-headline-md text-headline-md font-semibold text-secondary">NewFit Admin</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2 cursor-pointer text-on-surface-variant hover:text-primary transition-colors">
+<span class="font-label-sm text-label-sm">Admin Profile</span>
+<div class="w-8 h-8 rounded-full bg-surface-container-high overflow-hidden border border-secondary/20">
+<img alt="Admin Avatar" class="w-full h-full object-cover" data-alt="A small, professional avatar portrait of a modern fitness administrator. The lighting is clean and bright, set against a subtle parchment-toned background. The overall style is crisp, minimalist, and aligns with a premium, light-mode Slavic Modernity aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQeqLyV7ynWb0DLBTOuGkp7sFxzEVrY8hE0iziHTsDngESo8diuvOa0i9idRfR9RCizJbB6IgW6I2vI1LmJK_G3J8tESVXyPFFwPf2UeXDemKsNabomznJtIZRckPmslOEQ2xwPW99GT3pgW_TpMSJDbvODl_3wrJ21kHwJBGKLOQJpB4uT__bLJMNdl3NlAjGCngAbL00qlgeZWJLgrR-WPPqB5DeMA9NcXUcXPH6ORyrWROqHkV3"/>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant hover:text-primary cursor-pointer transition-colors" data-icon="settings">settings</span>
+</div>
+</div>
+<!-- Mobile TopAppBar -->
+<div class="flex justify-between items-center px-margin-mobile py-4 w-full md:hidden">
+<div class="font-headline-md text-headline-md font-semibold text-secondary">NewFit Admin</div>
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="settings">settings</span>
+</div>
+</header>
+<div class="flex flex-1 max-w-max-width w-full mx-auto">
+<!-- NavigationDrawer (Desktop) -->
+<nav class="hidden md:flex flex-col w-64 bg-surface-container-low border-r border-secondary/10 py-8 gap-4 px-4 sticky top-[73px] h-[calc(100vh-73px)]">
+<div class="font-body-md text-body-md text-on-surface-variant px-4 mb-4 uppercase tracking-wider font-semibold text-xs">Ecosystem Control</div>
+<div class="flex items-center gap-unit p-4 cursor-pointer bg-secondary-container text-on-secondary-container rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="verified_user">verified_user</span>
+<span class="font-label-sm text-label-sm">Moderation</span>
+</div>
+<div class="flex items-center gap-unit p-4 cursor-pointer text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="card_membership">card_membership</span>
+<span class="font-label-sm text-label-sm">Subscriptions</span>
+</div>
+<div class="flex items-center gap-unit p-4 cursor-pointer text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="build">build</span>
+<span class="font-label-sm text-label-sm">Tools</span>
+</div>
+<div class="flex items-center gap-unit p-4 cursor-pointer text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-label-sm text-label-sm">User Management</span>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-1 px-margin-mobile py-8 md:px-margin-desktop md:py-12">
+<!-- Header Section -->
+<div class="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-secondary/10 pb-6">
+<div>
+<button class="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors mb-4 group">
+<span class="material-symbols-outlined text-sm group-hover:-translate-x-1 transition-transform" data-icon="arrow_back">arrow_back</span>
+<span class="font-label-sm text-label-sm uppercase">Back to Dashboard</span>
+</button>
+<h1 class="font-headline-xl text-headline-lg-mobile md:text-headline-xl text-on-surface">Moderation Queue</h1>
+<p class="font-body-md text-body-md text-secondary mt-2">Review pending specialist profiles for ecosystem inclusion.</p>
+</div>
+<div class="flex items-center gap-4 bg-surface-container-low px-4 py-2 rounded-DEFAULT ornamental-border">
+<span class="material-symbols-outlined text-secondary" data-icon="filter_list">filter_list</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Pending (12)</span>
+</div>
+</div>
+<!-- Bento Grid of Profiles -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter">
+<!-- Profile Card 1 -->
+<div class="bg-surface-container-lowest rounded-lg ornamental-border p-6 flex flex-col sm:flex-row gap-6 relative overflow-hidden group hover:bg-surface-bright transition-colors">
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary-container/10 rounded-bl-full -z-10 transition-transform group-hover:scale-110"></div>
+<div class="w-24 h-24 sm:w-32 sm:h-32 rounded-DEFAULT border border-secondary/20 overflow-hidden shrink-0">
+<img alt="Profile Photo" class="w-full h-full object-cover" data-alt="A professional headshot of a rugged, athletic male tennis coach named Ivan. He has a focused expression, wearing clean, modern athletic gear. The background is a minimalist, brightly lit parchment tone, reflecting a premium fitness aesthetic rooted in Slavic Modernity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA17JR16PBH2k58tJ9O5ieqR9xPtqpdBEWHIfDcqBWFQ6nXy7qwMHHK3kq8itawn5SlleYkhmXGBnd03q1vMvRjcIC5hrZwAyAjViRVCq_GcYfnCDSFHPN5ZcmwbeJFhBOTwZjv1_ot2v4Y_1kcl6AE1d5p-yZhQ8xM69jnqDzhCRsr_phpXDFxOBBT02kmnZUkGMwwwsOyR8GDO_sMfWN-qUojxyUd66bPJ-kmUHcqtBYk2-4ueNMH"/>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-1">
+<h2 class="font-headline-md text-headline-md text-on-surface">Ivan Petrov</h2>
+<span class="bg-surface-container-high border border-secondary/20 px-2 py-1 rounded-DEFAULT font-label-sm text-[10px] text-secondary flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-folklore-gold"></span>
+                                    Pending
+                                </span>
+</div>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="bg-parchment-base border border-secondary/20 px-2 py-0.5 rounded-DEFAULT font-label-sm text-[11px] text-secondary">Tennis Coach</span>
+<span class="bg-parchment-base border border-secondary/20 px-2 py-0.5 rounded-DEFAULT font-label-sm text-[11px] text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="location_on">location_on</span>
+                                    Moscow, Khamovniki
+                                </span>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant line-clamp-2 mb-4">
+                                Former professional player offering high-intensity technical training for advanced amateurs. Focuses on baseline consistency and modern biomechanics.
+                            </p>
+</div>
+<div class="flex gap-3 mt-auto">
+<button class="flex-1 bg-primary text-on-primary py-2 px-4 rounded-DEFAULT font-label-sm text-label-sm hover:bg-primary-fixed hover:text-on-primary-fixed transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="check">check</span>
+                                Approve
+                            </button>
+<button class="flex-1 bg-transparent border border-outline text-on-surface-variant py-2 px-4 rounded-DEFAULT font-label-sm text-label-sm hover:border-tsar-red hover:text-tsar-red transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="close">close</span>
+                                Reject
+                            </button>
+</div>
+</div>
+</div>
+<!-- Profile Card 2 -->
+<div class="bg-surface-container-lowest rounded-lg ornamental-border p-6 flex flex-col sm:flex-row gap-6 relative overflow-hidden group hover:bg-surface-bright transition-colors">
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary-container/10 rounded-bl-full -z-10 transition-transform group-hover:scale-110"></div>
+<div class="w-24 h-24 sm:w-32 sm:h-32 rounded-DEFAULT border border-secondary/20 overflow-hidden shrink-0">
+<img alt="Profile Photo" class="w-full h-full object-cover" data-alt="A composed, elegant portrait of a female yoga specialist named Elena. She wears understated, high-quality modern activewear. The lighting is soft and airy, set against a pristine white and parchment background, capturing the sophisticated, minimalist spirit of NewFit." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB6EkznlqZv6V6xPY1SGTjqdzXW22cKayZP6OfGTggCTrvSUnY1NY0JwjI8kmeGA1pFoqy9yt5jgIraQx4GLPbGMwdsHybLjB4iKnnsrNwzYX9G2T8SPBe8AbIdWwVC7ZIlTLrjut09WLbGmw7sA11izgp_VAYtREShaSor1Ga1fo8Sb_fdBWjuGjZIKxCMTaPnewS8lTmQDXNeoTx2gH0QjusdWhKSdZkAQHYxFjI3gKiM3X1jHFNZ"/>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-1">
+<h2 class="font-headline-md text-headline-md text-on-surface">Elena Sokolova</h2>
+<span class="bg-surface-container-high border border-secondary/20 px-2 py-1 rounded-DEFAULT font-label-sm text-[10px] text-secondary flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-folklore-gold"></span>
+                                    Pending
+                                </span>
+</div>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="bg-parchment-base border border-secondary/20 px-2 py-0.5 rounded-DEFAULT font-label-sm text-[11px] text-secondary">Yoga Specialist</span>
+<span class="bg-parchment-base border border-secondary/20 px-2 py-0.5 rounded-DEFAULT font-label-sm text-[11px] text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="location_on">location_on</span>
+                                    St. Petersburg, Central
+                                </span>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant line-clamp-2 mb-4">
+                                Certified Ashtanga instructor blending traditional methodology with modern mobility protocols. Specialized in injury recovery and core stability.
+                            </p>
+</div>
+<div class="flex gap-3 mt-auto">
+<button class="flex-1 bg-primary text-on-primary py-2 px-4 rounded-DEFAULT font-label-sm text-label-sm hover:bg-primary-fixed hover:text-on-primary-fixed transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="check">check</span>
+                                Approve
+                            </button>
+<button class="flex-1 bg-transparent border border-outline text-on-surface-variant py-2 px-4 rounded-DEFAULT font-label-sm text-label-sm hover:border-tsar-red hover:text-tsar-red transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="close">close</span>
+                                Reject
+                            </button>
+</div>
+</div>
+</div>
+<!-- Profile Card 3 -->
+<div class="bg-surface-container-lowest rounded-lg ornamental-border p-6 flex flex-col sm:flex-row gap-6 relative overflow-hidden group hover:bg-surface-bright transition-colors">
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary-container/10 rounded-bl-full -z-10 transition-transform group-hover:scale-110"></div>
+<div class="w-24 h-24 sm:w-32 sm:h-32 rounded-DEFAULT border border-secondary/20 overflow-hidden shrink-0">
+<img alt="Profile Photo" class="w-full h-full object-cover" data-alt="A striking portrait of a male kettlebell strength coach. He looks intense yet disciplined, shot in clean, high-key lighting. The environment implies a modern, high-end training space with a neutral, parchment-toned backdrop, echoing the blend of traditional strength and modern minimalism." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5ofmpkAX0L5HkHN-wMNiFRrwaL6ifzsaMDP1-8Vv4p8AXPTPWIVh1M2uCRMtBpAj5YfL6AhdwOas3z5GHCSwZmHhvW7V5dm7dhuAbbDCheIweOMKqJ4ZO5xcEJzWsHxg-QKVn6rk4elXlBXBTbqnMVYQuGSSHAsx5gaza6kPbpAqzodkNJCRh_Tu4LbVa-0PjQYnfi3d_-JE5usnu1yz-8KHHw_3Q-enxz-IyvZiAWorXHLBaunao"/>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-1">
+<h2 class="font-headline-md text-headline-md text-on-surface">Dmitry Volkov</h2>
+<span class="bg-surface-container-high border border-secondary/20 px-2 py-1 rounded-DEFAULT font-label-sm text-[10px] text-secondary flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-folklore-gold"></span>
+                                    Pending
+                                </span>
+</div>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="bg-parchment-base border border-secondary/20 px-2 py-0.5 rounded-DEFAULT font-label-sm text-[11px] text-secondary">Strength Coach</span>
+<span class="bg-parchment-base border border-secondary/20 px-2 py-0.5 rounded-DEFAULT font-label-sm text-[11px] text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="location_on">location_on</span>
+                                    Kazan, Vakhitovsky
+                                </span>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant line-clamp-2 mb-4">
+                                Kettlebell sport Master of Sports. Offers structured programming combining functional hypertrophy with classic Girevoy techniques.
+                            </p>
+</div>
+<div class="flex gap-3 mt-auto">
+<button class="flex-1 bg-primary text-on-primary py-2 px-4 rounded-DEFAULT font-label-sm text-label-sm hover:bg-primary-fixed hover:text-on-primary-fixed transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="check">check</span>
+                                Approve
+                            </button>
+<button class="flex-1 bg-transparent border border-outline text-on-surface-variant py-2 px-4 rounded-DEFAULT font-label-sm text-label-sm hover:border-tsar-red hover:text-tsar-red transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="close">close</span>
+                                Reject
+                            </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Load More -->
+<div class="mt-12 flex justify-center">
+<button class="corner-brackets px-8 py-3 bg-transparent font-label-sm text-label-sm text-secondary hover:bg-surface-container-low transition-colors uppercase tracking-widest">
+                    Load More Entries
+                </button>
+</div>
+</main>
+</div>
+<!-- Footer -->
+<footer class="bg-parchment-base border-t border-secondary/10 w-full py-8 mt-auto">
+<div class="flex flex-col items-center justify-center gap-2">
+<div class="font-label-sm text-label-sm font-bold text-secondary">NewFit Admin</div>
+<div class="flex gap-4">
+<a class="font-label-sm text-label-sm text-on-surface-variant opacity-70 hover:text-primary transition-opacity hover:opacity-100" href="#">Security Policy</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant opacity-70 hover:text-primary transition-opacity hover:opacity-100" href="#">API Docs</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant opacity-70 hover:text-primary transition-opacity hover:opacity-100" href="#">Support</a>
+</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant opacity-50 mt-2">© 2024 NewFit Slavic Modernity Ecosystem</div>
+</div>
+</footer>
+</body></html>
