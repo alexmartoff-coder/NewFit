@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NewFit - Catalog</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style type="text/tailwindcss">
+        @layer utilities {
+            .no-scrollbar::-webkit-scrollbar {
+                display: none;
+            }
+            .no-scrollbar {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#5c6b7b",
+                        "on-primary-container": "#547300",
+                        "secondary": "#4d6453",
+                        "parchment-base": "#F9F7F2",
+                        "tertiary": "#516070",
+                        "on-surface-variant": "#434933",
+                        "inverse-primary": "#a1d800",
+                        "ink-black": "#121212",
+                        "secondary-fixed": "#d0e9d4",
+                        "on-secondary": "#ffffff",
+                        "primary": "#4b6700",
+                        "primary-fixed": "#b8f600",
+                        "inverse-surface": "#2e3223",
+                        "on-error": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "inverse-on-surface": "#eff3dd",
+                        "surface-dim": "#d8dcc7",
+                        "on-primary-fixed-variant": "#384e00",
+                        "secondary-container": "#cde6d1",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed-dim": "#a1d800",
+                        "surface-container-highest": "#e1e5cf",
+                        "tsar-red": "#A62C21",
+                        "tertiary-container": "#ddecff",
+                        "on-primary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "surface-container": "#ecf0da",
+                        "on-tertiary-fixed-variant": "#3a4857",
+                        "on-secondary-fixed-variant": "#364c3c",
+                        "on-background": "#191d10",
+                        "on-tertiary-fixed": "#0e1d2a",
+                        "surface-container-low": "#f2f6e0",
+                        "on-error-container": "#93000a",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed": "#141f00",
+                        "outline-variant": "#c3caad",
+                        "surface-container-high": "#e6ead4",
+                        "surface-bright": "#f8fce5",
+                        "on-surface": "#191d10",
+                        "paper-shadow": "#EBE7DE",
+                        "tertiary-fixed-dim": "#b9c8da",
+                        "secondary-fixed-dim": "#b4cdb8",
+                        "tertiary-fixed": "#d5e4f7",
+                        "surface-tint": "#4b6700",
+                        "primary-container": "#beff00",
+                        "surface": "#f8fce5",
+                        "folklore-gold": "#C5A059",
+                        "on-secondary-container": "#516857",
+                        "surface-variant": "#e1e5cf",
+                        "on-secondary-fixed": "#0b2013",
+                        "background": "#f8fce5",
+                        "outline": "#737a61"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem",
+                        "2xl": "1rem",
+                        "3xl": "1.5rem"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "margin-desktop": "64px",
+                        "margin-mobile": "16px",
+                        "max-width": "1280px",
+                        "gutter": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["'Roboto Mono'", "monospace"],
+                        "body-md": ["'Roboto Mono'", "monospace"],
+                        "headline-xl": ["'Roboto Mono'", "monospace"],
+                        "headline-lg": ["'Roboto Mono'", "monospace"],
+                        "headline-md": ["'Roboto Mono'", "monospace"],
+                        "label-sm": ["'Roboto Mono'", "monospace"],
+                        "body-lg": ["'Roboto Mono'", "monospace"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-xl": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "label-sm": ["13px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-parchment-base text-ink-black font-body-md antialiased pb-24 md:pb-0 min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center px-margin-mobile md:px-margin-desktop h-16 w-full max-w-max-width mx-auto bg-parchment-base dark:bg-ink-black sticky top-0 z-40 border-b border-secondary/40 shadow-sm transition-colors duration-200">
+<button class="text-primary dark:text-primary-fixed hover:bg-paper-shadow/50 transition-colors p-2 rounded-full active:scale-95 duration-150 flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<div class="flex items-center space-x-2">
+<img alt="NewFit Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuABh_y012qv1xdU0C9o1OMgy20PoTTajsiLyNjDEvYjZ89wU4MxMu_KBIGsS6SJ5PcAD2_BIe4iklUA4LqIJuttqz496vU2wevZBpPcpWS0bFST_QpMpouVw4TKkO6cIUWnTaN-XnnpkntCMvXxTfAZXYUd_H9giC-2vKSxShROxi0dOQYRn8GDfE9faEqRjaFYbkQmM02UquQ2cjZ5MCcMGSYPzmLeflOv5GY31cPk6KreU7xDDSkwLimXH3JkrbuLGg"/>
+<h1 class="font-headline-md text-headline-md text-ink-black tracking-tight uppercase">NEWFIT</h1>
+</div>
+<button class="font-label-sm text-label-sm text-ink-black border-2 border-primary rounded-full px-4 py-1 hover:bg-primary hover:text-white transition-colors active:scale-95">
+            Switch to Pro
+        </button>
+</header>
+<!-- Main Content -->
+<main class="flex-grow w-full max-w-max-width mx-auto px-margin-mobile md:px-margin-desktop py-8">
+<!-- Header Greeting -->
+<section class="mb-8 relative">
+<h2 class="font-headline-xl text-headline-xl text-ink-black">Find your specialist</h2>
+<div class="absolute -bottom-4 left-0 w-24 h-1 bg-primary"></div>
+</section>
+<!-- FilterBar -->
+<section class="mb-8">
+<div class="flex space-x-4 overflow-x-auto no-scrollbar pb-2 mb-4">
+<button class="font-label-sm text-label-sm px-5 py-2.5 rounded-full border border-secondary/40 bg-surface-container-high text-ink-black hover:bg-primary hover:text-white transition-colors whitespace-nowrap">All</button>
+<button class="font-label-sm text-label-sm px-5 py-2.5 rounded-full border border-secondary/40 bg-parchment-base text-ink-black hover:bg-primary hover:text-white transition-colors whitespace-nowrap">Trainers</button>
+<button class="font-label-sm text-label-sm px-5 py-2.5 rounded-full border border-secondary/40 bg-parchment-base text-ink-black hover:bg-primary hover:text-white transition-colors whitespace-nowrap">Beauty</button>
+<button class="font-label-sm text-label-sm px-5 py-2.5 rounded-full border border-secondary/40 bg-parchment-base text-ink-black hover:bg-primary hover:text-white transition-colors whitespace-nowrap">Tennis</button>
+<button class="font-label-sm text-label-sm px-5 py-2.5 rounded-full border border-secondary/40 bg-parchment-base text-ink-black hover:bg-primary hover:text-white transition-colors whitespace-nowrap">Padel</button>
+</div>
+<div class="flex space-x-2">
+<div class="relative flex-grow">
+<span class="material-symbols-outlined absolute left-3 top-1/2 transform -translate-y-1/2 text-ink-black" data-icon="search">search</span>
+<input class="w-full pl-10 pr-4 py-3 bg-surface-container-lowest border-2 border-secondary/30 rounded-xl focus:border-primary focus:ring-0 focus:outline-none transition-colors font-body-md text-ink-black placeholder-tertiary" placeholder="Search specialists or services..." type="text"/>
+</div>
+<button class="p-3 border-2 border-secondary/30 rounded-xl bg-surface-container-lowest hover:bg-surface-container transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-ink-black" data-icon="tune">tune</span>
+</button>
+</div>
+</section>
+<!-- Specialists List (Bento Grid Style) -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Specialist Card 1 -->
+<div class="relative bg-surface-container-lowest rounded-2xl border-2 border-secondary/20 overflow-hidden hover:shadow-xl transition-shadow duration-300 group flex flex-col h-full">
+<div class="relative h-64 overflow-hidden border-b-2 border-secondary/20">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A professional full-body portrait of a female fitness trainer standing confidently in a bright, modern gym studio. Natural light illuminating the scene. High-resolution photography." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDaOd4u3tz3rmrFnY9c8Adn7CJzge0eScBmrpSgsyRA7Q677bDqD47ihauUidsb2YTxSn587-vzXwhhRcNN_2fTQ7CV6zPkNiG9FMP5bNWlpl0VPcD8pFvhdpsrMFWVgG6T1TRqMGARx_5a6Mj8BX7tIrPUFhtJwJOfni8JZbmuZQA46mTugpkTRw2Pgz-_aAobBxQVREqKIEWD-jGDDaxKumIzm8DdAUN62ZwXI26Jsgos2VkH7pYU"/>
+<div class="absolute top-4 right-4 bg-parchment-base/90 backdrop-blur-sm px-3 py-1.5 rounded-full border border-secondary/30 flex items-center space-x-1">
+<span class="material-symbols-outlined text-folklore-gold text-sm" data-icon="star" data-weight="fill">star</span>
+<span class="font-label-sm text-sm text-ink-black">4.9</span>
+</div>
+</div>
+<div class="p-6 flex-grow flex flex-col justify-between relative">
+<div>
+<h3 class="font-headline-md text-headline-md text-ink-black mb-1 group-hover:text-primary transition-colors">Elena Volkova</h3>
+<p class="font-body-md text-sm text-secondary mb-3 flex items-center space-x-2">
+<span class="w-2 h-2 bg-primary rounded-full"></span>
+<span>Personal Trainer • Pilates</span>
+</p>
+</div>
+<div class="mt-4 pt-4 border-t-2 border-secondary/20 flex justify-between items-center">
+<div class="flex flex-col">
+<span class="font-label-sm text-xs text-tertiary uppercase">Starting from</span>
+<span class="font-body-md font-bold text-ink-black">3,000 ₽</span>
+</div>
+<button class="bg-primary hover:bg-primary/90 text-white font-label-sm px-8 py-2.5 rounded-full transition-colors shadow-sm">
+                            Book
+                        </button>
+</div>
+</div>
+</div>
+<!-- Specialist Card 2 -->
+<div class="relative bg-surface-container-lowest rounded-2xl border-2 border-secondary/20 overflow-hidden hover:shadow-xl transition-shadow duration-300 group flex flex-col h-full">
+<div class="relative h-64 overflow-hidden border-b-2 border-secondary/20">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A close-up portrait of a professional makeup artist holding brushes, standing in a chic, softly lit studio with a light parchment background. Minimalist and elegant composition." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBaFil2bqSXBtkqys2IWUcscDaoeXsc_Wi96XylY97-76h1WWJmIQImjCItl5CT_6z-SDFTN8buQ2brwTwNa6nJTQfxsFwoBd4TzcKIOmG8OcHZuxr-r6gMqFoMa4DKYSlV3jnHBNBz2_gw_eEElqTR_KzKHaSY-fJDT1gQOR4AYHjVehVjoTT373uaP_vk72bPdAF6PHWs1bhH7-Ar1ARhMUhgjfFLuekYOTxVk08GOuIWQVrICGrV"/>
+<div class="absolute top-4 right-4 bg-parchment-base/90 backdrop-blur-sm px-3 py-1.5 rounded-full border border-secondary/30 flex items-center space-x-1">
+<span class="material-symbols-outlined text-folklore-gold text-sm" data-icon="star" data-weight="fill">star</span>
+<span class="font-label-sm text-sm text-ink-black">4.8</span>
+</div>
+</div>
+<div class="p-6 flex-grow flex flex-col justify-between relative">
+<div>
+<h3 class="font-headline-md text-headline-md text-ink-black mb-1 group-hover:text-primary transition-colors">Anna Sokolova</h3>
+<p class="font-body-md text-sm text-secondary mb-3 flex items-center space-x-2">
+<span class="w-2 h-2 bg-primary rounded-full"></span>
+<span>Beauty • Makeup Artist</span>
+</p>
+</div>
+<div class="mt-4 pt-4 border-t-2 border-secondary/20 flex justify-between items-center">
+<div class="flex flex-col">
+<span class="font-label-sm text-xs text-tertiary uppercase">Starting from</span>
+<span class="font-body-md font-bold text-ink-black">2,500 ₽</span>
+</div>
+<button class="bg-primary hover:bg-primary/90 text-white font-label-sm px-8 py-2.5 rounded-full transition-colors shadow-sm">
+                            Book
+                        </button>
+</div>
+</div>
+</div>
+<!-- Specialist Card 3 -->
+<div class="relative bg-surface-container-lowest rounded-2xl border-2 border-secondary/20 overflow-hidden hover:shadow-xl transition-shadow duration-300 group flex flex-col h-full">
+<div class="relative h-64 overflow-hidden border-b-2 border-secondary/20">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="An energetic action shot of a male tennis coach serving a ball on an outdoor court. Bright sunny day, sharp focus, dynamic composition." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBPHRXW_bfH8Kljfpe8Z9xvMkmyGG7leTnaZt_nG2iBIKV37Xak78551UUzlDHMn502NCGQAR1z6keF1IRjarZifN1fGT2mj-Je8tNgeSu1ki43FU4jA1vA_ZqJhwWbekrabyRkOiBkymdwonHEcpYlEzN9kg7zngmx3208KknUIZeEKFvd8cCTM6vht7_IkgqZpDsHsR_EtPi_sX4sqDExB20bVV_DYSjTgaML8U1nzWHLzn7pwt9D"/>
+<div class="absolute top-4 right-4 bg-parchment-base/90 backdrop-blur-sm px-3 py-1.5 rounded-full border border-secondary/30 flex items-center space-x-1">
+<span class="material-symbols-outlined text-folklore-gold text-sm" data-icon="star" data-weight="fill">star</span>
+<span class="font-label-sm text-sm text-ink-black">5.0</span>
+</div>
+</div>
+<div class="p-6 flex-grow flex flex-col justify-between relative">
+<div>
+<h3 class="font-headline-md text-headline-md text-ink-black mb-1 group-hover:text-primary transition-colors">Dmitry Ivanov</h3>
+<p class="font-body-md text-sm text-secondary mb-3 flex items-center space-x-2">
+<span class="w-2 h-2 bg-primary rounded-full"></span>
+<span>Sports • Tennis Coach</span>
+</p>
+</div>
+<div class="mt-4 pt-4 border-t-2 border-secondary/20 flex justify-between items-center">
+<div class="flex flex-col">
+<span class="font-label-sm text-xs text-tertiary uppercase">Starting from</span>
+<span class="font-body-md font-bold text-ink-black">4,500 ₽</span>
+</div>
+<button class="bg-primary hover:bg-primary/90 text-white font-label-sm px-8 py-2.5 rounded-full transition-colors shadow-sm">
+                            Book
+                        </button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center h-20 px-2 pb-safe shadow-[0_-4px_12px_rgba(0,0,0,0.03)] bg-parchment-base/95 backdrop-blur-md z-50 md:hidden border-t-2 border-secondary/20">
+<!-- Catalog (Active) -->
+<a class="flex flex-col items-center justify-center text-primary font-bold bg-primary-container/30 rounded-xl px-4 py-1.5" href="/catalog">
+<span class="material-symbols-outlined mb-1" data-icon="search" data-weight="fill">search</span>
+<span class="font-label-sm text-[10px]">Catalog</span>
+</a>
+<!-- Bookings -->
+<a class="flex flex-col items-center justify-center text-secondary hover:text-primary transition-all px-4 py-1.5" href="/client/bookings">
+<span class="material-symbols-outlined mb-1" data-icon="calendar_today">calendar_today</span>
+<span class="font-label-sm text-[10px]">Bookings</span>
+</a>
+<!-- Favorites -->
+<a class="flex flex-col items-center justify-center text-secondary hover:text-primary transition-all px-4 py-1.5" href="/client/favorites">
+<span class="material-symbols-outlined mb-1" data-icon="favorite">favorite</span>
+<span class="font-label-sm text-[10px]">Favorites</span>
+</a>
+<!-- Profile -->
+<a class="flex flex-col items-center justify-center text-secondary hover:text-primary transition-all px-4 py-1.5" href="/client/profile">
+<span class="material-symbols-outlined mb-1" data-icon="person">person</span>
+<span class="font-label-sm text-[10px]">Profile</span>
+</a>
+</nav>
+<!-- SideNav equivalent for Desktop (Hidden on mobile) -->
+<nav class="hidden md:flex fixed left-0 top-16 h-full w-20 flex-col items-center py-8 bg-parchment-base border-r-2 border-secondary/20 space-y-8 z-30">
+<!-- Catalog (Active) -->
+<a class="flex flex-col items-center justify-center text-primary font-bold group" href="/catalog">
+<div class="bg-primary-container/30 p-3 rounded-2xl mb-1">
+<span class="material-symbols-outlined" data-icon="search" data-weight="fill">search</span>
+</div>
+<span class="font-label-sm text-xs opacity-0 group-hover:opacity-100 absolute left-full ml-2 bg-ink-black text-white px-2 py-1 rounded whitespace-nowrap transition-opacity">Catalog</span>
+</a>
+<!-- Bookings -->
+<a class="flex flex-col items-center justify-center text-secondary hover:text-primary transition-colors group" href="/client/bookings">
+<div class="p-3 mb-1">
+<span class="material-symbols-outlined" data-icon="calendar_today">calendar_today</span>
+</div>
+<span class="font-label-sm text-xs opacity-0 group-hover:opacity-100 absolute left-full ml-2 bg-ink-black text-white px-2 py-1 rounded whitespace-nowrap transition-opacity">Bookings</span>
+</a>
+<!-- Favorites -->
+<a class="flex flex-col items-center justify-center text-secondary hover:text-primary transition-colors group" href="/client/favorites">
+<div class="p-3 mb-1">
+<span class="material-symbols-outlined" data-icon="favorite">favorite</span>
+</div>
+<span class="font-label-sm text-xs opacity-0 group-hover:opacity-100 absolute left-full ml-2 bg-ink-black text-white px-2 py-1 rounded whitespace-nowrap transition-opacity">Favorites</span>
+</a>
+<!-- Profile -->
+<a class="flex flex-col items-center justify-center text-secondary hover:text-primary transition-colors group mt-auto mb-20" href="/client/profile">
+<div class="p-3 mb-1">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+</div>
+<span class="font-label-sm text-xs opacity-0 group-hover:opacity-100 absolute left-full ml-2 bg-ink-black text-white px-2 py-1 rounded whitespace-nowrap transition-opacity">Profile</span>
+</a>
+</nav>
+<style>
+        @media (min-width: 768px) {
+            main {
+                padding-left: calc(5rem + 24px); /* Make room for desktop sidenav */
+            }
+        }
+    </style>
+</body></html>

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+
+<html lang="ru"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Регистрация Специалиста - Шаг 4</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&amp;family=Manrope:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#cbdaed",
+                        "on-surface-variant": "#444839",
+                        "on-error": "#ffffff",
+                        "secondary": "#4d6453",
+                        "on-primary-fixed-variant": "#384e00",
+                        "tertiary-container": "#516070",
+                        "primary-container": "#4b6700",
+                        "error-container": "#ffdad6",
+                        "background": "#f8fce5",
+                        "on-tertiary-fixed-variant": "#394857",
+                        "lime-accent": "#beff00",
+                        "surface-container-low": "#f2f6df",
+                        "surface-tint": "#4b6700",
+                        "surface-container-highest": "#e1e5ce",
+                        "primary-fixed-dim": "#b0d368",
+                        "primary-fixed": "#ccef80",
+                        "folklore-gold": "#C5A059",
+                        "on-surface": "#191d0f",
+                        "tsar-red": "#A62C21",
+                        "inverse-primary": "#b0d368",
+                        "surface-variant": "#e1e5ce",
+                        "on-tertiary": "#ffffff",
+                        "surface-container": "#ecf0d9",
+                        "surface-container-high": "#e6ead4",
+                        "error": "#ba1a1a",
+                        "on-primary-container": "#c2e577",
+                        "on-tertiary-fixed": "#0d1d2a",
+                        "ink-black": "#121212",
+                        "paper-shadow": "#EBE7DE",
+                        "on-secondary": "#ffffff",
+                        "tertiary-fixed-dim": "#b8c8db",
+                        "secondary-container": "#cfe9d3",
+                        "on-primary-fixed": "#141f00",
+                        "outline": "#757968",
+                        "surface-dim": "#d8dcc6",
+                        "secondary-fixed": "#cfe9d3",
+                        "secondary-fixed-dim": "#b3cdb8",
+                        "inverse-surface": "#2e3223",
+                        "primary": "#384d00",
+                        "on-secondary-container": "#536a59",
+                        "surface": "#f8fce5",
+                        "surface-container-lowest": "#ffffff",
+                        "parchment-base": "#F9F7F2",
+                        "outline-variant": "#c5c8b5",
+                        "tertiary-fixed": "#d4e4f7",
+                        "on-secondary-fixed-variant": "#364c3c",
+                        "on-background": "#191d0f",
+                        "on-secondary-fixed": "#0a2013",
+                        "inverse-on-surface": "#eff3dc",
+                        "on-primary": "#ffffff",
+                        "surface-bright": "#f8fce5",
+                        "on-error-container": "#93000a",
+                        "tertiary": "#394858"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "section-gap": "48px",
+                        "margin-mobile": "16px",
+                        "max-width": "1280px",
+                        "unit": "4px",
+                        "margin-desktop": "64px",
+                        "gutter": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["JetBrains Mono"],
+                        "label-sm": ["Manrope"],
+                        "headline-xl": ["JetBrains Mono"],
+                        "body-lg": ["Manrope"],
+                        "headline-lg-mobile": ["JetBrains Mono"],
+                        "body-md": ["Manrope"],
+                        "headline-lg": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "label-sm": ["13px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "headline-xl": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-image:
+                linear-gradient(to right, rgba(77, 100, 83, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(77, 100, 83, 0.05) 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+        .ornamental-border {
+            position: relative;
+            border: 1px solid rgba(77, 100, 83, 0.2);
+        }
+        .ornamental-border::before {
+            content: '';
+            position: absolute;
+            top: 2px; left: 2px; right: 2px; bottom: 2px;
+            border: 1px solid rgba(77, 100, 83, 0.1);
+            pointer-events: none;
+        }
+        .input-ledger {
+            border: none;
+            border-bottom: 1px solid rgba(77, 100, 83, 0.3);
+            background: transparent;
+            border-radius: 0;
+            padding-left: 0;
+            transition: border-color 0.3s;
+        }
+        .input-ledger:focus {
+            outline: none;
+            box-shadow: none;
+            border-bottom: 2px solid #384d00;
+        }
+        .woodblock-button {
+            position: relative;
+            overflow: hidden;
+        }
+        .woodblock-button::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+            pointer-events: none;
+        }
+        .corner-bracket {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-color: #C5A059;
+            border-style: solid;
+        }
+        .bracket-tl { top: -1px; left: -1px; border-width: 1.5px 0 0 1.5px; }
+        .bracket-tr { top: -1px; right: -1px; border-width: 1.5px 1.5px 0 0; }
+        .bracket-bl { bottom: -1px; left: -1px; border-width: 0 0 1.5px 1.5px; }
+        .bracket-br { bottom: -1px; right: -1px; border-width: 0 1.5px 1.5px 0; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-parchment-base text-on-surface min-h-screen font-body-md flex flex-col items-center">
+<!-- TopAppBar -->
+<header class="w-full top-0 bg-parchment-base dark:bg-ink-black flex justify-between items-center px-margin-mobile md:px-margin-desktop py-4 border-b border-secondary/10 sticky z-40 transition-all duration-300">
+<button aria-label="Назад" class="text-primary hover:opacity-80 flex items-center justify-center p-2 rounded-full">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">arrow_back</span>
+</button>
+<div class="flex items-center gap-2">
+<!-- Custom SVG Logo for NewFit -->
+<svg fill="none" height="32" viewbox="0 0 32 32" width="32" xmlns="http://www.w3.org/2000/svg">
+<path d="M16 2L2 9L16 16L30 9L16 2Z" fill="#384d00"></path>
+<path d="M2 23L16 30L30 23V9L16 16L2 9V23Z" fill="#b0d368"></path>
+<path d="M16 16V30L30 23V9L16 16Z" fill="#4b6700"></path>
+</svg>
+<span class="font-headline-lg text-headline-lg text-primary tracking-widest hidden md:block">NEWFIT</span>
+</div>
+<div class="w-10"></div> <!-- Placeholder for balance -->
+</header>
+<!-- Main Content Area -->
+<main class="w-full max-w-[max-width] px-margin-mobile md:px-margin-desktop py-section-gap flex-1 flex flex-col items-center">
+<!-- Progress Indicator -->
+<div class="w-full max-w-2xl mb-12 flex justify-between items-center relative">
+<div class="absolute top-1/2 left-0 w-full h-px bg-secondary/20 -z-10"></div>
+<div class="absolute top-1/2 left-0 w-3/4 h-px bg-primary -z-10"></div>
+<div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-on-primary text-xs font-bold border-2 border-parchment-base">1</div>
+<div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-on-primary text-xs font-bold border-2 border-parchment-base">2</div>
+<div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-on-primary text-xs font-bold border-2 border-parchment-base">3</div>
+<div class="w-8 h-8 rounded-full bg-folklore-gold flex items-center justify-center text-on-primary text-sm font-bold border-2 border-parchment-base outline outline-1 outline-folklore-gold shadow-[0_0_10px_rgba(197,160,89,0.5)]">4</div>
+</div>
+<div class="w-full max-w-2xl text-center mb-10">
+<h1 class="font-headline-xl text-headline-xl text-primary mb-4 md:hidden font-headline-lg-mobile text-headline-lg-mobile">Прайс и Портфолио</h1>
+<h1 class="font-headline-xl text-headline-xl text-primary mb-4 hidden md:block">Прайс и Портфолио</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Завершающий этап. Укажите стоимость ваших услуг и загрузите фотографии, чтобы клиенты могли лучше познакомиться с вашим стилем.</p>
+</div>
+<!-- Ornamental Form Container -->
+<div class="w-full max-w-2xl bg-surface-container-lowest p-6 md:p-10 ornamental-border rounded-lg shadow-sm mb-12">
+<div class="corner-bracket bracket-tl"></div>
+<div class="corner-bracket bracket-tr"></div>
+<div class="corner-bracket bracket-bl"></div>
+<div class="corner-bracket bracket-br"></div>
+<form class="space-y-10">
+<!-- Pricing Section -->
+<div>
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-folklore-gold">payments</span>
+<h2 class="font-headline-md text-headline-md text-primary">Стоимость услуг</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="flex flex-col">
+<label class="font-label-sm text-label-sm text-secondary mb-1">Разовое занятие (₽)</label>
+<input class="input-ledger font-body-lg text-on-surface py-2 focus:ring-0" placeholder="Например, 2500" type="number"/>
+</div>
+<div class="flex flex-col">
+<label class="font-label-sm text-label-sm text-secondary mb-1">Пакет из 12 занятий (₽)</label>
+<input class="input-ledger font-body-lg text-on-surface py-2 focus:ring-0" placeholder="Например, 25000" type="number"/>
+</div>
+</div>
+</div>
+<!-- Custom SVG Divider -->
+<div class="w-full flex justify-center py-4 opacity-50">
+<svg fill="none" height="20" viewbox="0 0 120 20" width="120" xmlns="http://www.w3.org/2000/svg">
+<path d="M0 10H45" stroke="#4d6453" stroke-width="0.5"></path>
+<circle cx="50" cy="10" fill="#C5A059" r="2"></circle>
+<path d="M60 5L65 10L60 15" fill="none" stroke="#4d6453" stroke-width="1"></path>
+<path d="M55 10H65" stroke="#4d6453" stroke-width="1"></path>
+<circle cx="70" cy="10" fill="#C5A059" r="2"></circle>
+<path d="M75 10H120" stroke="#4d6453" stroke-width="0.5"></path>
+</svg>
+</div>
+<!-- Photo Upload Section -->
+<div>
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-folklore-gold">add_a_photo</span>
+<h2 class="font-headline-md text-headline-md text-primary">Фотографии</h2>
+</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-6">Загрузите до 5 качественных фотографий (процесс тренировки, зал, портрет).</p>
+<div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+<!-- Upload Button/Slot -->
+<div class="aspect-square bg-paper-shadow border border-dashed border-secondary/40 rounded flex flex-col items-center justify-center cursor-pointer hover:bg-surface-variant transition-colors group relative">
+<input accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple="" type="file"/>
+<span class="material-symbols-outlined text-secondary text-3xl mb-2 group-hover:scale-110 transition-transform">cloud_upload</span>
+<span class="font-label-sm text-label-sm text-secondary text-center px-2">Загрузить фото</span>
+</div>
+<!-- Placeholder for uploaded photo -->
+<div class="aspect-square bg-surface-variant ornamental-border relative rounded overflow-hidden">
+<img class="object-cover w-full h-full opacity-80 mix-blend-multiply" data-alt="A professional fitness trainer in a modern, light-filled minimalist gym studio, focusing on form. The image uses a technical aesthetic with deep greens and warm gold accents, resembling high-end editorial photography with subtle woodblock print tonal qualities." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB9diYyrRE-jkCiFBSPm1NAU4PX_EvUZwqV7FOxJyOWCF_H4xK9zljdySZwEZTr9DeaaRkKCAdiS7f2w37VN3CF8rGE11nG5PaQJ_0WF18ghuYJ0GsELBJeDMKWbquOZcbR3iF4KleSiC7lN1u4P6_WtJ4zqGp1vYTgmVa-gsbuCsQbQ2lniIkh1dKSSvTWD3zrsoW4XzLhjwgTeIvyu-WmNhZF_p1skMnktF_wg2EBXgWCQ6d58OCu"/>
+<button class="absolute top-1 right-1 bg-parchment-base/80 rounded-full p-1 hover:bg-error-container text-secondary hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</button>
+</div>
+<!-- Empty slots for visual balance -->
+<div class="aspect-square border border-secondary/10 bg-parchment-base/50 rounded flex items-center justify-center text-secondary/30">
+<span class="material-symbols-outlined">image</span>
+</div>
+<div class="aspect-square border border-secondary/10 bg-parchment-base/50 rounded flex items-center justify-center text-secondary/30 hidden md:flex">
+<span class="material-symbols-outlined">image</span>
+</div>
+<div class="aspect-square border border-secondary/10 bg-parchment-base/50 rounded flex items-center justify-center text-secondary/30 hidden md:flex">
+<span class="material-symbols-outlined">image</span>
+</div>
+</div>
+</div>
+<!-- Submit Button -->
+<div class="pt-6">
+<button class="woodblock-button w-full bg-primary text-on-primary font-headline-md text-headline-md py-4 px-8 rounded flex justify-center items-center gap-3 hover:bg-primary-container hover:text-on-primary-container transition-all active:scale-[0.98]" type="button">
+                        Завершить регистрацию
+                        <span class="material-symbols-outlined font-bold">check_circle</span>
+</button>
+</div>
+</form>
+</div>
+</main>
+</body></html>
