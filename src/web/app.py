@@ -68,7 +68,7 @@ async def welcome_alt_page():
 @app.get("/catalog", response_class=HTMLResponse)
 async def catalog_page():
     """Specialists Catalog Screen (Flow 3)"""
-    return render_screen("newfit")
+    return render_screen("_20")
 
 @app.get("/specialist", response_class=HTMLResponse)
 @app.get("/specialist/{specialist_id}", response_class=HTMLResponse)
@@ -105,7 +105,7 @@ async def pro_schedule_generate_page():
 @app.get("/pro/unlock", response_class=HTMLResponse)
 async def pro_unlock_page():
     """Pro Subscription B2B Gate Screen (Flow 5)"""
-    return render_screen("pro")
+    return render_screen("_4")
 
 @app.get("/client/favorites", response_class=HTMLResponse)
 async def client_favorites_page():
@@ -150,7 +150,7 @@ async def admin_devtools_page():
 @app.get("/shader", response_class=HTMLResponse)
 async def shader_page():
     """Shader Visual Screen"""
-    return render_screen("shader_1")
+    return render_screen("_14")
 
 # --- Direct Access Route for Any Design System Screen Folder ---
 
