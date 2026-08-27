@@ -1,0 +1,307 @@
+<!DOCTYPE html><html lang="ru"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Выберите категорию - NEWFIT</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&amp;family=Manrope:wght@400;600&amp;display=swap" rel="stylesheet">
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config from Brand Anchors -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-variant": "#e1e5ce",
+                    "on-secondary-fixed": "#0a2013",
+                    "background": "#f8fce5",
+                    "on-error-container": "#93000a",
+                    "ink-black": "#121212",
+                    "surface-container-lowest": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "outline-variant": "#c5c8b5",
+                    "secondary-fixed-dim": "#b3cdb8",
+                    "surface-bright": "#f8fce5",
+                    "primary-container": "#4b6700",
+                    "on-secondary-container": "#536a59",
+                    "surface": "#f8fce5",
+                    "inverse-surface": "#2e3223",
+                    "on-primary-fixed-variant": "#384e00",
+                    "on-primary-container": "#c2e577",
+                    "on-tertiary-fixed": "#0d1d2a",
+                    "surface-container-highest": "#e1e5ce",
+                    "primary-fixed-dim": "#b0d368",
+                    "secondary-fixed": "#cfe9d3",
+                    "inverse-primary": "#b0d368",
+                    "tertiary-container": "#516070",
+                    "secondary-container": "#cfe9d3",
+                    "paper-shadow": "#EBE7DE",
+                    "on-surface-variant": "#444839",
+                    "surface-container": "#ecf0d9",
+                    "tertiary-fixed": "#d4e4f7",
+                    "folklore-gold": "#C5A059",
+                    "on-background": "#191d0f",
+                    "on-secondary": "#ffffff",
+                    "on-secondary-fixed-variant": "#364c3c",
+                    "on-tertiary": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "primary": "#384d00",
+                    "inverse-on-surface": "#eff3dc",
+                    "primary-fixed": "#ccef80",
+                    "on-error": "#ffffff",
+                    "tertiary": "#394858",
+                    "surface-tint": "#4b6700",
+                    "lime-accent": "#beff00",
+                    "surface-dim": "#d8dcc6",
+                    "on-primary-fixed": "#141f00",
+                    "on-tertiary-fixed-variant": "#394857",
+                    "outline": "#757968",
+                    "surface-container-low": "#f2f6df",
+                    "on-tertiary-container": "#cbdaed",
+                    "surface-container-high": "#e6ead4",
+                    "parchment-base": "#F9F7F2",
+                    "tertiary-fixed-dim": "#b8c8db",
+                    "on-surface": "#191d0f",
+                    "secondary": "#4d6453",
+                    "tsar-red": "#A62C21",
+                    "error": "#ba1a1a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "unit": "4px",
+                    "margin-desktop": "64px",
+                    "max-width": "1280px",
+                    "margin-mobile": "16px",
+                    "section-gap": "48px",
+                    "gutter": "24px"
+            },
+            "fontFamily": {
+                    "body-md": [
+                            "Manrope"
+                    ],
+                    "headline-xl": [
+                            "JetBrains Mono"
+                    ],
+                    "headline-lg-mobile": [
+                            "JetBrains Mono"
+                    ],
+                    "headline-lg": [
+                            "JetBrains Mono"
+                    ],
+                    "label-sm": [
+                            "Manrope"
+                    ],
+                    "body-lg": [
+                            "Manrope"
+                    ],
+                    "headline-md": [
+                            "JetBrains Mono"
+                    ]
+            },
+            "fontSize": {
+                    "body-md": [
+                            "16px",
+                            {
+                                    "lineHeight": "24px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "headline-xl": [
+                            "48px",
+                            {
+                                    "lineHeight": "56px",
+                                    "letterSpacing": "-0.02em",
+                                    "fontWeight": "700"
+                            }
+                    ],
+                    "headline-lg-mobile": [
+                            "28px",
+                            {
+                                    "lineHeight": "36px",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "headline-lg": [
+                            "32px",
+                            {
+                                    "lineHeight": "40px",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "label-sm": [
+                            "13px",
+                            {
+                                    "lineHeight": "16px",
+                                    "letterSpacing": "0.05em",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "body-lg": [
+                            "18px",
+                            {
+                                    "lineHeight": "28px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "headline-md": [
+                            "24px",
+                            {
+                                    "lineHeight": "32px",
+                                    "fontWeight": "600"
+                            }
+                    ]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        /* Custom styles for precise control and micro-interactions */
+        .category-radio:checked + .category-card {
+            border-color: #384d00; /* primary color */
+            background-color: #f2f6df; /* surface-container-low */
+        }
+        .category-radio:checked + .category-card .check-icon {
+            opacity: 1;
+            transform: scale(1);
+        }
+        .woodblock-overlay {
+            background-image: radial-gradient(#c5c8b5 1px, transparent 1px);
+            background-size: 8px 8px;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md text-body-md min-h-screen flex flex-col selection:bg-lime-accent selection:text-ink-black">
+<!-- Top Navigation (Minimal version for transactional flow) -->
+<header class="w-full flex justify-between items-center px-margin-mobile md:px-margin-desktop py-4 border-b border-secondary/10 sticky top-0 bg-background/90 backdrop-blur-sm z-40">
+<div class="flex items-center gap-3">
+<!-- New SVG Logo -->
+<svg class="text-primary" fill="none" height="32" viewBox="0 0 32 32" width="32" xmlns="http://www.w3.org/2000/svg">
+<path d="M16 2L2 9L16 16L30 9L16 2Z" stroke="currentColor" stroke-linejoin="round" stroke-width="2"></path>
+<path d="M2 23L16 30L30 23V9L16 16L2 9V23Z" stroke="currentColor" stroke-linejoin="round" stroke-width="2"></path>
+<circle cx="16" cy="16" fill="currentColor" r="3"></circle>
+</svg>
+<span class="font-headline-md text-headline-md text-primary tracking-widest uppercase">NewFit</span>
+</div>
+<!-- Close icon indicating this is a modal/transactional flow -->
+<button class="text-on-surface-variant hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">close</span>
+</button>
+</header>
+<!-- Main Content -->
+<main class="flex-grow flex flex-col items-center justify-center px-margin-mobile md:px-margin-desktop py-section-gap w-full max-w-[800px] mx-auto">
+<div class="w-full text-center mb-12">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-ink-black mb-4">Выберите категорию</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-lg mx-auto">Определите вашу основную специализацию для настройки рабочего пространства.</p>
+</div>
+<!-- Bento Grid for Categories -->
+<div class="grid grid-cols-2 gap-4 md:gap-6 w-full">
+<!-- Card 1: Тренер -->
+<label class="relative cursor-pointer group">
+<input class="category-radio peer sr-only" name="category" required="" type="radio" value="trainer">
+<div class="category-card relative h-48 md:h-64 rounded-[3px] border border-outline-variant bg-surface-container-lowest overflow-hidden transition-all duration-300 hover:shadow-md hover:border-primary/50 flex flex-col">
+<div class="absolute inset-0 bg-cover bg-center mix-blend-luminosity opacity-40 group-hover:opacity-60 transition-opacity duration-500" data-alt="A minimalist black and white photograph of a professional athletic trainer in a bright, modern gym with high-key lighting. The image has a subtle Art Nouveau border overlay in thin gold lines. The mood is disciplined, precise, and sophisticated." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDcmkSM849hICYW0wScuEQ0lmAvmxwbPrUbm2YawPDlO2snBVYwTG45St1bROpy3RpArCF9Fuf1F8EGtHtMbFdrwFLBEF8zuQ50PVosevR-OVx5WM7FOEri6frLHjdx13zryj01iRlhqiGBzcF7vPGIl5TCE9afiUWWeEab45IjLtQwT6ydTewggX5jA00LGpcdYNL_578sw0qhIrff_EarXvF0_4FlLXDWT4AHTPJjvAyl6eHICwbN')"></div>
+<div class="absolute inset-0 woodblock-overlay"></div>
+<div class="relative z-10 flex flex-col items-center justify-center h-full p-6 text-center">
+<span class="material-symbols-outlined text-[48px] text-primary" style="font-variation-settings: &quot;wght&quot; 200;">fitness_center</span>
+
+</div>
+<!-- Selected state checkmark -->
+<div class="check-icon absolute top-4 right-4 w-6 h-6 rounded-full bg-primary flex items-center justify-center opacity-0 scale-50 transition-all duration-300 z-20">
+<span class="material-symbols-outlined text-white text-[16px]" style="font-variation-settings: &quot;wght&quot; 600;">check</span>
+</div>
+</div>
+</label>
+<!-- Card 2: Бьюти -->
+<label class="relative cursor-pointer group">
+<input class="category-radio peer sr-only" name="category" type="radio" value="beauty">
+<div class="category-card relative h-48 md:h-64 rounded-[3px] border border-outline-variant bg-surface-container-lowest overflow-hidden transition-all duration-300 hover:shadow-md hover:border-primary/50 flex flex-col">
+<div class="absolute inset-0 bg-cover bg-center mix-blend-luminosity opacity-40 group-hover:opacity-60 transition-opacity duration-500" data-alt="A highly detailed, elegant close-up of a wellness professional preparing organic skincare treatments in a pristine, white laboratory setting. The composition features clean lines and subtle botanical motifs inspired by Russian folklore, rendered in a modern technical style." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuANJ4yUFknH0VX3ng4RDZcEHNZJetf9uTB5CUwzOHZg75o9kWxWIwSZV9H2rkxlyASzUFVwXo02dqfqCFPSX_WOxmAk4qvyB4BVCg-lgBfpAa1G-ek2hEcjm1_xcnsIKjzlrpMOuJ01os79NxsZn9Wyfi17FFbZkMsSE8PwHUjjuShB4tb5NWzCbNq8snqiiP9mEaG7Z1VfEe-Lp5T_GyeeO9PVXQT7TZ4H7-ZF7M4i9bI2plEYhBLR')"></div>
+<div class="absolute inset-0 woodblock-overlay"></div>
+<div class="relative z-10 flex flex-col items-center justify-center h-full p-6 text-center">
+<span class="material-symbols-outlined text-[48px] text-primary" style="font-variation-settings: &quot;wght&quot; 200;">spa</span>
+
+</div>
+<!-- Selected state checkmark -->
+<div class="check-icon absolute top-4 right-4 w-6 h-6 rounded-full bg-primary flex items-center justify-center opacity-0 scale-50 transition-all duration-300 z-20">
+<span class="material-symbols-outlined text-white text-[16px]" style="font-variation-settings: &quot;wght&quot; 600;">check</span>
+</div>
+</div>
+</label>
+<!-- Card 3: Теннис -->
+<label class="relative cursor-pointer group">
+<input class="category-radio peer sr-only" name="category" type="radio" value="tennis">
+<div class="category-card relative h-48 md:h-64 rounded-[3px] border border-outline-variant bg-surface-container-lowest overflow-hidden transition-all duration-300 hover:shadow-md hover:border-primary/50 flex flex-col">
+<div class="absolute inset-0 bg-cover bg-center mix-blend-luminosity opacity-40 group-hover:opacity-60 transition-opacity duration-500" data-alt="A stylized, high-contrast image of a perfectly manicured tennis court from a top-down perspective. The lines are sharp and geometric. The scene is bathed in bright, natural light, emphasizing a clean, technical aesthetic with subtle earthy undertones." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCu4ycF20LAZxB75BD4_-ID-AT29RZP7ylzDP_AQGOQzSUzTgnvaBzMqCkKsju1_8m8epJI-JXUH4igoJIrXvgbEqVAERSihKlhDtLo_vDuIhA0BeUwf5ys_K-BTEVGL9QTpjL0UboX4srZlT9_AP7KyA_9HagLDpx_uZSIszSNPpTm39NVmzx-uAlOpc4Y1JpYVKg4HRLRY-am0T9z6Xn-7T-OWHsHeYTF8gRbVemakmNZmcsAdyVB')"></div>
+<div class="absolute inset-0 woodblock-overlay"></div>
+<div class="relative z-10 flex flex-col items-center justify-center h-full p-6 text-center">
+<span class="material-symbols-outlined text-[48px] text-primary" style="font-variation-settings: &quot;wght&quot; 200;">sports_tennis</span>
+
+</div>
+<!-- Selected state checkmark -->
+<div class="check-icon absolute top-4 right-4 w-6 h-6 rounded-full bg-primary flex items-center justify-center opacity-0 scale-50 transition-all duration-300 z-20">
+<span class="material-symbols-outlined text-white text-[16px]" style="font-variation-settings: &quot;wght&quot; 600;">check</span>
+</div>
+</div>
+</label>
+<!-- Card 4: Падель -->
+<label class="relative cursor-pointer group">
+<input class="category-radio peer sr-only" name="category" type="radio" value="padel">
+<div class="category-card relative h-48 md:h-64 rounded-[3px] border border-outline-variant bg-surface-container-lowest overflow-hidden transition-all duration-300 hover:shadow-md hover:border-primary/50 flex flex-col">
+<div class="absolute inset-0 bg-cover bg-center mix-blend-luminosity opacity-40 group-hover:opacity-60 transition-opacity duration-500" data-alt="A modern padel court enclosed in glass, captured with strict architectural precision. The lighting is bright and high-key, highlighting the geometric structure of the court. The image conveys a sense of high-end sports technology and minimalist design with stark shadows." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDK4CADMu1_MR8n2lgdw99xDrKn8qsebbC9ih0LoeP7LF_0gVOPGPFRAMclodpOA0P64qAlbmM_KocWxNL1lcE3un7WsBkStEmNp2Kz3vIL79F2Zaq7u9JOTkxR55pEyKh5lqqfKHi2cWPRKj5bpLNZg6d9Cy2YB2YRGRUxKdPMcW1hRAGm_Q0vaZXxDDdBe9bMXt1sG9AbeXciJ8uqNC6V2dihN_SOjCCTEDSPGFEW0ivweA_ReTBN')"></div>
+<div class="absolute inset-0 woodblock-overlay"></div>
+<div class="relative z-10 flex flex-col items-center justify-center h-full p-6 text-center">
+<span class="material-symbols-outlined text-[48px] text-primary" style="font-variation-settings: &quot;wght&quot; 200;">sports_gymnastics</span>
+
+</div>
+<!-- Selected state checkmark -->
+<div class="check-icon absolute top-4 right-4 w-6 h-6 rounded-full bg-primary flex items-center justify-center opacity-0 scale-50 transition-all duration-300 z-20">
+<span class="material-symbols-outlined text-white text-[16px]" style="font-variation-settings: &quot;wght&quot; 600;">check</span>
+</div>
+</div>
+</label>
+</div>
+</main>
+<!-- Footer Action Area -->
+<footer class="w-full px-margin-mobile md:px-margin-desktop py-6 bg-background/95 backdrop-blur-md sticky bottom-0 border-t border-secondary/10 flex justify-center z-40">
+<div class="w-full max-w-[800px] flex justify-end">
+<!-- Navigation button with dark background and white text -->
+<button class="bg-ink-black text-on-primary font-label-sm text-label-sm uppercase tracking-widest py-4 px-12 rounded-[3px] hover:bg-on-background transition-colors duration-300 flex items-center gap-2 group w-full md:w-auto justify-center" style="opacity: 1; cursor: pointer;">
+                ДАЛЕЕ
+                <span class="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform" style="font-variation-settings: 'wght' 400;">arrow_forward</span>
+</button>
+</div>
+</footer>
+<script>
+        // Simple JS to ensure a category is selected before allowing 'Next' (visual only for mockup)
+        document.addEventListener('DOMContentLoaded', () => {
+            const nextButton = document.querySelector('footer button');
+            const radios = document.querySelectorAll('.category-radio');
+
+            // Initially dim the button to indicate required selection
+            nextButton.style.opacity = '0.5';
+            nextButton.style.cursor = 'not-allowed';
+
+            radios.forEach(radio => {
+                radio.addEventListener('change', () => {
+                    nextButton.style.opacity = '1';
+                    nextButton.style.cursor = 'pointer';
+                });
+            });
+        });
+    </script>
+
+
+</body></html>

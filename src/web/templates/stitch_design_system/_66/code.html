@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+
+<html lang="ru"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Личные данные - NewFit</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "surface-variant": "#e1e5ce",
+                "on-secondary-fixed": "#0a2013",
+                "background": "#f8fce5",
+                "on-error-container": "#93000a",
+                "ink-black": "#121212",
+                "surface-container-lowest": "#ffffff",
+                "error-container": "#ffdad6",
+                "outline-variant": "#c5c8b5",
+                "secondary-fixed-dim": "#b3cdb8",
+                "surface-bright": "#f8fce5",
+                "primary-container": "#4b6700",
+                "on-secondary-container": "#536a59",
+                "surface": "#f8fce5",
+                "inverse-surface": "#2e3223",
+                "on-primary-fixed-variant": "#384e00",
+                "on-primary-container": "#c2e577",
+                "on-tertiary-fixed": "#0d1d2a",
+                "surface-container-highest": "#e1e5ce",
+                "primary-fixed-dim": "#b0d368",
+                "secondary-fixed": "#cfe9d3",
+                "inverse-primary": "#b0d368",
+                "tertiary-container": "#516070",
+                "secondary-container": "#cfe9d3",
+                "paper-shadow": "#EBE7DE",
+                "on-surface-variant": "#444839",
+                "surface-container": "#ecf0d9",
+                "tertiary-fixed": "#d4e4f7",
+                "folklore-gold": "#C5A059",
+                "on-background": "#191d0f",
+                "on-secondary": "#ffffff",
+                "on-secondary-fixed-variant": "#364c3c",
+                "on-tertiary": "#ffffff",
+                "on-primary": "#ffffff",
+                "primary": "#384d00",
+                "inverse-on-surface": "#eff3dc",
+                "primary-fixed": "#ccef80",
+                "on-error": "#ffffff",
+                "tertiary": "#394858",
+                "surface-tint": "#4b6700",
+                "lime-accent": "#beff00",
+                "surface-dim": "#d8dcc6",
+                "on-primary-fixed": "#141f00",
+                "on-tertiary-fixed-variant": "#394857",
+                "outline": "#757968",
+                "surface-container-low": "#f2f6df",
+                "on-tertiary-container": "#cbdaed",
+                "surface-container-high": "#e6ead4",
+                "parchment-base": "#F9F7F2",
+                "tertiary-fixed-dim": "#b8c8db",
+                "on-surface": "#191d0f",
+                "secondary": "#4d6453",
+                "tsar-red": "#A62C21",
+                "error": "#ba1a1a"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem",
+                "custom": "3px" // Specific requirement
+            },
+            "spacing": {
+                "unit": "4px",
+                "margin-desktop": "64px",
+                "max-width": "1280px",
+                "margin-mobile": "16px",
+                "section-gap": "48px",
+                "gutter": "24px"
+            },
+            "fontFamily": {
+                "body-md": ["Manrope"],
+                "headline-xl": ["JetBrains Mono"],
+                "headline-lg-mobile": ["JetBrains Mono"],
+                "headline-lg": ["JetBrains Mono"],
+                "label-sm": ["Manrope"],
+                "body-lg": ["Manrope"],
+                "headline-md": ["JetBrains Mono"]
+            },
+            "fontSize": {
+                "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                "headline-xl": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],
+                "label-sm": ["13px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        /* Woodblock style input overrides */
+        .woodblock-input {
+            border: 1px solid rgba(77, 100, 83, 0.2); /* secondary/20 */
+            background-color: transparent;
+            transition: all 0.3s ease;
+        }
+        .woodblock-input:focus {
+            outline: none;
+            border-color: #384d00; /* primary */
+            box-shadow: 0 0 0 1px #384d00;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-parchment-base text-on-background min-h-screen flex flex-col font-body-md antialiased">
+<!-- TopAppBar (From JSON, adapted for onboarding - no nav) -->
+<header class="bg-parchment-base dark:bg-ink-black text-primary font-headline-md text-headline-md w-full top-0 border-b border-secondary/10 transition-all duration-300 flex justify-center md:justify-between items-center px-margin-mobile md:px-margin-desktop py-4 sticky z-40">
+<!-- Leading empty on onboarding typically, or a back button if applicable, but hiding based on intent -->
+<div class="hidden md:flex flex-1"></div>
+<div class="font-headline-lg text-headline-lg text-primary tracking-widest flex-shrink-0 text-center">NEWFIT</div>
+<div class="hidden md:flex flex-1"></div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow flex items-center justify-center p-margin-mobile md:p-margin-desktop">
+<div class="w-full max-w-md">
+<!-- Contextual Header -->
+<div class="mb-section-gap text-center relative">
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-background mb-4">Личные данные</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Расскажите немного о себе, чтобы мы могли настроить профиль.</p>
+<!-- Decorative Divider -->
+<div class="flex justify-center mt-6 opacity-30">
+<svg fill="none" height="12" viewbox="0 0 120 12" width="120" xmlns="http://www.w3.org/2000/svg">
+<path d="M0 6H50M70 6H120M60 2L64 6L60 10L56 6L60 2Z" stroke="#4d6453" stroke-width="1"></path>
+</svg>
+</div>
+</div>
+<!-- Form -->
+<form action="#" class="space-y-6 relative z-10" method="POST">
+<!-- Full Name Field -->
+<div>
+<label class="block font-label-sm text-label-sm text-on-background mb-2" for="fullName">Ф.И.О.</label>
+<input class="woodblock-input rounded-custom w-full px-4 py-3 font-headline-md text-[16px] leading-[24px] text-on-background placeholder:text-outline-variant" id="fullName" name="fullName" placeholder="Иван Иванов" required="" type="text"/>
+</div>
+<!-- Phone Field -->
+<div>
+<label class="block font-label-sm text-label-sm text-on-background mb-2" for="phone">Телефон</label>
+<input class="woodblock-input rounded-custom w-full px-4 py-3 font-headline-md text-[16px] leading-[24px] text-on-background placeholder:text-outline-variant" id="phone" name="phone" placeholder="+7 (999) 000-00-00" required="" type="tel"/>
+</div>
+<!-- Experience Field -->
+<div>
+<label class="block font-label-sm text-label-sm text-on-background mb-2" for="experience">Опыт работы (лет)</label>
+<input class="woodblock-input rounded-custom w-full px-4 py-3 font-headline-md text-[16px] leading-[24px] text-on-background placeholder:text-outline-variant" id="experience" max="50" min="0" name="experience" placeholder="0" required="" type="number"/>
+</div>
+<!-- Spacer -->
+<div class="pt-8">
+<!-- Submit Button -->
+<button class="w-full bg-ink-black text-on-primary font-headline-md text-[18px] leading-[28px] py-4 px-6 rounded-custom uppercase tracking-wider transition-opacity hover:opacity-90 flex justify-center items-center gap-2" type="submit">
+<span>ДАЛЕЕ</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">arrow_forward</span>
+</button>
+</div>
+</form>
+</div>
+</main>
+<!-- Suppressed Nav Shells for Transactional/Onboarding Page -->
+<!-- Navigation Drawer & Bottom Nav are intentionally omitted here as per 'The "Semantic Shell" Mandate' -->
+</body></html>

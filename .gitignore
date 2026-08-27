@@ -14,3 +14,4 @@ venv.bak/
 alembic/versions/*
 !alembic/versions/.gitkeep
 *.png
+*.html

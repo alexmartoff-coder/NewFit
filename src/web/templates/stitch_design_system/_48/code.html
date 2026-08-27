@@ -1,0 +1,270 @@
+<!DOCTYPE html><html lang="ru"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Специалист: Личные данные - NewFit</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                            "on-tertiary-container": "#cbdaed",
+                            "on-surface-variant": "#444839",
+                            "on-error": "#ffffff",
+                            "secondary": "#4d6453",
+                            "on-primary-fixed-variant": "#384e00",
+                            "tertiary-container": "#516070",
+                            "primary-container": "#4b6700",
+                            "error-container": "#ffdad6",
+                            "background": "#f8fce5",
+                            "on-tertiary-fixed-variant": "#394857",
+                            "lime-accent": "#beff00",
+                            "surface-container-low": "#f2f6df",
+                            "surface-tint": "#4b6700",
+                            "surface-container-highest": "#e1e5ce",
+                            "primary-fixed-dim": "#b0d368",
+                            "primary-fixed": "#ccef80",
+                            "folklore-gold": "#C5A059",
+                            "on-surface": "#191d0f",
+                            "tsar-red": "#A62C21",
+                            "inverse-primary": "#b0d368",
+                            "surface-variant": "#e1e5ce",
+                            "on-tertiary": "#ffffff",
+                            "surface-container": "#ecf0d9",
+                            "surface-container-high": "#e6ead4",
+                            "error": "#ba1a1a",
+                            "on-primary-container": "#c2e577",
+                            "on-tertiary-fixed": "#0d1d2a",
+                            "ink-black": "#121212",
+                            "paper-shadow": "#EBE7DE",
+                            "on-secondary": "#ffffff",
+                            "tertiary-fixed-dim": "#b8c8db",
+                            "secondary-container": "#cfe9d3",
+                            "on-primary-fixed": "#141f00",
+                            "outline": "#757968",
+                            "surface-dim": "#d8dcc6",
+                            "secondary-fixed": "#cfe9d3",
+                            "secondary-fixed-dim": "#b3cdb8",
+                            "inverse-surface": "#2e3223",
+                            "primary": "#384d00",
+                            "on-secondary-container": "#536a59",
+                            "surface": "#f8fce5",
+                            "surface-container-lowest": "#ffffff",
+                            "parchment-base": "#F9F7F2",
+                            "outline-variant": "#c5c8b5",
+                            "tertiary-fixed": "#d4e4f7",
+                            "on-secondary-fixed-variant": "#364c3c",
+                            "on-background": "#191d0f",
+                            "on-secondary-fixed": "#0a2013",
+                            "inverse-on-surface": "#eff3dc",
+                            "on-primary": "#ffffff",
+                            "surface-bright": "#f8fce5",
+                            "on-error-container": "#93000a",
+                            "tertiary": "#394858"
+                    },
+                    "borderRadius": {
+                            "DEFAULT": "0.125rem",
+                            "lg": "0.25rem",
+                            "xl": "0.5rem",
+                            "full": "0.75rem",
+                            "custom-btn": "3px"
+                    },
+                    "spacing": {
+                            "section-gap": "48px",
+                            "margin-mobile": "16px",
+                            "max-width": "1280px",
+                            "unit": "4px",
+                            "margin-desktop": "64px",
+                            "gutter": "24px"
+                    },
+                    "fontFamily": {
+                            "headline-md": ["JetBrains Mono", "monospace"],
+                            "label-sm": ["Manrope", "sans-serif"],
+                            "headline-xl": ["JetBrains Mono", "monospace"],
+                            "body-lg": ["Manrope", "sans-serif"],
+                            "headline-lg-mobile": ["JetBrains Mono", "monospace"],
+                            "body-md": ["Manrope", "sans-serif"],
+                            "headline-lg": ["JetBrains Mono", "monospace"]
+                    },
+                    "fontSize": {
+                            "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                            "label-sm": ["13px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                            "headline-xl": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                            "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                            "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                            "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                            "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .input-ledger {
+            border-bottom: 2px solid theme('colors.secondary');
+            border-bottom-width: 2px;
+            border-color: rgba(77, 100, 83, 0.3);
+            background-color: transparent;
+            border-top: none;
+            border-left: none;
+            border-right: none;
+            transition: border-color 0.3s ease;
+        }
+        .input-ledger:focus {
+            outline: none;
+            box-shadow: none;
+            border-color: theme('colors.primary');
+        }
+
+        .ornamental-container {
+            position: relative;
+            border: 1px solid rgba(77, 100, 83, 0.2);
+            padding: 2px;
+        }
+        .ornamental-container::after {
+            content: '';
+            position: absolute;
+            inset: 2px;
+            border: 1px solid rgba(77, 100, 83, 0.1);
+            pointer-events: none;
+        }
+
+        .btn-corner-brackets {
+            position: relative;
+        }
+        .btn-corner-brackets::before,
+        .btn-corner-brackets::after {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border: 2px solid theme('colors.folklore-gold');
+            transition: all 0.2s ease;
+        }
+        .btn-corner-brackets::before {
+            top: -2px;
+            left: -2px;
+            border-right: none;
+            border-bottom: none;
+        }
+        .btn-corner-brackets::after {
+            bottom: -2px;
+            right: -2px;
+            border-left: none;
+            border-top: none;
+        }
+        .btn-corner-brackets:hover::before,
+        .btn-corner-brackets:hover::after {
+            width: 12px;
+            height: 12px;
+        }
+
+        .woodblock-texture {
+            background-image: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 2px,
+                rgba(77, 100, 83, 0.03) 2px,
+                rgba(77, 100, 83, 0.03) 4px
+            );
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-parchment-base text-on-background min-h-screen flex flex-col woodblock-texture selection:bg-lime-accent selection:text-ink-black font-headline-md">
+<!-- TopAppBar -->
+<header class="w-full top-0 border-b border-secondary/10 bg-parchment-base flat no shadows transition-all duration-300 z-50 sticky">
+<div class="flex justify-between items-center px-margin-mobile md:px-margin-desktop py-4 max-w-max-width mx-auto">
+<button aria-label="Назад" class="text-on-surface-variant hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">arrow_back</span>
+</button>
+<div class="flex items-center gap-2">
+<!-- SVG Logo in Header -->
+<div class="w-8 h-8">{{DATA:DOCUMENT:DOCUMENT_19}}</div>
+<h1 class="font-headline-md text-headline-md text-primary tracking-widest uppercase">NEWFIT</h1>
+</div>
+<div class="w-6"></div> <!-- Spacer for centering -->
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow flex flex-col items-center justify-center px-margin-mobile md:px-margin-desktop py-section-gap w-full max-w-max-width mx-auto">
+<div class="w-full max-w-lg">
+<!-- Progress Indicator -->
+<div class="mb-12 flex flex-col items-center">
+<p class="font-label-sm text-label-sm text-secondary tracking-widest uppercase mb-4">Шаг 3 из 5</p>
+<div class="flex items-center gap-2">
+<div class="w-8 h-[2px] bg-secondary/20"></div>
+<div class="w-8 h-[2px] bg-secondary/20"></div>
+<div class="w-8 h-[2px] bg-primary"></div>
+<div class="w-8 h-[2px] bg-secondary/20"></div>
+<div class="w-8 h-[2px] bg-secondary/20"></div>
+</div>
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary mt-8 text-center">
+                    Личные данные
+                </h2>
+<p class="font-body-md text-body-md text-on-surface-variant text-center mt-4">
+                    Заполните профиль специалиста. Эти данные увидят клиенты.
+                </p>
+</div>
+<!-- Onboarding Form -->
+<div class="ornamental-container bg-surface-container-lowest p-8 md:p-12 shadow-sm" style="border-radius: 3px;">
+<form class="space-y-8">
+<!-- Full Name -->
+<div class="flex flex-col">
+<label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest mb-2 flex items-center gap-2" for="fullName">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 0;">person</span>
+                            ФИО
+                        </label>
+<input class="input-ledger w-full py-2 font-body-lg text-body-lg text-on-surface placeholder:text-outline-variant" id="fullName" name="fullName" placeholder="Иванов Иван Иванович" required="" type="text">
+</div>
+<!-- Phone -->
+<div class="flex flex-col">
+<label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest mb-2 flex items-center gap-2" for="phone">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 0;">call</span>
+                            Телефон
+                        </label>
+<input class="input-ledger w-full py-2 font-body-lg text-body-lg text-on-surface placeholder:text-outline-variant" id="phone" name="phone" placeholder="+7 (999) 000-00-00" required="" type="tel">
+</div>
+<!-- Experience -->
+<div class="flex flex-col">
+<label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest mb-2 flex items-center gap-2" for="experience">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 0;">work_history</span>
+                            Опыт работы, лет
+                        </label>
+<div class="relative">
+<input class="input-ledger w-full py-2 font-body-lg text-body-lg text-on-surface placeholder:text-outline-variant" id="experience" max="50" min="0" name="experience" placeholder="5" required="" type="number">
+<span class="absolute right-0 top-1/2 -translate-y-1/2 font-label-sm text-label-sm text-outline-variant uppercase">Лет</span>
+</div>
+</div>
+<!-- Decorative Divider -->
+<div class="py-6 flex justify-center opacity-30">
+<svg fill="none" height="12" viewBox="0 0 120 12" width="120" xmlns="http://www.w3.org/2000/svg">
+<line stroke="#4d6453" stroke-width="1" x1="0" x2="45" y1="6" y2="6"></line>
+<rect height="8" stroke="#4d6453" stroke-width="1" transform="rotate(45 54 2)" width="8" x="54" y="2"></rect>
+<line stroke="#4d6453" stroke-width="1" x1="75" x2="120" y1="6" y2="6"></line>
+</svg>
+</div>
+<!-- Action Button -->
+<div class="pt-4">
+<button class="w-full bg-primary font-headline-md text-[18px] py-4 px-6 rounded-custom-btn hover:opacity-90 active:scale-[0.98] transition-all duration-200 flex justify-center items-center gap-2 relative overflow-hidden group" type="submit"><span class="relative z-10 text-white group-hover:text-ink-black transition-colors">Продолжить</span><span class="material-symbols-outlined relative z-10 text-white group-hover:text-ink-black transition-transform group-hover:translate-x-1" style="font-variation-settings: &quot;FILL&quot; 0;">arrow_forward</span><div class="absolute inset-0 bg-black/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div></button>
+<p class="font-label-sm text-[11px] text-center text-outline mt-4">
+                            Нажимая кнопку, вы соглашаетесь с условиями обработки данных
+                        </p>
+</div>
+</form>
+</div>
+</div>
+</main>
+
+
+</body></html>

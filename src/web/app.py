@@ -9,7 +9,9 @@ from src.utils.db import init_db, engine
 logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-TEMPLATES_DIR = os.path.join(BASE_DIR, "templates", "stitch_newfin_bilibin_design_system")
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates", "stitch_design_system")
+if not os.path.exists(TEMPLATES_DIR):
+    TEMPLATES_DIR = os.path.join(BASE_DIR, "templates", "stitch_newfin_bilibin_design_system")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

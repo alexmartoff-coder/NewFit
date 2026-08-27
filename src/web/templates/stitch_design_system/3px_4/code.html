@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+
+<html lang="ru"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NewFit - Профиль клиента</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-fixed": "#0e1d2a",
+                    "on-tertiary": "#ffffff",
+                    "surface-bright": "#f8fce5",
+                    "folklore-gold": "#C5A059",
+                    "primary-container": "#beff00",
+                    "surface-container-high": "#e6ead4",
+                    "ink-black": "#121212",
+                    "on-secondary": "#ffffff",
+                    "secondary-container": "#cde6d1",
+                    "on-background": "#191d10",
+                    "surface-container-highest": "#e1e5cf",
+                    "primary-fixed": "#b8f600",
+                    "error-container": "#ffdad6",
+                    "secondary": "#4d6453",
+                    "on-tertiary-fixed-variant": "#3a4857",
+                    "background": "#f8fce5",
+                    "on-surface-variant": "#434933",
+                    "primary-fixed-dim": "#a1d800",
+                    "outline-variant": "#c3caad",
+                    "primary": "#4b6700",
+                    "on-tertiary-container": "#5c6b7b",
+                    "surface-container": "#ecf0da",
+                    "on-secondary-container": "#516857",
+                    "on-primary-fixed": "#141f00",
+                    "secondary-fixed": "#d0e9d4",
+                    "on-error": "#ffffff",
+                    "on-secondary-fixed": "#0b2013",
+                    "surface-dim": "#d8dcc7",
+                    "on-surface": "#191d10",
+                    "parchment-base": "#F9F7F2",
+                    "paper-shadow": "#EBE7DE",
+                    "surface": "#f8fce5",
+                    "outline": "#737a61",
+                    "tertiary-container": "#ddecff",
+                    "on-primary-container": "#547300",
+                    "on-error-container": "#93000a",
+                    "surface-tint": "#4b6700",
+                    "tertiary-fixed": "#d5e4f7",
+                    "on-primary-fixed-variant": "#384e00",
+                    "inverse-on-surface": "#eff3dd",
+                    "inverse-primary": "#a1d800",
+                    "on-primary": "#ffffff",
+                    "tertiary-fixed-dim": "#b9c8da",
+                    "tertiary": "#516070",
+                    "surface-variant": "#e1e5cf",
+                    "inverse-surface": "#2e3223",
+                    "error": "#ba1a1a",
+                    "tsar-red": "#A62C21",
+                    "secondary-fixed-dim": "#b4cdb8",
+                    "on-secondary-fixed-variant": "#364c3c",
+                    "surface-container-low": "#f2f6e0",
+                    "surface-container-lowest": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "3px",
+                    "lg": "3px",
+                    "xl": "3px",
+                    "2xl": "3px",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "max-width": "1280px",
+                    "margin-mobile": "16px",
+                    "margin-desktop": "64px",
+                    "gutter": "24px",
+                    "unit": "4px"
+            },
+            "fontFamily": {
+                    "headline-md": [
+                            "JetBrains Mono",
+                            "monospace"
+                    ],
+                    "body-lg": [
+                            "JetBrains Mono",
+                            "monospace"
+                    ],
+                    "body-md": [
+                            "JetBrains Mono",
+                            "monospace"
+                    ],
+                    "label-sm": [
+                            "JetBrains Mono",
+                            "monospace"
+                    ],
+                    "headline-lg-mobile": [
+                            "JetBrains Mono",
+                            "monospace"
+                    ],
+                    "headline-xl": [
+                            "JetBrains Mono",
+                            "monospace"
+                    ],
+                    "headline-lg": [
+                            "JetBrains Mono",
+                            "monospace"
+                    ]
+            },
+            "fontSize": {
+                    "headline-md": [
+                            "24px",
+                            {
+                                    "lineHeight": "32px",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "body-lg": [
+                            "18px",
+                            {
+                                    "lineHeight": "28px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "body-md": [
+                            "16px",
+                            {
+                                    "lineHeight": "24px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "label-sm": [
+                            "13px",
+                            {
+                                    "lineHeight": "16px",
+                                    "letterSpacing": "0.05em",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "headline-lg-mobile": [
+                            "28px",
+                            {
+                                    "lineHeight": "36px",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "headline-xl": [
+                            "48px",
+                            {
+                                    "lineHeight": "56px",
+                                    "letterSpacing": "-0.02em",
+                                    "fontWeight": "700"
+                            }
+                    ],
+                    "headline-lg": [
+                            "32px",
+                            {
+                                    "lineHeight": "40px",
+                                    "fontWeight": "600"
+                            }
+                    ]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.parchment-base');
+            color: theme('colors.on-surface');
+        }
+
+        .ornamental-border {
+            position: relative;
+        }
+        .ornamental-border::before {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border: 1px solid rgba(77, 100, 83, 0.2); /* secondary color */
+            pointer-events: none;
+            border-radius: 3px;
+        }
+        .ornamental-border::after {
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border: 0.5px solid rgba(77, 100, 83, 0.1);
+            pointer-events: none;
+            border-radius: 3px;
+        }
+
+        .ornamental-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(77, 100, 83, 0.2), transparent);
+            margin: 2rem 0;
+            position: relative;
+        }
+        .ornamental-divider::after {
+            content: '❖';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background-color: theme('colors.parchment-base');
+            padding: 0 8px;
+            color: theme('colors.folklore-gold');
+            font-size: 10px;
+        }
+
+        .input-ledger {
+            border: none;
+            border-bottom: 1px solid rgba(77, 100, 83, 0.3);
+            background: transparent;
+            border-radius: 0;
+            padding-left: 0;
+            padding-right: 0;
+        }
+        .input-ledger:focus {
+            box-shadow: none;
+            border-bottom-color: theme('colors.primary');
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="font-body-md min-h-screen pb-24 md:pb-0">
+<!-- TopAppBar for Mobile/Desktop -->
+<header class="bg-surface dark:bg-inverse-surface w-full top-0 sticky border-b border-secondary/20 dark:border-outline-variant/20 z-40 transition-colors duration-200 ease-in-out md:hidden flex justify-between items-center px-margin-mobile py-4">
+<button class="text-primary dark:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-surface-container-highest p-2 rounded-[3px] transition-colors">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-primary dark:text-primary-fixed-dim">\u041f\u0440\u043e\u0444\u0438\u043b\u044c</h1>
+<div class="w-10 h-10 rounded-full bg-surface-container overflow-hidden flex items-center justify-center border border-secondary/20">
+<img alt="\u041f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c" class="object-cover w-full h-full" data-alt="A detailed, modern portrait of a fitness enthusiast with a focused expression, softly lit against a clean parchment-toned background. The lighting highlights subtle textures, with a refined, premium aesthetic. Deep blacks and pristine whites are complemented by a hint of lime green. 50-100 words minimum." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDI1jKVybkAZojpQE0AdToTCIKaUcVlLYXYK7miURVIdhlRrn7KVziVhU2ok8oN5Uofx_4iw_fxzKZRjON7GDj2vUITssIx16L0ITHniIRZqBeSFFSEWK5kHlAVgbc4pl7RZGYiwJ6zufzl-UiO62qtT7vhgiAP5K2xbeHVsMqCeYgcKkUEtmAeC3AV1mmff9XBcbS9jbUPwwIcXVNGrx_9F_8PIi_cuMRTTYLwDeMa0Kl1_5iWBFkX"/>
+</div>
+</header>
+<main class="max-w-max-width mx-auto px-margin-mobile md:px-margin-desktop py-8 grid grid-cols-1 md:grid-cols-12 gap-gutter">
+<!-- Left Column / Profile Info -->
+<div class="md:col-span-4 space-y-8">
+<section class="bg-paper-shadow p-6 rounded-[3px] border border-secondary/20 ornamental-border relative flex flex-col items-center text-center">
+<div class="w-32 h-32 rounded-full overflow-hidden mb-4 border-2 border-primary-container relative">
+<img alt="Александр Волков" class="object-cover w-full h-full" data-alt="A high-quality, professional headshot of a modern Slavic fitness client, looking confidently at the camera. The background is a minimalist, airy studio space with a soft parchment hue. The lighting is bright and evenly distributed, emphasizing a healthy, active lifestyle with a touch of elegance. Minimum 50 words." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBd88gcWiP9tR93hyMcJSJVEqL0f8r934oTOfwnrdwQXQLxCVFboxK229l3GpeWsj72B5VwEXphD12AnttG0-2alNKZrUaQFgc4vYYsIk1rnVn-JqNIQeoUYNIovWwJBaVzX1JVazzbAZa2Gr59u8PKfAA2MxoLz5AZs9q6R0JnGZJBsyRw-tNv7qN13FGf85nGIB8TmfdgRZ_EU6lTGMg8OjeQKmxrH3ZsyV4zuApvJD_1AJ8n2kRg"/>
+<button class="absolute bottom-0 right-0 bg-folklore-gold text-white p-1.5 rounded-[3px] border-2 border-paper-shadow flex items-center justify-center hover:bg-opacity-90 transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="edit">edit</span>
+</button>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-1">Александр Волков</h2>
+<p class="font-body-md text-body-md text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" data-icon="location_on">location_on</span>
+                    Москва
+                </p>
+<div class="mt-6 flex gap-2">
+<span class="px-3 py-1 bg-parchment-base border border-secondary/20 rounded-[3px] font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+                        Клиент
+                    </span>
+</div>
+</section>
+<!-- Promo Card -->
+<section class="bg-surface-container p-6 rounded-[3px] border border-secondary/20 relative overflow-hidden group cursor-pointer">
+<div class="absolute inset-0 bg-primary-container/10 group-hover:bg-primary-container/20 transition-colors duration-300"></div>
+<div class="relative z-10">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2">Стать Специалистом</h3>
+<p class="font-body-sm text-body-md text-secondary mb-4">Откройте новые возможности. Предлагайте свои услуги и находите клиентов в NewFit.</p>
+<button class="w-full bg-primary text-on-primary py-3 rounded-[3px] font-label-sm text-label-sm transition-transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">
+                        Перейти в Pro-режим
+                        <span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<!-- Decorative SVG -->
+<svg class="absolute -bottom-8 -right-8 w-32 h-32 text-folklore-gold/20" fill="currentColor" viewbox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+<path d="M50 0 C60 40 100 50 100 50 C60 60 50 100 50 100 C40 60 0 50 0 50 C40 40 50 0 50 0 Z"></path>
+</svg>
+</section>
+</div>
+<!-- Right Column / Forms & Settings -->
+<div class="md:col-span-8 space-y-8">
+<section class="bg-surface p-8 rounded-[3px] border border-secondary/10">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-folklore-gold" data-icon="manage_accounts">manage_accounts</span>
+                    Личные данные
+                </h3>
+<form class="space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div>
+<label class="block font-label-sm text-label-sm text-secondary mb-1">Имя и Фамилия</label>
+<input class="w-full input-ledger font-body-md text-body-md text-on-surface focus:outline-none focus:ring-0" type="text" value="Александр Волков"/>
+</div>
+<div>
+<label class="block font-label-sm text-label-sm text-secondary mb-1">Телефон</label>
+<input class="w-full input-ledger font-body-md text-body-md text-on-surface focus:outline-none focus:ring-0" type="tel" value="+7 (999) 123-45-67"/>
+</div>
+<div class="md:col-span-2">
+<label class="block font-label-sm text-label-sm text-secondary mb-1">Город</label>
+<input class="w-full input-ledger font-body-md text-body-md text-on-surface focus:outline-none focus:ring-0" type="text" value="Москва"/>
+</div>
+</div>
+<div class="flex justify-end pt-4">
+<button class="bg-primary border-[1.5px] border-primary text-on-primary px-6 py-3 rounded-[3px] font-label-sm text-label-sm relative overflow-hidden group hover:opacity-90 transition-opacity" type="button">
+                            Сохранить изменения
+                        </button>
+</div>
+</form>
+</section>
+<div class="ornamental-divider"></div>
+<section class="bg-surface p-8 rounded-[3px] border border-secondary/10">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-folklore-gold" data-icon="notifications_active">notifications_active</span>
+                    Настройки уведомлений
+                </h3>
+<div class="space-y-4">
+<div class="flex items-center justify-between py-3 border-b border-secondary/10">
+<div>
+<p class="font-body-md text-body-md text-on-surface font-semibold">Push-уведомления</p>
+<p class="font-label-sm text-label-sm text-secondary">Напоминания о тренировках и системные сообщения</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-dim peer-focus:outline-none rounded-[3px] peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-[3px] after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+</label>
+</div>
+<div class="flex items-center justify-between py-3 border-b border-secondary/10">
+<div>
+<p class="font-body-md text-body-md text-on-surface font-semibold">Telegram-бот</p>
+<p class="font-label-sm text-label-sm text-secondary">Дублирование важных сообщений в мессенджер</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-dim peer-focus:outline-none rounded-[3px] peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-[3px] after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+</label>
+</div>
+</div>
+</section>
+<section class="bg-error-container/20 p-8 rounded-[3px] border border-error/20 mt-8">
+<h3 class="font-headline-md text-headline-md text-error mb-2 flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="warning">warning</span>
+                    Управление аккаунтом
+                </h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Безвозвратное удаление всех данных профиля, истории записей и настроек.</p>
+<button class="text-error font-label-sm text-label-sm border border-error px-4 py-2 rounded-[3px] hover:bg-error-container/50 transition-colors" type="button">
+                    Удалить аккаунт
+                </button>
+</section>
+</div>
+</main>
+<!-- BottomNavBar Mobile Only -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 bg-parchment-base dark:bg-inverse-surface border-t border-secondary/10 dark:border-outline-variant/10 rounded-t-[3px] md:hidden">
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label-sm text-label-sm mt-1">\u0413\u043b\u0430\u0432\u043d\u0430\u044f</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="bookmark">bookmark</span>
+<span class="font-label-sm text-label-sm mt-1">\u0418\u0437\u0431\u0440\u0430\u043d\u043d\u043e\u0435</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-1 hover:text-primary dark:hover:text-primary-fixed-dim scale-95 active:scale-90 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="event_available">event_available</span>
+<span class="font-label-sm text-label-sm mt-1">\u0417\u0430\u043f\u0438\u0441\u0438</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary text-on-primary rounded-[3px] px-4 py-1 hover:bg-opacity-90 scale-95 active:scale-90 transition-all duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-label-sm text-label-sm mt-1">\u041f\u0440\u043e\u0444\u0438\u043b\u044c</span>
+</a>
+</nav>
+</body></html>
