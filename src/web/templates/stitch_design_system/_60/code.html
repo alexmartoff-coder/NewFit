@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+
+<html lang="ru"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NewFit - Редактирование профиля</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container": "#ecf0d9",
+                        "on-tertiary-fixed-variant": "#394857",
+                        "folklore-gold": "#C5A059",
+                        "surface-container-highest": "#e1e5ce",
+                        "inverse-primary": "#b0d368",
+                        "paper-shadow": "#EBE7DE",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed-variant": "#384e00",
+                        "on-secondary-container": "#536a59",
+                        "outline": "#757968",
+                        "secondary-fixed": "#cfe9d3",
+                        "tertiary": "#394858",
+                        "inverse-on-surface": "#eff3dc",
+                        "tertiary-container": "#516070",
+                        "error": "#ba1a1a",
+                        "on-error": "#ffffff",
+                        "surface-bright": "#f8fce5",
+                        "lime-accent": "#beff00",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-tint": "#4b6700",
+                        "secondary-fixed-dim": "#b3cdb8",
+                        "primary-fixed-dim": "#b0d368",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-fixed": "#0d1d2a",
+                        "on-background": "#191d0f",
+                        "on-surface": "#191d0f",
+                        "surface": "#f8fce5",
+                        "secondary": "#4d6453",
+                        "primary-container": "#4b6700",
+                        "on-secondary-fixed": "#0a2013",
+                        "tsar-red": "#A62C21",
+                        "on-primary": "#ffffff",
+                        "surface-variant": "#e1e5ce",
+                        "surface-container-high": "#e6ead4",
+                        "ink-black": "#121212",
+                        "tertiary-fixed-dim": "#b8c8db",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-container": "#cbdaed",
+                        "surface-dim": "#d8dcc6",
+                        "background": "#f8fce5",
+                        "on-error-container": "#93000a",
+                        "on-primary-fixed": "#141f00",
+                        "tertiary-fixed": "#d4e4f7",
+                        "on-surface-variant": "#444839",
+                        "on-primary-container": "#c2e577",
+                        "parchment-base": "#F9F7F2",
+                        "surface-container-low": "#f2f6df",
+                        "primary": "#384d00",
+                        "inverse-surface": "#2e3223",
+                        "outline-variant": "#c5c8b5",
+                        "on-secondary-fixed-variant": "#364c3c",
+                        "secondary-container": "#cfe9d3",
+                        "primary-fixed": "#ccef80"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "margin-desktop": "64px",
+                        "section-gap": "48px",
+                        "unit": "4px",
+                        "max-width": "1280px",
+                        "gutter": "24px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Manrope"],
+                        "headline-xl": ["JetBrains Mono"],
+                        "headline-md": ["JetBrains Mono"],
+                        "headline-lg-mobile": ["JetBrains Mono"],
+                        "label-sm": ["Manrope"],
+                        "headline-lg": ["JetBrains Mono"],
+                        "body-md": ["Manrope"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-xl": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "label-sm": ["13px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.parchment-base');
+            color: theme('colors.on-surface');
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .ornamental-border {
+            border: 1px solid theme('colors.secondary');
+            position: relative;
+        }
+
+        .ornamental-border::before {
+            content: '';
+            position: absolute;
+            inset: 2px;
+            border: 1px solid theme('colors.secondary');
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .bracket-corner {
+            position: relative;
+        }
+
+        .bracket-corner::before,
+        .bracket-corner::after {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-color: theme('colors.folklore-gold');
+            border-style: solid;
+        }
+
+        .bracket-corner::before {
+            top: 0;
+            left: 0;
+            border-width: 2px 0 0 2px;
+        }
+
+        .bracket-corner::after {
+            bottom: 0;
+            right: 0;
+            border-width: 0 2px 2px 0;
+        }
+
+        .input-ledger {
+            border: none;
+            border-bottom: 1px solid theme('colors.secondary');
+            background: transparent;
+            border-radius: 0;
+        }
+
+        .input-ledger:focus {
+            outline: none;
+            border-bottom-color: theme('colors.primary');
+            box-shadow: none;
+        }
+
+        /* Material Symbols Fill Class */
+        .material-symbols-fill {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen flex flex-col font-body-md bg-parchment-base overflow-x-hidden">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface dark:bg-inverse-surface border-b border-secondary/10 dark:border-secondary-fixed/10 flex justify-between items-center px-margin-mobile h-16 max-w-max-width mx-auto">
+<button class="text-on-surface-variant hover:bg-surface-container-high transition-colors p-2 rounded-full flex items-center justify-center opacity-80 duration-150">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<div class="font-headline-md text-headline-md font-semibold text-primary dark:text-primary-fixed">NewFit</div>
+<button class="text-on-surface-variant hover:bg-surface-container-high transition-colors p-1 rounded-full flex items-center justify-center opacity-80 duration-150">
+<img class="w-8 h-8 rounded-full object-cover border border-secondary/20" data-alt="A small circular avatar placeholder image showing a highly detailed, professional headshot of a fitness specialist in a bright, modern studio. The lighting is crisp and even, highlighting their athletic build and approachable expression. The overall style is clean and premium, fitting a high-end wellness app. The background is a soft, light surface color." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCp9z408TGcUZBMEYhNdOioGF9oyV_zkqKaBRXRFyqzvSWcpfWrwv2ADk0izvEFSUYA6Pc4KY4qx8U3uvBrQ3vhgp6frxKzbkYnQlZgvBAMxppKPgQvlUozPAafFtVaPDm65c-DNLCYyddxVydxUvbiTtmNiikf3s_aCz8LYxTObPW0z1lEIlTIBJcNiejEUKwQBPKg78hxKCYTrHKEwU1GoXEwtmUfQpj8dj-1XsvNFEYps4JlICrY"/>
+</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow pt-[80px] pb-[100px] md:pb-[40px] px-margin-mobile md:px-margin-desktop max-w-max-width mx-auto w-full">
+<!-- Page Header -->
+<div class="mb-section-gap pt-6 border-b border-secondary/20 pb-4 relative">
+<h1 class="font-headline-xl text-headline-xl text-primary font-bold tracking-tight">Редактирование профиля</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-2 max-w-2xl">Настройте свою публичную страницу. Данные будут видны клиентам в каталоге.</p>
+<!-- Custom SVG Divider (Decorative) -->
+<div class="absolute -bottom-[1px] left-1/2 transform -translate-x-1/2 w-32 h-[2px] flex justify-center items-center">
+<svg fill="none" height="10" viewbox="0 0 40 10" width="40" xmlns="http://www.w3.org/2000/svg">
+<path d="M0 5H15L20 0L25 5H40" stroke="#4d6453" stroke-width="1.5"></path>
+</svg>
+</div>
+</div>
+<!-- Form Layout (Bento Grid inspired) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+<!-- Left Column: Core Info & Categories -->
+<div class="lg:col-span-8 flex flex-col gap-6">
+<!-- Basic Info Card -->
+<section class="bg-surface-container-lowest p-6 rounded-DEFAULT border border-secondary/10 shadow-sm relative bracket-corner">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">person</span>
+                        Основные данные
+                    </h2>
+<div class="space-y-6">
+<div class="flex flex-col">
+<label class="font-label-sm text-label-sm text-tertiary-container mb-1" for="name">Имя и Фамилия</label>
+<input class="input-ledger w-full py-2 font-body-lg text-body-lg text-on-surface focus:border-primary transition-colors" id="name" placeholder="Введите имя" type="text" value="Александр Волков"/>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="flex flex-col">
+<label class="font-label-sm text-label-sm text-tertiary-container mb-1" for="phone">Телефон</label>
+<input class="input-ledger w-full py-2 font-body-lg text-body-lg text-on-surface focus:border-primary transition-colors" id="phone" placeholder="+7 (___) ___-__-__" type="tel" value="+7 (999) 123-45-67"/>
+</div>
+<div class="flex flex-col">
+<label class="font-label-sm text-label-sm text-tertiary-container mb-1" for="experience">Опыт работы (лет)</label>
+<input class="input-ledger w-full py-2 font-body-lg text-body-lg text-on-surface focus:border-primary transition-colors" id="experience" placeholder="Например: 5" type="number" value="5"/>
+</div>
+</div>
+<div class="flex flex-col">
+<label class="font-label-sm text-label-sm text-tertiary-container mb-1" for="description">О себе</label>
+<textarea class="w-full bg-paper-shadow border border-secondary/20 rounded-DEFAULT p-3 font-body-md text-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary transition-colors resize-none" id="description" placeholder="Расскажите о своем подходе, образовании и достижениях..." rows="4"></textarea>
+</div>
+</div>
+</section>
+<!-- Category Switcher -->
+<section class="bg-surface-container-lowest p-6 rounded-DEFAULT border border-secondary/10 shadow-sm">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">category</span>
+                        Специализация
+                    </h2>
+<div class="flex flex-wrap gap-3">
+<button class="px-4 py-2 rounded-full border-2 border-primary bg-primary-container text-on-primary-container font-label-sm text-label-sm transition-all shadow-sm">
+                            Тренер
+                        </button>
+<button class="px-4 py-2 rounded-full border border-secondary/30 bg-surface text-on-surface-variant hover:bg-surface-container-low font-label-sm text-label-sm transition-all">
+                            Бьюти
+                        </button>
+<button class="px-4 py-2 rounded-full border border-secondary/30 bg-surface text-on-surface-variant hover:bg-surface-container-low font-label-sm text-label-sm transition-all">
+                            Массаж
+                        </button>
+<button class="px-4 py-2 rounded-full border border-secondary/30 bg-surface text-on-surface-variant hover:bg-surface-container-low font-label-sm text-label-sm transition-all">
+                            Йога
+                        </button>
+</div>
+</section>
+<!-- Pricing Section -->
+<section class="bg-surface-container-lowest p-6 rounded-DEFAULT border border-secondary/10 shadow-sm ornamental-border">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">payments</span>
+                        Услуги и цены
+                    </h2>
+<div class="space-y-4">
+<!-- Single Service Item -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-DEFAULT border border-secondary/10 group hover:border-primary/50 transition-colors">
+<div class="flex-grow">
+<input class="bg-transparent border-none p-0 font-body-lg text-body-lg text-on-surface font-semibold focus:ring-0 w-full" placeholder="Название услуги" type="text" value="Разовая тренировка"/>
+<input class="bg-transparent border-none p-0 font-body-md text-body-md text-on-surface-variant focus:ring-0 mt-1 w-full" placeholder="Длительность" type="text" value="60 мин"/>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center">
+<input class="input-ledger w-24 text-right py-1 font-headline-md text-headline-md text-on-surface" placeholder="0" type="number" value="2500"/>
+<span class="font-body-md text-body-md text-on-surface-variant ml-2">₽</span>
+</div>
+<button class="text-error/80 hover:text-error transition-colors p-2">
+<span class="material-symbols-outlined">delete</span>
+</button>
+</div>
+</div>
+<!-- Package Service Item -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-DEFAULT border border-secondary/10 group hover:border-primary/50 transition-colors">
+<div class="flex-grow">
+<input class="bg-transparent border-none p-0 font-body-lg text-body-lg text-on-surface font-semibold focus:ring-0 w-full" placeholder="Название услуги" type="text" value="Пакет 10 тренировок"/>
+<input class="bg-transparent border-none p-0 font-body-md text-body-md text-on-surface-variant focus:ring-0 mt-1 w-full" placeholder="Длительность" type="text" value="10 занятий по 60 мин"/>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center">
+<input class="input-ledger w-24 text-right py-1 font-headline-md text-headline-md text-on-surface" placeholder="0" type="number" value="20000"/>
+<span class="font-body-md text-body-md text-on-surface-variant ml-2">₽</span>
+</div>
+<button class="text-error/80 hover:text-error transition-colors p-2">
+<span class="material-symbols-outlined">delete</span>
+</button>
+</div>
+</div>
+<button class="w-full py-3 mt-4 border border-dashed border-primary/50 text-primary hover:bg-primary-container/20 font-label-sm text-label-sm rounded-DEFAULT flex items-center justify-center gap-2 transition-colors">
+<span class="material-symbols-outlined">add</span>
+                            Добавить услугу
+                        </button>
+</div>
+</section>
+</div>
+<!-- Right Column: Media Gallery & Actions -->
+<div class="lg:col-span-4 flex flex-col gap-6">
+<!-- Save Actions Sticky Container -->
+<div class="sticky top-[88px] z-40 bg-surface-container-lowest p-6 rounded-DEFAULT border border-secondary/10 shadow-sm flex flex-col gap-3">
+<button class="w-full bg-primary text-on-primary py-3 px-6 rounded-DEFAULT font-label-sm text-label-sm hover:opacity-90 transition-opacity shadow-md">
+                        Сохранить изменения
+                    </button>
+<button class="w-full bg-transparent border border-secondary/30 text-secondary py-3 px-6 rounded-DEFAULT font-label-sm text-label-sm hover:bg-surface-container-low transition-colors">
+                        Отменить
+                    </button>
+</div>
+<!-- Photo Gallery Section -->
+<section class="bg-surface-container-lowest p-6 rounded-DEFAULT border border-secondary/10 shadow-sm">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">photo_library</span>
+                        Галерея
+                    </h2>
+<div class="grid grid-cols-2 gap-3">
+<!-- Upload Area -->
+<div class="col-span-2 h-32 border-2 border-dashed border-secondary/30 rounded-DEFAULT bg-surface-container flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-surface-container-low transition-all">
+<span class="material-symbols-outlined text-primary mb-2 text-3xl">cloud_upload</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Загрузить фото</span>
+</div>
+<!-- Gallery Items -->
+<div class="relative group aspect-square rounded-DEFAULT overflow-hidden border border-secondary/10">
+<img class="w-full h-full object-cover" data-alt="A high-quality, professional photograph of a modern, well-lit fitness studio interior. The space features clean lines, premium wooden accents, and state-of-the-art gym equipment in the background. The lighting is bright and inviting, creating a clean, high-end atmosphere suitable for a premium fitness app. The overall tone is energetic yet sophisticated." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJIVRL3bCM-1ynzmWyg4inAxHos5mhz8SBt8wcTxCC1HpO-PTWbsiWqC3voLb2TxwanchD5RD88NQQRE_n88LWVl4BqeBJX6YvnE1fKk5z_O9oHQuW9jKomlA4rLieXlf1CUq5cu3DDzcWkKgH2OWgT2nwnoM16mSuB0dudNzW7BbLb1Gfu4FH5GCfDTFCbn2YyaGaRVXOo7eN-5dtORobDXQlnpzvd0LngxBIGeAMOzD012usFX7W"/>
+<button class="absolute top-2 right-2 bg-inverse-surface/80 text-on-secondary p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-error">
+<span class="material-symbols-outlined text-sm">close</span>
+</button>
+</div>
+<div class="relative group aspect-square rounded-DEFAULT overflow-hidden border border-secondary/10">
+<img class="w-full h-full object-cover" data-alt="A detailed, close-up photograph of premium fitness equipment, specifically elegant dumbbells resting on a polished wooden surface. The focus is sharp on the texture of the weights, with a slightly blurred background showing an airy, bright gym environment. The lighting emphasizes the technical and clean aesthetic of the brand." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDv0hId9lWD0O-3AQ7mBE1wFSPYOO7FJfwrfCH1jUQFB6Gw6Vn9RYkLt1kB5xVs56PsmTx7wF1STiXbqQwdxuJUO6X2Pce_AMUnFsaiV2t4dqrqK3aetiLFKJ_L0uTkcO7aCxduNVMhrVGqNrT0IgFGYw2YWF3If5vbZxd5vgHQA7ezVxuQBewgrUv-1yGpTiJTP7lY67iCzUd4f183K1PQQyCWzWVHsPNipCliDo1fzSwociX7qUq3"/>
+<button class="absolute top-2 right-2 bg-inverse-surface/80 text-on-secondary p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-error">
+<span class="material-symbols-outlined text-sm">close</span>
+</button>
+</div>
+<div class="relative group aspect-square rounded-DEFAULT overflow-hidden border border-secondary/10">
+<img class="w-full h-full object-cover" data-alt="A wide-angle, bright photograph showing a personal trainer assisting a client with a stretch in a pristine, minimalist studio. The composition is balanced and airy, emphasizing professional movement and care. The colors are natural and light, fitting perfectly into a premium wellness interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD1H8hgw1kB-0yzGOHzn-_1zo03o9tz2-5nsckHdur7bZ3JXLBIm--fdRvVBUhMX8NBAYTPhv3iKuTWydCMQ4COwEIF_kjpczsiVoJRQQZmQkX-OCP6_kw2ze-rtsAbNuxLFxyRHrcI3CI7YbwGSb_GuStra4rY27H4mN0f7CgdziTbocGkK4lcYE3SXW_6gTHGI3rChEfGcqjIKHZZgpJkhv_mhOjHLtnyrA5wUWhvDXGTrQBaZhdc"/>
+<button class="absolute top-2 right-2 bg-inverse-surface/80 text-on-secondary p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-error">
+<span class="material-symbols-outlined text-sm">close</span>
+</button>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-2 py-3 bg-parchment-base dark:bg-inverse-surface border-t border-secondary/10 dark:border-secondary-fixed/10 z-50 rounded-t-xl shadow-[0_-4px_16px_rgba(0,0,0,0.05)]">
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+<span class="font-label-sm text-label-sm mt-1">Каталог</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_today">calendar_today</span>
+<span class="font-label-sm text-label-sm mt-1">Записи</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1 hover:text-primary transition-all scale-95 duration-200" href="#">
+<span class="material-symbols-outlined material-symbols-fill" data-icon="person">person</span>
+<span class="font-label-sm text-label-sm mt-1">Профиль</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="grid_view">grid_view</span>
+<span class="font-label-sm text-label-sm mt-1">Меню</span>
+</a>
+</nav>
+</body></html>

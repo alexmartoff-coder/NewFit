@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+
+<html lang="ru"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NEWFIT - Редактирование профиля</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container": "#ecf0d9",
+                      "inverse-on-surface": "#eff3dc",
+                      "tertiary-fixed-dim": "#b8c8db",
+                      "on-secondary-fixed": "#0a2013",
+                      "on-secondary-fixed-variant": "#364c3c",
+                      "tertiary": "#394858",
+                      "on-secondary-container": "#536a59",
+                      "secondary-container": "#cfe9d3",
+                      "error": "#ba1a1a",
+                      "on-tertiary-fixed": "#0d1d2a",
+                      "inverse-surface": "#2e3223",
+                      "surface-bright": "#f8fce5",
+                      "surface-container-high": "#e6ead4",
+                      "on-background": "#191d0f",
+                      "on-tertiary-fixed-variant": "#394857",
+                      "on-surface": "#191d0f",
+                      "parchment-base": "#F9F7F2",
+                      "secondary": "#4d6453",
+                      "surface-container-highest": "#e1e5ce",
+                      "outline-variant": "#c5c8b5",
+                      "surface-tint": "#4b6700",
+                      "on-surface-variant": "#444839",
+                      "on-primary-container": "#c2e577",
+                      "paper-shadow": "#EBE7DE",
+                      "secondary-fixed-dim": "#b3cdb8",
+                      "on-error-container": "#93000a",
+                      "inverse-primary": "#b0d368",
+                      "surface": "#f8fce5",
+                      "primary-fixed": "#ccef80",
+                      "tsar-red": "#A62C21",
+                      "on-tertiary": "#ffffff",
+                      "on-primary-fixed-variant": "#384e00",
+                      "tertiary-container": "#516070",
+                      "surface-container-lowest": "#ffffff",
+                      "on-error": "#ffffff",
+                      "surface-dim": "#d8dcc6",
+                      "on-primary-fixed": "#141f00",
+                      "on-tertiary-container": "#cbdaed",
+                      "on-secondary": "#ffffff",
+                      "tertiary-fixed": "#d4e4f7",
+                      "background": "#f8fce5",
+                      "primary-fixed-dim": "#b0d368",
+                      "outline": "#757968",
+                      "surface-container-low": "#f2f6df",
+                      "folklore-gold": "#C5A059",
+                      "primary-container": "#4b6700",
+                      "on-primary": "#ffffff",
+                      "secondary-fixed": "#cfe9d3",
+                      "error-container": "#ffdad6",
+                      "ink-black": "#121212",
+                      "surface-variant": "#e1e5ce",
+                      "primary": "#384d00",
+                      "lime-accent": "#beff00"
+              },
+              "borderRadius": {
+                      "DEFAULT": "3px",
+                      "lg": "3px",
+                      "xl": "3px",
+                      "full": "3px",
+                      "3px": "3px"
+              },
+              "spacing": {
+                      "margin-mobile": "16px",
+                      "margin-desktop": "64px",
+                      "unit": "4px",
+                      "gutter": "24px",
+                      "section-gap": "48px",
+                      "max-width": "1280px"
+              },
+              "fontFamily": {
+                      "headline-xl": [
+                              "JetBrains Mono"
+                      ],
+                      "headline-lg": [
+                              "JetBrains Mono"
+                      ],
+                      "body-md": [
+                              "Manrope"
+                      ],
+                      "headline-md": [
+                              "JetBrains Mono"
+                      ],
+                      "label-sm": [
+                              "Manrope"
+                      ],
+                      "body-lg": [
+                              "Manrope"
+                      ],
+                      "headline-lg-mobile": [
+                              "JetBrains Mono"
+                      ],
+                      "mono": [
+                              "JetBrains Mono"
+                      ]
+              },
+              "fontSize": {
+                      "headline-xl": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-sm": [
+                              "13px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&amp;family=Manrope:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Apply custom border radius strictly as requested */
+        .rounded-custom {
+            border-radius: 3px !important;
+        }
+
+        .input-ledger {
+            border: none;
+            border-bottom: 1px solid theme('colors.secondary');
+            background: transparent;
+            border-radius: 0;
+            padding: 8px 0;
+        }
+        .input-ledger:focus {
+            outline: none;
+            border-bottom-color: theme('colors.primary');
+            box-shadow: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-parchment-base text-on-background min-h-screen pb-24 md:pb-0 font-mono">
+<!-- TopAppBar from JSON -->
+<header class="bg-parchment-base text-primary w-full top-0 border-b border-secondary/20 flex items-center justify-between px-margin-mobile h-16 fixed z-50">
+<button aria-label="Назад" class="hover:opacity-80 transition-opacity active:scale-95 duration-150 flex items-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">arrow_back</span>
+</button>
+<div class="font-headline-md text-headline-md-mobile font-bold tracking-tighter flex items-center gap-2">
+<!-- Mocking the SVG logo placeholder visually for this static page -->
+<span class="text-primary">{{DATA:DOCUMENT:DOCUMENT_12}}</span>
+            NEWFIT
+        </div>
+<div class="w-6"></div> <!-- Spacer for centering -->
+</header>
+<main class="pt-24 px-margin-mobile md:px-margin-desktop max-w-max-width mx-auto pb-12">
+<div class="max-w-md mx-auto space-y-8">
+<!-- Page Title -->
+<div class="text-center">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-primary">Редактирование профиля</h1>
+</div>
+<!-- Profile Photo Upload -->
+<div class="flex flex-col items-center gap-4">
+<div class="relative group cursor-pointer">
+<img alt="Profile Photo" class="w-32 h-32 object-cover rounded-custom border-2 border-secondary/20 shadow-sm" data-alt="A close-up studio portrait of a fit individual with a focused expression, warm lighting on a pale background, shot in a high-end editorial style reflecting a premium fitness brand aesthetic, modern light-mode." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB78X5620-LRboneyuRQ-t4L5MiDuNUddyV2-C63KwDpondZHn6HVbnz_HbYAAhExI6LqISKe1XAeOH5DVHBs_74Lp2h23u2EcJcvBoTkqEb_oCbQ8PPdmWFriyEE2EEXJJDliP-bR2-g-t4n3kUkuC5rRR5OV0o8_0MswgqwVQHLdTg1c7hg-XpI5iPjesWQUyA7iRROVPQokhzoMZwh0XNB-ejELOYEpzwduUJvV_pFOy1Es3d0uv"/>
+<div class="absolute inset-0 bg-ink-black/40 rounded-custom flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">photo_camera</span>
+</div>
+</div>
+<button class="text-primary text-sm font-semibold hover:opacity-80 underline underline-offset-4 decoration-secondary/50">
+                    Изменить фото
+                </button>
+</div>
+<!-- Form -->
+<form class="space-y-6 mt-8">
+<!-- Full Name -->
+<div class="flex flex-col">
+<label class="text-sm font-semibold text-on-surface-variant mb-1 uppercase tracking-widest text-xs">ФИО</label>
+<input class="input-ledger text-body-md font-mono w-full" placeholder="Введите ваше имя" type="text" value="Иван Иванов"/>
+</div>
+<!-- Phone -->
+<div class="flex flex-col">
+<label class="text-sm font-semibold text-on-surface-variant mb-1 uppercase tracking-widest text-xs">Телефон</label>
+<input class="input-ledger text-body-md font-mono w-full" placeholder="+7 (___) ___-__-__" type="tel" value="+7 (999) 000-00-00"/>
+</div>
+<!-- City -->
+<div class="flex flex-col">
+<label class="text-sm font-semibold text-on-surface-variant mb-1 uppercase tracking-widest text-xs">Город</label>
+<input class="input-ledger text-body-md font-mono w-full" placeholder="Ваш город" type="text" value="Москва"/>
+</div>
+<!-- Email -->
+<div class="flex flex-col">
+<label class="text-sm font-semibold text-on-surface-variant mb-1 uppercase tracking-widest text-xs">Email</label>
+<input class="input-ledger text-body-md font-mono w-full" placeholder="email@example.com" type="email" value="ivan@example.com"/>
+</div>
+<!-- Save Button -->
+<div class="pt-8 pb-4">
+<button class="w-full bg-primary text-ink-black py-4 px-6 rounded-custom font-headline-md text-[18px] leading-tight flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all" type="button">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">save</span>
+                        Сохранить изменения
+                    </button>
+</div>
+</form>
+</div>
+</main>
+<!-- BottomNavBar from JSON -->
+<nav class="bg-parchment-base fixed bottom-0 w-full rounded-t-xl border-t border-secondary/20 fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.02)]">
+<!-- Catalog -->
+<a class="flex flex-col items-center justify-center text-secondary px-4 py-1 hover:text-primary transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;">grid_view</span>
+<span class="font-label-sm text-label-sm font-mono text-[10px]">Каталог</span>
+</a>
+<!-- Bookings -->
+<a class="flex flex-col items-center justify-center text-secondary px-4 py-1 hover:text-primary transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;">event_note</span>
+<span class="font-label-sm text-label-sm font-mono text-[10px]">Записи</span>
+</a>
+<!-- Favorites -->
+<a class="flex flex-col items-center justify-center text-secondary px-4 py-1 hover:text-primary transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;">bookmark</span>
+<span class="font-label-sm text-label-sm font-mono text-[10px]">Избранное</span>
+</a>
+<!-- Profile (Active) -->
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-custom px-4 py-1 transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="font-label-sm text-label-sm font-mono text-[10px]">Профиль</span>
+</a>
+</nav>
+</body></html>

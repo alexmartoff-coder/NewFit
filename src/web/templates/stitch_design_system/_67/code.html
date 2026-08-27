@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+
+<html lang="ru"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NEWFIT - Локация и специализация</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-variant": "#e1e5ce",
+                    "on-secondary-fixed": "#0a2013",
+                    "background": "#f8fce5",
+                    "on-error-container": "#93000a",
+                    "ink-black": "#121212",
+                    "surface-container-lowest": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "outline-variant": "#c5c8b5",
+                    "secondary-fixed-dim": "#b3cdb8",
+                    "surface-bright": "#f8fce5",
+                    "primary-container": "#4b6700",
+                    "on-secondary-container": "#536a59",
+                    "surface": "#f8fce5",
+                    "inverse-surface": "#2e3223",
+                    "on-primary-fixed-variant": "#384e00",
+                    "on-primary-container": "#c2e577",
+                    "on-tertiary-fixed": "#0d1d2a",
+                    "surface-container-highest": "#e1e5ce",
+                    "primary-fixed-dim": "#b0d368",
+                    "secondary-fixed": "#cfe9d3",
+                    "inverse-primary": "#b0d368",
+                    "tertiary-container": "#516070",
+                    "secondary-container": "#cfe9d3",
+                    "paper-shadow": "#EBE7DE",
+                    "on-surface-variant": "#444839",
+                    "surface-container": "#ecf0d9",
+                    "tertiary-fixed": "#d4e4f7",
+                    "folklore-gold": "#C5A059",
+                    "on-background": "#191d0f",
+                    "on-secondary": "#ffffff",
+                    "on-secondary-fixed-variant": "#364c3c",
+                    "on-tertiary": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "primary": "#384d00",
+                    "inverse-on-surface": "#eff3dc",
+                    "primary-fixed": "#ccef80",
+                    "on-error": "#ffffff",
+                    "tertiary": "#394858",
+                    "surface-tint": "#4b6700",
+                    "lime-accent": "#beff00",
+                    "surface-dim": "#d8dcc6",
+                    "on-primary-fixed": "#141f00",
+                    "on-tertiary-fixed-variant": "#394857",
+                    "outline": "#757968",
+                    "surface-container-low": "#f2f6df",
+                    "on-tertiary-container": "#cbdaed",
+                    "surface-container-high": "#e6ead4",
+                    "parchment-base": "#F9F7F2",
+                    "tertiary-fixed-dim": "#b8c8db",
+                    "on-surface": "#191d0f",
+                    "secondary": "#4d6453",
+                    "tsar-red": "#A62C21",
+                    "error": "#ba1a1a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem",
+                    "3px": "3px" // Added for specific prompt requirement
+            },
+            "spacing": {
+                    "unit": "4px",
+                    "margin-desktop": "64px",
+                    "max-width": "1280px",
+                    "margin-mobile": "16px",
+                    "section-gap": "48px",
+                    "gutter": "24px"
+            },
+            "fontFamily": {
+                    "body-md": ["Manrope"],
+                    "headline-xl": ["JetBrains Mono"],
+                    "headline-lg-mobile": ["JetBrains Mono"],
+                    "headline-lg": ["JetBrains Mono"],
+                    "label-sm": ["Manrope"],
+                    "body-lg": ["Manrope"],
+                    "headline-md": ["JetBrains Mono"]
+            },
+            "fontSize": {
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-xl": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],
+                    "label-sm": ["13px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.parchment-base');
+            color: theme('colors.ink-black');
+        }
+
+        /* Custom Checkbox Style for Folklore Aesthetic */
+        .folklore-checkbox {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 1px solid theme('colors.secondary');
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+            position: relative;
+            background-color: transparent;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .folklore-checkbox:checked {
+            background-color: theme('colors.ink-black');
+            border-color: theme('colors.ink-black');
+        }
+
+        .folklore-checkbox:checked::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 6px;
+            width: 6px;
+            height: 12px;
+            border: solid theme('colors.parchment-base');
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        .folklore-checkbox:focus {
+            box-shadow: 0 0 0 2px theme('colors.secondary-container');
+        }
+
+        /* Input under-ledger style */
+        .ledger-input {
+            border: none;
+            border-bottom: 1px solid theme('colors.secondary');
+            border-radius: 3px 3px 0 0;
+            background-color: theme('colors.paper-shadow');
+        }
+        .ledger-input:focus {
+            outline: none;
+            border-bottom: 2px solid theme('colors.ink-black');
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-body-md antialiased selection:bg-primary-fixed selection:text-ink-black">
+<!-- TopAppBar (Transactional - simplified) -->
+<header class="bg-parchment-base dark:bg-ink-black w-full top-0 border-b border-secondary/10 flex justify-between items-center px-margin-mobile md:px-margin-desktop py-4 sticky z-40">
+<div class="flex items-center gap-4">
+<button aria-label="Назад" class="p-2 rounded-full hover:bg-surface-variant transition-colors group">
+<span class="material-symbols-outlined text-ink-black group-hover:text-primary transition-colors" style="font-variation-settings: 'FILL' 0;">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-primary tracking-widest font-bold">NEWFIT</h1>
+</div>
+<div class="text-label-sm font-label-sm text-secondary uppercase tracking-widest">
+            Шаг 2 из 4
+        </div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow flex items-center justify-center p-margin-mobile md:p-margin-desktop">
+<div class="w-full max-w-2xl bg-surface-container-lowest rounded-3px shadow-sm border border-secondary/10 p-8 md:p-12 relative overflow-hidden">
+<!-- Ornamental decorative element top left -->
+<div class="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-folklore-gold m-4 opacity-50"></div>
+<!-- Ornamental decorative element bottom right -->
+<div class="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-folklore-gold m-4 opacity-50"></div>
+<div class="space-y-section-gap relative z-10">
+<!-- Header -->
+<div class="text-center md:text-left space-y-4">
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-ink-black">
+                        Локация и специализация
+                    </h2>
+<p class="font-body-md text-body-md text-on-surface-variant">
+                        Где вы находитесь и в чем ваша сильная сторона? Эти данные помогут клиентам найти именно вас.
+                    </p>
+</div>
+<form class="space-y-12">
+<!-- Location Section -->
+<section class="space-y-6">
+<div class="flex items-center gap-2 border-b border-secondary/20 pb-2">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 0;">location_on</span>
+<h3 class="font-headline-md text-headline-md text-ink-black">Локация</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<!-- City Dropdown -->
+<div class="space-y-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant block" for="city">Город</label>
+<div class="relative">
+<select class="w-full ledger-input p-3 pl-4 pr-10 text-ink-black appearance-none transition-colors" id="city" name="city">
+<option disabled="" selected="" value="">Выберите город</option>
+<option value="moscow">Москва</option>
+<option value="spb">Санкт-Петербург</option>
+<option value="kazan">Казань</option>
+<option value="yekaterinburg">Екатеринбург</option>
+<option value="novosibirsk">Новосибирск</option>
+</select>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-secondary">
+<span class="material-symbols-outlined text-sm">expand_more</span>
+</div>
+</div>
+</div>
+<!-- District/Area Dropdown -->
+<div class="space-y-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant block" for="district">Район / Метро (необязательно)</label>
+<div class="relative">
+<select class="w-full ledger-input p-3 pl-4 pr-10 text-ink-black appearance-none transition-colors" id="district" name="district">
+<option disabled="" selected="" value="">Уточните район</option>
+<option value="c">Центр</option>
+<option value="n">Север</option>
+<option value="s">Юг</option>
+<option value="e">Восток</option>
+<option value="w">Запад</option>
+</select>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-secondary">
+<span class="material-symbols-outlined text-sm">expand_more</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Specialization Section -->
+<section class="space-y-6">
+<div class="flex items-center gap-2 border-b border-secondary/20 pb-2">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 0;">fitness_center</span>
+<h3 class="font-headline-md text-headline-md text-ink-black">Специализация</h3>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm">
+                            Выберите основные направления (до 3-х), в которых вы являетесь экспертом.
+                        </p>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<!-- Checkbox Item 1 -->
+<label class="flex items-start gap-3 p-3 rounded-3px border border-transparent hover:bg-surface-variant/50 hover:border-secondary/20 transition-all cursor-pointer group">
+<div class="flex-shrink-0 pt-0.5">
+<input class="folklore-checkbox" name="spec" type="checkbox" value="strength"/>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md text-ink-black font-semibold group-hover:text-primary transition-colors">Силовой тренинг</span>
+<span class="text-xs text-on-surface-variant">Наращивание массы, пауэрлифтинг</span>
+</div>
+</label>
+<!-- Checkbox Item 2 -->
+<label class="flex items-start gap-3 p-3 rounded-3px border border-transparent hover:bg-surface-variant/50 hover:border-secondary/20 transition-all cursor-pointer group">
+<div class="flex-shrink-0 pt-0.5">
+<input class="folklore-checkbox" name="spec" type="checkbox" value="cardio"/>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md text-ink-black font-semibold group-hover:text-primary transition-colors">Функциональный тренинг</span>
+<span class="text-xs text-on-surface-variant">Кроссфит, TRX, выносливость</span>
+</div>
+</label>
+<!-- Checkbox Item 3 -->
+<label class="flex items-start gap-3 p-3 rounded-3px border border-transparent hover:bg-surface-variant/50 hover:border-secondary/20 transition-all cursor-pointer group">
+<div class="flex-shrink-0 pt-0.5">
+<input class="folklore-checkbox" name="spec" type="checkbox" value="yoga"/>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md text-ink-black font-semibold group-hover:text-primary transition-colors">Йога и пилатес</span>
+<span class="text-xs text-on-surface-variant">Гибкость, дыхание, восстановление</span>
+</div>
+</label>
+<!-- Checkbox Item 4 -->
+<label class="flex items-start gap-3 p-3 rounded-3px border border-transparent hover:bg-surface-variant/50 hover:border-secondary/20 transition-all cursor-pointer group">
+<div class="flex-shrink-0 pt-0.5">
+<input class="folklore-checkbox" name="spec" type="checkbox" value="rehab"/>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md text-ink-black font-semibold group-hover:text-primary transition-colors">Реабилитация</span>
+<span class="text-xs text-on-surface-variant">ЛФК, восстановление после травм</span>
+</div>
+</label>
+<!-- Checkbox Item 5 -->
+<label class="flex items-start gap-3 p-3 rounded-3px border border-transparent hover:bg-surface-variant/50 hover:border-secondary/20 transition-all cursor-pointer group">
+<div class="flex-shrink-0 pt-0.5">
+<input class="folklore-checkbox" name="spec" type="checkbox" value="martial"/>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md text-ink-black font-semibold group-hover:text-primary transition-colors">Единоборства</span>
+<span class="text-xs text-on-surface-variant">Бокс, ММА, борьба</span>
+</div>
+</label>
+<!-- Checkbox Item 6 -->
+<label class="flex items-start gap-3 p-3 rounded-3px border border-transparent hover:bg-surface-variant/50 hover:border-secondary/20 transition-all cursor-pointer group">
+<div class="flex-shrink-0 pt-0.5">
+<input class="folklore-checkbox" name="spec" type="checkbox" value="nutrition"/>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md text-ink-black font-semibold group-hover:text-primary transition-colors">Нутрициология</span>
+<span class="text-xs text-on-surface-variant">Составление рациона, диетология</span>
+</div>
+</label>
+</div>
+</section>
+<!-- Form Actions -->
+<div class="pt-8 flex justify-end">
+<button class="bg-ink-black text-white hover:text-ink-black hover:bg-folklore-gold font-label-sm text-label-sm uppercase px-12 py-4 rounded-3px transition-all duration-300 shadow-md hover:shadow-lg flex items-center gap-2" type="submit">
+                            ДАЛЕЕ
+                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</form>
+</div>
+</div>
+</main>
+<!-- Nav hidden due to transactional intent -->
+</body></html>

@@ -9,7 +9,7 @@ from src.utils.db import init_db, engine
 logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-TEMPLATES_DIR = os.path.join(BASE_DIR, "templates", "stitch_newfin_bilibin_design_system")
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates", "stitch_design_system")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -31,10 +31,18 @@ if os.path.exists(TEMPLATES_DIR):
     app.mount("/design-system", StaticFiles(directory=TEMPLATES_DIR), name="design-system")
 
 def render_screen(folder_name: str) -> HTMLResponse:
-    file_path = os.path.join(TEMPLATES_DIR, folder_name, "code.html")
+    # Security check against path traversal attacks
+    safe_folder = os.path.basename(folder_name)
+    file_path = os.path.abspath(os.path.join(TEMPLATES_DIR, safe_folder, "code.html"))
+    if not file_path.startswith(os.path.abspath(TEMPLATES_DIR)):
+        raise HTTPException(status_code=400, detail="Invalid screen name")
+
     if not os.path.exists(file_path):
-        # Fallback if folder_name doesn't have code.html directly
-        file_path = os.path.join(TEMPLATES_DIR, folder_name)
+        # Fallback if safe_folder points directly to a file inside TEMPLATES_DIR
+        file_path = os.path.abspath(os.path.join(TEMPLATES_DIR, safe_folder))
+        if not file_path.startswith(os.path.abspath(TEMPLATES_DIR)):
+            raise HTTPException(status_code=400, detail="Invalid screen name")
+
     if not os.path.exists(file_path) or not os.path.isfile(file_path):
         raise HTTPException(status_code=404, detail=f"Screen '{folder_name}' not found")
     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -60,7 +68,7 @@ async def welcome_alt_page():
 @app.get("/catalog", response_class=HTMLResponse)
 async def catalog_page():
     """Specialists Catalog Screen (Flow 3)"""
-    return render_screen("newfit")
+    return render_screen("_20")
 
 @app.get("/specialist", response_class=HTMLResponse)
 @app.get("/specialist/{specialist_id}", response_class=HTMLResponse)
@@ -97,7 +105,7 @@ async def pro_schedule_generate_page():
 @app.get("/pro/unlock", response_class=HTMLResponse)
 async def pro_unlock_page():
     """Pro Subscription B2B Gate Screen (Flow 5)"""
-    return render_screen("pro")
+    return render_screen("_4")
 
 @app.get("/client/favorites", response_class=HTMLResponse)
 async def client_favorites_page():
@@ -142,7 +150,7 @@ async def admin_devtools_page():
 @app.get("/shader", response_class=HTMLResponse)
 async def shader_page():
     """Shader Visual Screen"""
-    return render_screen("shader")
+    return render_screen("_14")
 
 # --- Direct Access Route for Any Design System Screen Folder ---
 
