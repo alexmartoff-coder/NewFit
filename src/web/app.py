@@ -33,10 +33,18 @@ if os.path.exists(TEMPLATES_DIR):
     app.mount("/design-system", StaticFiles(directory=TEMPLATES_DIR), name="design-system")
 
 def render_screen(folder_name: str) -> HTMLResponse:
-    file_path = os.path.join(TEMPLATES_DIR, folder_name, "code.html")
+    # Security check against path traversal attacks
+    safe_folder = os.path.basename(folder_name)
+    file_path = os.path.abspath(os.path.join(TEMPLATES_DIR, safe_folder, "code.html"))
+    if not file_path.startswith(os.path.abspath(TEMPLATES_DIR)):
+        raise HTTPException(status_code=400, detail="Invalid screen name")
+
     if not os.path.exists(file_path):
-        # Fallback if folder_name doesn't have code.html directly
-        file_path = os.path.join(TEMPLATES_DIR, folder_name)
+        # Fallback if safe_folder points directly to a file inside TEMPLATES_DIR
+        file_path = os.path.abspath(os.path.join(TEMPLATES_DIR, safe_folder))
+        if not file_path.startswith(os.path.abspath(TEMPLATES_DIR)):
+            raise HTTPException(status_code=400, detail="Invalid screen name")
+
     if not os.path.exists(file_path) or not os.path.isfile(file_path):
         raise HTTPException(status_code=404, detail=f"Screen '{folder_name}' not found")
     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
