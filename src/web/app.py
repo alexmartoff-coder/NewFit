@@ -10,8 +10,6 @@ logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates", "stitch_design_system")
-if not os.path.exists(TEMPLATES_DIR):
-    TEMPLATES_DIR = os.path.join(BASE_DIR, "templates", "stitch_newfin_bilibin_design_system")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -60,99 +58,99 @@ async def health_check():
 @app.get("/", response_class=HTMLResponse)
 async def welcome_page():
     """Welcome / Role Selection Screen (Flow 1)"""
-    return render_screen("_14")
+    return render_screen("mobile_newfit_6")
 
 @app.get("/welcome-alt", response_class=HTMLResponse)
 async def welcome_alt_page():
     """Alternative Welcome Screen"""
-    return render_screen("_15")
+    return render_screen("mobile_newfit_14")
 
 @app.get("/catalog", response_class=HTMLResponse)
 async def catalog_page():
     """Specialists Catalog Screen (Flow 3)"""
-    return render_screen("newfit")
+    return render_screen("mobile_newfit_5")
 
 @app.get("/specialist", response_class=HTMLResponse)
 @app.get("/specialist/{specialist_id}", response_class=HTMLResponse)
 async def specialist_profile_page(specialist_id: str = None):
     """Specialist Public Profile Screen"""
-    return render_screen("_1")
+    return render_screen("mobile_newfit_1")
 
 @app.get("/booking", response_class=HTMLResponse)
 @app.get("/booking/{slot_id}", response_class=HTMLResponse)
 async def booking_page(slot_id: str = None):
     """Slot Booking Screen (Flow 3)"""
-    return render_screen("_2")
+    return render_screen("mobile_newfit_19")
 
 @app.get("/pro/schedule", response_class=HTMLResponse)
 async def pro_schedule_page():
     """Pro Specialist Schedule Screen (Flow 4)"""
-    return render_screen("_3")
+    return render_screen("mobile_newfit_4")
 
 @app.get("/pro/clients", response_class=HTMLResponse)
 async def pro_clients_page():
     """Pro Specialist My Clients Screen"""
-    return render_screen("_4")
+    return render_screen("mobile_newfit_21")
 
 @app.get("/pro/profile/edit", response_class=HTMLResponse)
 async def pro_profile_edit_page():
     """Pro Profile Edit Screen (Flow 2)"""
-    return render_screen("_5")
+    return render_screen("mobile_newfit_27")
 
 @app.get("/pro/schedule/generate", response_class=HTMLResponse)
 async def pro_schedule_generate_page():
     """Pro Slot Generator Screen (Flow 4)"""
-    return render_screen("_6")
+    return render_screen("mobile_newfit_22")
 
 @app.get("/pro/unlock", response_class=HTMLResponse)
 async def pro_unlock_page():
     """Pro Subscription B2B Gate Screen (Flow 5)"""
-    return render_screen("pro")
+    return render_screen("mobile_newfit_23")
 
 @app.get("/client/favorites", response_class=HTMLResponse)
 async def client_favorites_page():
     """Client Favorites Screen"""
-    return render_screen("_11")
+    return render_screen("mobile_newfit_10")
 
 @app.get("/client/bookings", response_class=HTMLResponse)
 async def client_bookings_page():
     """Client My Bookings Screen"""
-    return render_screen("_12")
+    return render_screen("mobile_newfit_8")
 
 @app.get("/client/profile", response_class=HTMLResponse)
 async def client_profile_page():
     """Client Profile Screen"""
-    return render_screen("_13")
+    return render_screen("mobile_newfit_15")
 
 @app.get("/client/profile/view", response_class=HTMLResponse)
 async def client_profile_view_page():
     """Client Profile Alternate Screen"""
-    return render_screen("_16")
+    return render_screen("mobile_newfit_16")
 
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_dashboard_page():
     """Admin Dashboard Screen"""
-    return render_screen("_7")
+    return render_screen("mobile_newfit_3")
 
 @app.get("/admin/subscriptions", response_class=HTMLResponse)
 async def admin_subscriptions_page():
     """Admin Subscriptions Control Screen"""
-    return render_screen("_8")
+    return render_screen("mobile_newfit_29")
 
 @app.get("/admin/moderation", response_class=HTMLResponse)
 async def admin_moderation_page():
     """Admin Moderation Queue Screen"""
-    return render_screen("_9")
+    return render_screen("mobile_newfit_25")
 
 @app.get("/admin/devtools", response_class=HTMLResponse)
 async def admin_devtools_page():
     """Admin Developer Tools Screen"""
-    return render_screen("_10")
+    return render_screen("mobile_newfit_20")
 
 @app.get("/shader", response_class=HTMLResponse)
 async def shader_page():
     """Shader Visual Screen"""
-    return render_screen("shader")
+    return render_screen("mobile_newfit_6")
 
 # --- Direct Access Route for Any Design System Screen Folder ---
 
