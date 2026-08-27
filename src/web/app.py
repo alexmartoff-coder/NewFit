@@ -9,9 +9,7 @@ from src.utils.db import init_db, engine
 logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-TEMPLATES_DIR = os.path.join(BASE_DIR, "templates", "stitch_newfin_bilibin_design_system")
-if not os.path.exists(TEMPLATES_DIR):
-    TEMPLATES_DIR = os.path.join(BASE_DIR, "templates", "stitch_design_system")
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates", "stitch_design_system")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -152,7 +150,7 @@ async def admin_devtools_page():
 @app.get("/shader", response_class=HTMLResponse)
 async def shader_page():
     """Shader Visual Screen"""
-    return render_screen("shader")
+    return render_screen("shader_1")
 
 # --- Direct Access Route for Any Design System Screen Folder ---
 
