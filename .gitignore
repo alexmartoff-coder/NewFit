@@ -13,3 +13,5 @@ venv.bak/
 .pytest_cache/
 alembic/versions/*
 !alembic/versions/.gitkeep
+*.png
+*.html
